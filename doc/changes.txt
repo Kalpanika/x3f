@@ -1,3 +1,6 @@
+x3f_033 Roland 2010-08-07
+  First git based version
+
 x3f_032 Roland 2010-08-07
   Changed interface of x3f_extract
   Removed extraction of RAW from x3f_io_test
