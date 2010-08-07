@@ -1,0 +1,121 @@
+x3f_032 Roland 2010-08-07
+  Changed interface of x3f_extract
+  Removed extraction of RAW from x3f_io_test
+  Fixed gamma_scale in x3f_io
+  Updated readme file
+  Now the project is ready for gitify!
+
+x3f_031 Roland 2010-07-31
+  Restructuring. Preparing for git!
+
+x3f_030 Roland 2010-07-29
+  Now both CAMF and image decoding are correct for TRUE engine stuff!!
+
+x3f_029 Roland 2010-07-29
+  CAMF type 4 is working
+  Need to fix the image decompression so it also gets correct
+
+x3f_028 Roland 2010-07-27
+  CAMF type 4 is nearly working - most data is correct.
+  The TRUE RAW decoding is affected by the CAMF decoding and not fixed.
+
+x3f_027 Roland 2010-07-21
+  Fixed so the TRUE engine RAW decoding is Bayer CFA style,
+  i.e. odd and even pixels are decoded separately on each line.
+
+x3f_026 Roland 2010-07-21
+  Some more steps towards reading CAMF type 4
+
+x3f_025 Roland 2010-07-19
+  CAMF type 2 (SD9-SD14) is working
+  CAMF type 4 (DP1-...) is not implemented
+
+x3f_024 Roland 2010-07-18
+  Added SECp / properties
+
+x3f_023 Roland 2010-07-17
+  Refacturing old RAW engine to reuse the new TRUE engine
+  bit reading machinery.
+
+x3f_022 Roland 2010-07-16
+  Now the code can unpack TRUE engine coded images!!
+
+x3f_021 Roland 2010-07-16
+  Some cleaning up
+  And yet another step towards the TRUE engine
+
+x3f_020 Roland 2010-07-16
+  A correct huffman tree is now built for TRUE engine
+
+x3f_019 Roland 2010-07-15
+  Made creation of huffman table more generic
+
+x3f_018 Roland 2010-07-15
+  Reading and writing TRUE engine data
+  No parsing yet 
+
+x3f_017 Roland 2010-06-27
+  Hmmmm ... some CAMF data structures added a long time ago ...
+  ... Dont know what that is.
+  Some (old) changes of names.
+  Cleaning up after some years of root
+  Removing data_type.
+  Tested that all still work.
+
+x3f_016 Roland 2008-07-21
+  Preparing for release
+  Adding BSD-license
+
+x3f_015 Roland 2008-07-20
+  Eliminating the TIFF library
+
+x3f_014 Roland 2008-07-19
+  Porting to Mac
+  Porting to Windows
+
+x3f_013 Roland 2008-07-13
+  Loading the entire image block added
+
+x3f_012 Roland 2008-07-12
+  Added makefile
+  Added list of files to convert
+  Added gamma support
+
+x3f_011 Roland 2008-07-12
+  Added tiff support
+
+x3f_010 Roland
+
+x3f_009 Roland 2007-10-16
+  Fixing more bugs
+  AND NOW IT WORKS! !!!! !!!!  !!!!!!
+
+x3f_008 Roland 2007-10-15
+  Fixing some bugs
+  Dumping PPM
+  STILL - IT DOES NOT WORK!!!!!!!!
+
+x3f_007 Roland 2007-10-14
+  First try at doing the Huffman decoding
+  IT DOES NOT WORK!!!!!!!!
+
+x3f_006 Roland 2007-10-13
+  Fixed some bugs and cleaned up
+
+x3f_005 Roland 2007-09-15
+  Now creates correct huffman decoding tree for RAW
+
+x3f_004 Roland 2007-09-08
+  Loading of some more types
+  Cleanups
+
+x3f_003 Roland 2007-09-08
+  Cleanups
+
+x3f_002 Roland 2007-09-08
+  Can read file
+  Can load Huffman - without decoding
+  Can write file - with or without loaded Huffman
+
+x3f_001 Roland 2007-08-29
+  Added
