@@ -25,9 +25,9 @@ static void usage(char *progname)
           "   -jpg:       Dump embedded JPG\n"
           "   -raw:       Dump RAW area undecoded\n"
           "   -tiff:      Dump RAW as TIFF\n"
-          "   -gamma <GAMMA>:  Gamma for scaled TIFF (def=2.2)\n"
-          "   -min <MIN>:      Min for scaled TIFF (def=0)\n"
-          "   -max <MAX>:      Max for scaled TIFF (def=automatic)",
+          "   -gamma <GAMMA>:  Gamma for scaled TIFF\n"
+          "   -min <MIN>:      Min for scaled TIFF (def=automatic)\n"
+          "   -max <MAX>:      Max for scaled TIFF (def=automatic)\n",
           progname);
   exit(1);
 }
