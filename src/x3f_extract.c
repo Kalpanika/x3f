@@ -24,10 +24,11 @@ static void usage(char *progname)
           " <file1> ...\n"
           "   -jpg:       Dump embedded JPG\n"
           "   -raw:       Dump RAW area undecoded\n"
-          "   -tiff:      Dump RAW as TIFF\n"
-          "   -gamma <GAMMA>:  Gamma for scaled TIFF\n"
-          "   -min <MIN>:      Min for scaled TIFF (def=automatic)\n"
-          "   -max <MAX>:      Max for scaled TIFF (def=automatic)\n",
+          "   -tiff:      Dump RAW as 3x16 bit TIFF\n"
+          "   -ppm:       Dump RAW as 3x16 bit PPM of type P3\n"
+          "   -gamma <GAMMA>:  Gamma for scaled PPM/TIFF\n"
+          "   -min <MIN>:      Min for scaled PPM/TIFF (def=automatic)\n"
+          "   -max <MAX>:      Max for scaled PPM/TIFF (def=automatic)\n",
           progname);
   exit(1);
 }
