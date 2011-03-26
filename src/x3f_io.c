@@ -1936,11 +1936,20 @@ static void gamma_convert_data(int rows,
   }
 }
 
+/* Routines for writing big endian ppm data */
+
+static void write_16B(FILE *f_out, uint16_t val)
+{
+  fputc((val>>8) & 0xff, f_out);
+  fputc((val>>0) & 0xff, f_out);
+}
+
 /* extern */ void x3f_dump_raw_data_as_ppm(x3f_t *x3f,
                                            char *outfilename,
                                            double gamma,
 					   int min,
-					   int max)
+					   int max,
+                                           int binary)
 {
   x3f_directory_entry_t *DE = x3f_get_raw(x3f);
 
@@ -1963,7 +1972,10 @@ static void gamma_convert_data(int rows,
       if (f_out != NULL) {
         int row;
 
-        fprintf(f_out, "P3\n%d %d\n65535\n", ID->columns, ID->rows);
+        if (binary)
+          fprintf(f_out, "P6\n%d %d\n65535\n", ID->columns, ID->rows);
+        else
+          fprintf(f_out, "P3\n%d %d\n65535\n", ID->columns, ID->rows);
 
         if (gamma > 0.0)
           gamma_convert_data(ID->rows, ID->columns, data, gamma, min, max);
@@ -1974,9 +1986,15 @@ static void gamma_convert_data(int rows,
           for (col=0; col < ID->columns; col++) {
             int color;
       
-            for (color=0; color < 3; color++)
-              fprintf(f_out, "%d ", data[3 * (ID->columns * row + col) + color]);
-            fprintf(f_out, "\n");
+            if (binary) {
+              for (color=0; color < 3; color++)
+                write_16B(f_out, data[3 * (ID->columns * row + col) + color]);
+            } else {
+              for (color=0; color < 3; color++)
+                fprintf(f_out, "%d ",
+                        data[3 * (ID->columns * row + col) + color]);
+              fprintf(f_out, "\n");
+            }
           }
         }
 
@@ -1990,13 +2008,13 @@ static void gamma_convert_data(int rows,
 
 /* Routines for writing little endian tiff data */
 
-static void write_16(FILE *f_out, uint16_t val)
+static void write_16L(FILE *f_out, uint16_t val)
 {
   fputc((val>>0) & 0xff, f_out);
   fputc((val>>8) & 0xff, f_out);
 }
 
-static void write_32(FILE *f_out, uint32_t val)
+static void write_32L(FILE *f_out, uint32_t val)
 {
   fputc((val>> 0) & 0xff, f_out);
   fputc((val>> 8) & 0xff, f_out);
@@ -2006,33 +2024,34 @@ static void write_32(FILE *f_out, uint32_t val)
 
 static void write_ra(FILE *f_out, uint32_t val1, uint32_t val2)
 {
-  write_32(f_out, val1);
-  write_32(f_out, val2);
+  write_32L(f_out, val1);
+  write_32L(f_out, val2);
 }
 
 static void write_entry_16(FILE *f_out, uint16_t tag, uint16_t val)
 {
-  write_16(f_out, tag);
-  write_16(f_out, TIFF_SHORT);
-  write_32(f_out, 1);
-  write_16(f_out, val);
-  write_16(f_out, 0);
+  write_16L(f_out, tag);
+  write_16L(f_out, TIFF_SHORT);
+  write_32L(f_out, 1);
+  write_16L(f_out, val);
+  write_16L(f_out, 0);
 }
 
 static void write_entry_32(FILE *f_out, uint16_t tag, uint32_t val)
 {
-  write_16(f_out, tag);
-  write_16(f_out, TIFF_LONG);
-  write_32(f_out, 1);
-  write_32(f_out, val);
+  write_16L(f_out, tag);
+  write_16L(f_out, TIFF_LONG);
+  write_32L(f_out, 1);
+  write_32L(f_out, val);
 }
 
-static void write_entry_of(FILE *f_out, uint16_t tag, uint16_t type, uint32_t num, uint32_t offset)
+static void write_entry_of(FILE *f_out, uint16_t tag, uint16_t type,
+                           uint32_t num, uint32_t offset)
 {
-  write_16(f_out, tag);
-  write_16(f_out, type);
-  write_32(f_out, num);
-  write_32(f_out, offset);
+  write_16L(f_out, tag);
+  write_16L(f_out, type);
+  write_32L(f_out, num);
+  write_32L(f_out, offset);
 }
 
 static void write_array_32(FILE *f_out, uint32_t num, uint32_t *vals)
@@ -2040,7 +2059,7 @@ static void write_array_32(FILE *f_out, uint32_t num, uint32_t *vals)
   uint32_t i;
 
   for (i=0; i<num; i++)
-    write_32(f_out, vals[i]);
+    write_32L(f_out, vals[i]);
 }
 
 /* extern */ void x3f_dump_raw_data_as_tiff(x3f_t *x3f,
@@ -2093,13 +2112,13 @@ static void write_array_32(FILE *f_out, uint32_t num, uint32_t *vals)
 
         /* Write initial TIFF file header II-format, i.e. little endian */
 
-        write_16(f_out, 0x4949); /* II */
-        write_16(f_out, 42);     /* A carefully choosen number */
+        write_16L(f_out, 0x4949); /* II */
+        write_16L(f_out, 42);     /* A carefully choosen number */
 
         /* (Placeholder for) offset of the first (and only) IFD */
 
         ifd_offset_offset = ftell(f_out);
-        write_32(f_out, 0);
+        write_32L(f_out, 0);
 
         /* Write resolution */
 
@@ -2109,9 +2128,9 @@ static void write_array_32(FILE *f_out, uint32_t num, uint32_t *vals)
         /* Write bits per sample */
 
         bitspersample_offset = ftell(f_out);
-        write_16(f_out, bits);
-        write_16(f_out, bits);
-        write_16(f_out, bits);
+        write_16L(f_out, bits);
+        write_16L(f_out, bits);
+        write_16L(f_out, bits);
 
         /* Write image */
 
@@ -2127,7 +2146,7 @@ static void write_array_32(FILE *f_out, uint32_t num, uint32_t *vals)
               int color;
       
               for (color=0; color < 3; color++)
-                write_16(f_out, data[3 * (ID->columns * row + col) + color]);
+                write_16L(f_out, data[3 * (ID->columns * row + col) + color]);
             }
           }
 
@@ -2145,30 +2164,35 @@ static void write_array_32(FILE *f_out, uint32_t num, uint32_t *vals)
         /* The first (and only) IFD */
 
         ifd_offset = ftell(f_out);
-        write_16(f_out, 12);      /* Number of directory entries */
+        write_16L(f_out, 12);      /* Number of directory entries */
 
         /* Required directory entries */
         write_entry_32(f_out, TIFFTAG_IMAGEWIDTH, (uint32)ID->columns);
         write_entry_32(f_out, TIFFTAG_IMAGELENGTH, (uint32)ID->rows);
-        write_entry_of(f_out, TIFFTAG_BITSPERSAMPLE, TIFF_SHORT, 3, bitspersample_offset);
+        write_entry_of(f_out, TIFFTAG_BITSPERSAMPLE, TIFF_SHORT,
+                       3, bitspersample_offset);
         write_entry_16(f_out, TIFFTAG_COMPRESSION, COMPRESSION_NONE);
         write_entry_16(f_out, TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_RGB);
-        write_entry_of(f_out, TIFFTAG_STRIPOFFSETS, TIFF_LONG, strips, offsets_offset);
+        write_entry_of(f_out, TIFFTAG_STRIPOFFSETS, TIFF_LONG,
+                       strips, offsets_offset);
         write_entry_16(f_out, TIFFTAG_SAMPLESPERPIXEL, (uint16)planes);
         write_entry_32(f_out, TIFFTAG_ROWSPERSTRIP, rowsperstrip);
-        write_entry_of(f_out, TIFFTAG_STRIPBYTECOUNTS, TIFF_LONG, strips, bytes_offset);
-        write_entry_of(f_out, TIFFTAG_XRESOLUTION, TIFF_RATIONAL, 1, resolution_offset);
-        write_entry_of(f_out, TIFFTAG_YRESOLUTION, TIFF_RATIONAL, 1, resolution_offset);
+        write_entry_of(f_out, TIFFTAG_STRIPBYTECOUNTS, TIFF_LONG,
+                       strips, bytes_offset);
+        write_entry_of(f_out, TIFFTAG_XRESOLUTION, TIFF_RATIONAL,
+                       1, resolution_offset);
+        write_entry_of(f_out, TIFFTAG_YRESOLUTION, TIFF_RATIONAL,
+                       1, resolution_offset);
         write_entry_16(f_out, TIFFTAG_RESOLUTIONUNIT, RESUNIT_INCH);
         
         /* Offset of the next IFD = 0 => no more IFDs */
 
-        write_32(f_out, 0);
+        write_32L(f_out, 0);
 
         /* Offset of the first (and only) IFD */
 
         fseek(f_out, ifd_offset_offset, SEEK_SET);
-        write_32(f_out, ifd_offset);
+        write_32L(f_out, ifd_offset);
 
         free(stripoffsets);
         free(stripbytes);

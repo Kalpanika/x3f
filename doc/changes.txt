@@ -1,3 +1,12 @@
+x3f_036 Roland 2011-03-26
+  Adding binary 16 bit PPM, i.e. P6
+
+x3f_035 Roland 2011-02-06
+  Added PPM type P3 to USAGE printout
+
+x3f_034 Roland 2010-08-08
+  Changes to x3f_extract
+
 x3f_033 Roland 2010-08-07
   First git based version
 

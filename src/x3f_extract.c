@@ -10,14 +10,10 @@
 #include <stdlib.h>
 #include <string.h>
 
-typedef enum {NONE, RAW, TIFF, PPM} raw_file_type_t;
+typedef enum {NONE, RAW, TIFF, PPMP3, PPMP6} raw_file_type_t;
 
 static void usage(char *progname)
 {
-  /* NOTE - the library can write 16 bit PPM also. But
-     ... unfortunately almost no tool out there reads 16 bit PPM
-     correctly. So - its omitted from the usage printout. */
-
   fprintf(stderr,
           "usage: %s [-jpg]"
           " [{-raw|-tiff [-gamma <GAMMA> [-min <MIN>] [-max <MAX>]]}]"
@@ -25,7 +21,9 @@ static void usage(char *progname)
           "   -jpg:       Dump embedded JPG\n"
           "   -raw:       Dump RAW area undecoded\n"
           "   -tiff:      Dump RAW as 3x16 bit TIFF\n"
-          "   -ppm:       Dump RAW as 3x16 bit PPM of type P3\n"
+          "   -ppm-ascii: Dump RAW as 3x16 bit PPM of type P3 (ascii)\n"
+          "               NOTE: 16 bit PPM/P3 is not generally supported\n"
+          "   -ppm:       Dump RAW as 3x16 bit PPM of type P6 (binary)\n"
           "   -gamma <GAMMA>:  Gamma for scaled PPM/TIFF\n"
           "   -min <MIN>:      Min for scaled PPM/TIFF (def=automatic)\n"
           "   -max <MAX>:      Max for scaled PPM/TIFF (def=automatic)\n",
@@ -52,8 +50,10 @@ int main(int argc, char *argv[])
       extract_raw = 1, file_type = RAW;
     else if (!strcmp(argv[i], "-tiff"))
       extract_raw = 1, file_type = TIFF;
+    else if (!strcmp(argv[i], "-ppm-ascii"))
+      extract_raw = 1, file_type = PPMP3;
     else if (!strcmp(argv[i], "-ppm"))
-      extract_raw = 1, file_type = PPM;
+      extract_raw = 1, file_type = PPMP6;
     else if ((!strcmp(argv[i], "-gamma")) && (i+1)<argc)
       gamma = atof(argv[++i]);
     else if ((!strcmp(argv[i], "-min")) && (i+1)<argc)
@@ -72,7 +72,7 @@ int main(int argc, char *argv[])
 
   /* If gamma is set but no file type that can output gaamma - ERROR */
   if (gamma > 0.0)
-    if (file_type != TIFF && file_type != PPM)
+    if (file_type != TIFF && file_type != PPMP3 && file_type != PPMP6)
       usage(argv[0]);
 
   for (; i<argc; i++) {
@@ -124,12 +124,14 @@ int main(int argc, char *argv[])
 	printf("Dump RAW as TIFF to %s\n", outfilename);
 	x3f_dump_raw_data_as_tiff(x3f, outfilename, gamma, min, max);
 	break;
-      case PPM:
+      case PPMP3:
+      case PPMP6:
 	printf("Load RAW from %s\n", infilename);
 	x3f_load_data(x3f, x3f_get_raw(x3f));
 	strcat(outfilename, ".ppm");
 	printf("Dump RAW as PPM to %s\n", outfilename);
-	x3f_dump_raw_data_as_ppm(x3f, outfilename, gamma, min, max);
+	x3f_dump_raw_data_as_ppm(x3f, outfilename, gamma, min, max,
+                                 file_type == PPMP6);
 	break;
       }
     }

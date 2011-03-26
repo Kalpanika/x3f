@@ -348,7 +348,8 @@ extern void x3f_load_image_block(x3f_t *x3f, x3f_directory_entry_t *DE);
 extern void x3f_dump_raw_data(x3f_t *x3f, char *outfilename);
 
 extern void x3f_dump_raw_data_as_ppm(x3f_t *x3f, char *outfilename,
-				     double gamma, int min, int max);
+				     double gamma, int min, int max,
+                                     int binary);
 
 extern void x3f_dump_raw_data_as_tiff(x3f_t *x3f, char *outfilename,
 				      double gamma, int min, int max);
