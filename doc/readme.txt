@@ -49,6 +49,8 @@ The tool can be used thus:
 (2) x3f_extract -tiff file.x3f
 (3) x3f_extract -tiff -gamma 2.2 [-min 0] [-max 5000] file.x3f
 (4) x3f_extract -jpeg file.x3f
+(5) x3f_extract -ppm file.x3f
+(6) x3f_extract -ppm -gamma 2.2 [-min 0] [-max 5000] file.x3f
 
 (1) dumps the  data block of the RAW image  verbatim. The original RAW
     data is not parsed or  interpreted and is therefore for almost all
@@ -76,6 +78,10 @@ The tool can be used thus:
     the value is clipped.
 
 (4) dumps the embedded JPEG thumbnail verbatim as file.x3f.jpg
+
+(5) Same as (2) but output is binary 16 bit PPM
+
+(6) Same as (3) but output is binary 16 bit PPM
 
     NOTE - this is not a JPEG of the RAW data.
 
