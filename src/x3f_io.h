@@ -174,8 +174,9 @@ typedef struct x3f_image_data_s {
   /* 2.0 Fields */
   /* ------------------------------------------------------------------ */
   /* Known combinations of type and format are:
-     2-3, 2-11, 2-18, 3-6 */
-  uint32_t type;                /* 2 = thumbnail or maybe just RGB
+     1-6, 2-3, 2-11, 2-18, 3-6 */
+  uint32_t type;                /* 1 = RAW X3 (SD1)
+                                   2 = thumbnail or maybe just RGB
                                    3 = RAW X3 */
   uint32_t format;              /* 3 = 3x8 bit pixmap
                                    6 = 3x10 bit huffman with map table
