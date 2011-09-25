@@ -320,14 +320,21 @@ typedef struct x3f_s {
   x3f_directory_section_t directory_section;
 } x3f_t;
 
+typedef enum x3f_return_e {
+  X3F_OK=0,
+  X3F_ARGUMENT_ERROR=1,
+  X3F_INFILE_ERROR=2,
+  X3F_OUTFILE_ERROR=3,
+  X3F_INTERNAL_ERROR=4
+} x3f_return_t;
 
 extern x3f_t *x3f_new_from_file(FILE *infile);
 
 extern void x3f_print(x3f_t *x3f);
 
-extern void x3f_write_to_file(x3f_t *x3f, FILE *outfile);
+extern x3f_return_t x3f_write_to_file(x3f_t *x3f, FILE *outfile);
 
-extern void x3f_delete(x3f_t *x3f);
+extern x3f_return_t x3f_delete(x3f_t *x3f);
 
 extern x3f_directory_entry_t *x3f_get_raw(x3f_t *x3f);
 
@@ -341,20 +348,20 @@ extern x3f_directory_entry_t *x3f_get_camf(x3f_t *x3f);
 
 extern x3f_directory_entry_t *x3f_get_prop(x3f_t *x3f);
 
-extern void x3f_load_data(x3f_t *x3f, x3f_directory_entry_t *DE);
+extern x3f_return_t x3f_load_data(x3f_t *x3f, x3f_directory_entry_t *DE);
 
-extern void x3f_load_image_block(x3f_t *x3f, x3f_directory_entry_t *DE);
+extern x3f_return_t x3f_load_image_block(x3f_t *x3f, x3f_directory_entry_t *DE);
 
-extern void x3f_dump_raw_data(x3f_t *x3f, char *outfilename);
+extern x3f_return_t x3f_dump_raw_data(x3f_t *x3f, char *outfilename);
 
-extern void x3f_dump_raw_data_as_ppm(x3f_t *x3f, char *outfilename,
-				     double gamma, int min, int max,
-                                     int binary);
+extern x3f_return_t x3f_dump_raw_data_as_ppm(x3f_t *x3f, char *outfilename,
+                                             double gamma, int min, int max,
+                                             int binary);
 
-extern void x3f_dump_raw_data_as_tiff(x3f_t *x3f, char *outfilename,
-				      double gamma, int min, int max);
+extern x3f_return_t x3f_dump_raw_data_as_tiff(x3f_t *x3f, char *outfilename,
+                                              double gamma, int min, int max);
 
-extern void x3f_dump_jpeg(x3f_t *x3f, char *outfilename);
+extern x3f_return_t x3f_dump_jpeg(x3f_t *x3f, char *outfilename);
 
 
 #endif /* X3F_IO_H */

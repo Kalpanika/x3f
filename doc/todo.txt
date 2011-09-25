@@ -4,11 +4,13 @@ TODO
 NOW
 --------------------------------------------------------------------
 
-* Move it to git
+* More error handling x3f_io.c
 
-* Move it to github
+* SD1 support
 
-* Fix the web page
+* Tool that merges SD15 or SD1 images into DP1 file
+  The reason for this is that several tools on the net
+  dont handle SD15 and SD1
 
 --------------------------------------------------------------------
 LONG TERM

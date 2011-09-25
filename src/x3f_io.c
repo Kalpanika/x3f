@@ -757,7 +757,7 @@ static uint32_t row_offsets_size(x3f_huffman_t *HUF)
   return HUF->row_offsets.size * sizeof(HUF->row_offsets.element[0]);
 }
 
-/* extern */ void x3f_write_to_file(x3f_t *x3f, FILE *outfile)
+/* extern */ x3f_return_t x3f_write_to_file(x3f_t *x3f, FILE *outfile)
 {
   x3f_info_t *I = NULL;
   x3f_header_t *H = NULL;
@@ -766,7 +766,7 @@ static uint32_t row_offsets_size(x3f_huffman_t *HUF)
   uint32_t directory_start;
 
   if (x3f == NULL)
-    return;
+    return X3F_ARGUMENT_ERROR;
 
   I = &x3f->info;
   I->error = NULL;
@@ -774,7 +774,7 @@ static uint32_t row_offsets_size(x3f_huffman_t *HUF)
   
   if (outfile == NULL) {
     I->error = "No outfile";
-    return;
+    return X3F_OUTFILE_ERROR;
   }
 
   /* Write file header */
@@ -899,6 +899,8 @@ static uint32_t row_offsets_size(x3f_huffman_t *HUF)
 
   /* Write the directory pointer */
   PUT4(directory_start);
+
+  return X3F_OK;
 }
 
 
@@ -906,13 +908,13 @@ static uint32_t row_offsets_size(x3f_huffman_t *HUF)
 /* Clean up an x3f structure                                             */
 /* --------------------------------------------------------------------- */
 
-/* extern */ void x3f_delete(x3f_t *x3f)
+/* extern */ x3f_return_t x3f_delete(x3f_t *x3f)
 {
   x3f_directory_section_t *DS;
   int d;
 
   if (x3f == NULL)
-    return;
+    return X3F_ARGUMENT_ERROR;
 
   DS = &x3f->directory_section;
 
@@ -948,6 +950,8 @@ static uint32_t row_offsets_size(x3f_huffman_t *HUF)
 
   FREE(DS->directory_entry);
   FREE(x3f);
+
+  return X3F_OK;
 }
 
 
@@ -1805,12 +1809,12 @@ static void x3f_load_camf(x3f_info_t *I, x3f_directory_entry_t *DE)
     fprintf(stderr, "No decoded CAMF data\n");
 }
 
-/* extern */ void x3f_load_data(x3f_t *x3f, x3f_directory_entry_t *DE)
+/* extern */ x3f_return_t x3f_load_data(x3f_t *x3f, x3f_directory_entry_t *DE)
 {
   x3f_info_t *I = &x3f->info;
 
   if (DE == NULL)
-    return;
+    return X3F_ARGUMENT_ERROR;
 
   switch (DE->header.identifier) {
   case X3F_SECp:
@@ -1824,15 +1828,18 @@ static void x3f_load_camf(x3f_info_t *I, x3f_directory_entry_t *DE)
     break;
   default:
     fprintf(stderr, "Unknown directory entry type\n");
+    return X3F_INTERNAL_ERROR;
   }
+
+  return X3F_OK;
 }
 
-/* extern */ void x3f_load_image_block(x3f_t *x3f, x3f_directory_entry_t *DE)
+/* extern */ x3f_return_t x3f_load_image_block(x3f_t *x3f, x3f_directory_entry_t *DE)
 {
   x3f_info_t *I = &x3f->info;
 
   if (DE == NULL)
-    return;
+    return X3F_ARGUMENT_ERROR;
 
   switch (DE->header.identifier) {
   case X3F_SECi:
@@ -1841,7 +1848,10 @@ static void x3f_load_camf(x3f_info_t *I, x3f_directory_entry_t *DE)
     break;
   default:
     fprintf(stderr, "Unknown image directory entry type\n");
+    return X3F_INTERNAL_ERROR;
   }
+
+  return X3F_OK;
 }
 
 /* Converts the data in place */
@@ -1915,25 +1925,33 @@ static void gamma_convert_data(int rows,
   free(gammatab);
 }
 
-/* extern */ void x3f_dump_raw_data(x3f_t *x3f,
-                                    char *outfilename)
+/* extern */ x3f_return_t x3f_dump_raw_data(x3f_t *x3f,
+                                            char *outfilename)
 {
   x3f_directory_entry_t *DE = x3f_get_raw(x3f);
 
-  if (DE != NULL) {
+  if (DE == NULL) {
+    return X3F_ARGUMENT_ERROR;
+  } else {
     x3f_directory_entry_header_t *DEH = &DE->header;
     x3f_image_data_t *ID = &DEH->data_subsection.image_data;
     void *data = ID->data;
 
-    if (data != NULL) {
+    if (data == NULL) {
+      return X3F_INTERNAL_ERROR;
+    } else {
       FILE *f_out = fopen(outfilename, "wb");
 
-      if (f_out != NULL) {
+      if (f_out == NULL) {
+        return X3F_OUTFILE_ERROR;
+      } else {
         fwrite(data, 1, DE->input.size, f_out);
         fclose(f_out);
       }
     }
   }
+
+  return X3F_OK;
 }
 
 /* Routines for writing big endian ppm data */
@@ -1944,16 +1962,18 @@ static void write_16B(FILE *f_out, uint16_t val)
   fputc((val>>0) & 0xff, f_out);
 }
 
-/* extern */ void x3f_dump_raw_data_as_ppm(x3f_t *x3f,
-                                           char *outfilename,
-                                           double gamma,
-					   int min,
-					   int max,
-                                           int binary)
+/* extern */ x3f_return_t x3f_dump_raw_data_as_ppm(x3f_t *x3f,
+                                                   char *outfilename,
+                                                   double gamma,
+                                                   int min,
+                                                   int max,
+                                                   int binary)
 {
   x3f_directory_entry_t *DE = x3f_get_raw(x3f);
 
-  if (DE != NULL) {
+  if (DE == NULL) {
+    return X3F_ARGUMENT_ERROR;
+  } else {
     x3f_directory_entry_header_t *DEH = &DE->header;
     x3f_image_data_t *ID = &DEH->data_subsection.image_data;
     x3f_huffman_t *HUF = ID->huffman;
@@ -1966,7 +1986,9 @@ static void write_16B(FILE *f_out, uint16_t val)
     if (TRU != NULL)
       data = TRU->x3rgb16.element;
 
-    if (data != NULL) {
+    if (data == NULL) {
+      return X3F_INTERNAL_ERROR;
+    } else {
       FILE *f_out = fopen(outfilename, "wb");
 
       if (f_out != NULL) {
@@ -2002,6 +2024,8 @@ static void write_16B(FILE *f_out, uint16_t val)
       }
     }
   }
+
+  return X3F_OK;
 }
 
 #include "tiff.h"
@@ -2062,15 +2086,17 @@ static void write_array_32(FILE *f_out, uint32_t num, uint32_t *vals)
     write_32L(f_out, vals[i]);
 }
 
-/* extern */ void x3f_dump_raw_data_as_tiff(x3f_t *x3f,
-                                            char *outfilename,
-                                            double gamma,
-					    int min,
-					    int max)
+/* extern */ x3f_return_t x3f_dump_raw_data_as_tiff(x3f_t *x3f,
+                                                    char *outfilename,
+                                                    double gamma,
+                                                    int min,
+                                                    int max)
 {
   x3f_directory_entry_t *DE = x3f_get_raw(x3f);
 
-  if (DE != NULL) {
+  if (DE == NULL) {
+    return X3F_ARGUMENT_ERROR;
+  } else {
     x3f_directory_entry_header_t *DEH = &DE->header;
     x3f_image_data_t *ID = &DEH->data_subsection.image_data;
     x3f_huffman_t *HUF = ID->huffman;
@@ -2083,10 +2109,14 @@ static void write_array_32(FILE *f_out, uint32_t num, uint32_t *vals)
     if (TRU != NULL)
       data = TRU->x3rgb16.element;
 
-    if (data != NULL) {
+    if (data == NULL) {
+      return X3F_INTERNAL_ERROR;
+    } else {
       FILE *f_out = fopen(outfilename, "wb");
 
-      if (f_out != NULL) {
+      if (f_out == NULL) {
+        return X3F_OUTFILE_ERROR;
+      } else {
         int row;
         int bits = 16;
         int planes = 3;
@@ -2201,26 +2231,36 @@ static void write_array_32(FILE *f_out, uint32_t num, uint32_t *vals)
       }
     }
   }
+
+  return X3F_OK;
 }
 
-/* extern */ void x3f_dump_jpeg(x3f_t *x3f, char *outfilename)
+/* extern */ x3f_return_t x3f_dump_jpeg(x3f_t *x3f, char *outfilename)
 {
   x3f_directory_entry_t *DE = x3f_get_thumb_jpeg(x3f);
 
-  if (DE != NULL) {
+  if (DE == NULL) {
+    return X3F_ARGUMENT_ERROR;
+  } else {
     x3f_directory_entry_header_t *DEH = &DE->header;
     x3f_image_data_t *ID = &DEH->data_subsection.image_data;
     void *data = ID->data;
 
-    if (data != NULL) {
+    if (data == NULL) {
+      return X3F_INTERNAL_ERROR;
+    } else {
       FILE *f_out = fopen(outfilename, "wb");
 
-      if (f_out != NULL) {
+      if (f_out == NULL) {
+        return X3F_OUTFILE_ERROR;
+      } else {
         fwrite(data, 1, DE->input.size, f_out);
         fclose(f_out);
       }
     }
   }
+
+  return X3F_OK;
 }
 
 /* --------------------------------------------------------------------- */

@@ -90,6 +90,11 @@ int main(int argc, char *argv[])
     printf("READ THE X3F FILE %s\n", infilename);
     x3f = x3f_new_from_file(f_in);
 
+    if (x3f == NULL) {
+      fprintf(stderr, "Could not read infile %s\n", infilename);
+      return 1;
+    }
+
     if (extract_jpg) {
       char outfilename[1024];
 
@@ -99,11 +104,14 @@ int main(int argc, char *argv[])
       strcat(outfilename, ".jpg");
 
       printf("Dump JPEG to %s\n", outfilename);
-      x3f_dump_jpeg(x3f, outfilename);
+      if (X3F_OK != x3f_dump_jpeg(x3f, outfilename))
+        fprintf(stderr, "Could not dump JPEG to %s\n", outfilename);
     }
 
     if (extract_raw) {
       char outfilename[1024];
+      x3f_return_t ret_load = X3F_OK;
+      x3f_return_t ret_dump = X3F_OK;
 
       strcpy(outfilename, infilename);
 
@@ -112,28 +120,34 @@ int main(int argc, char *argv[])
 	break;
       case RAW:
 	printf("Load RAW block from %s\n", infilename);
-	x3f_load_image_block(x3f, x3f_get_raw(x3f));
+	ret_load = x3f_load_image_block(x3f, x3f_get_raw(x3f));
 	strcat(outfilename, ".raw");
 	printf("Dump RAW block to %s\n", outfilename);
-	x3f_dump_raw_data(x3f, outfilename);
+	ret_dump = x3f_dump_raw_data(x3f, outfilename);
 	break;
       case TIFF:
 	printf("Load RAW from %s\n", infilename);
-	x3f_load_data(x3f, x3f_get_raw(x3f));
+	ret_load = x3f_load_data(x3f, x3f_get_raw(x3f));
 	strcat(outfilename, ".tif");
 	printf("Dump RAW as TIFF to %s\n", outfilename);
-	x3f_dump_raw_data_as_tiff(x3f, outfilename, gamma, min, max);
+	ret_dump = x3f_dump_raw_data_as_tiff(x3f, outfilename, gamma, min, max);
 	break;
       case PPMP3:
       case PPMP6:
 	printf("Load RAW from %s\n", infilename);
-	x3f_load_data(x3f, x3f_get_raw(x3f));
+	ret_load = x3f_load_data(x3f, x3f_get_raw(x3f));
 	strcat(outfilename, ".ppm");
 	printf("Dump RAW as PPM to %s\n", outfilename);
-	x3f_dump_raw_data_as_ppm(x3f, outfilename, gamma, min, max,
-                                 file_type == PPMP6);
+	ret_dump = x3f_dump_raw_data_as_ppm(x3f, outfilename, gamma, min, max,
+                                       file_type == PPMP6);
 	break;
       }
+
+      if (X3F_OK != ret_load)
+        fprintf(stderr, "Could not load RAW from memory\n");
+
+      if (X3F_OK != ret_dump)
+        fprintf(stderr, "Could not dump RAW to %s\n", outfilename);
     }
 
     x3f_delete(x3f);
