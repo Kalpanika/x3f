@@ -999,6 +999,9 @@ static x3f_directory_entry_t *x3f_get(x3f_t *x3f,
 {
   x3f_directory_entry_t *DE;
 
+  if ((DE = x3f_get(x3f, X3F_SECi, X3F_IMAGE_RAW_HUFFMAN_X530)) != NULL)
+    return DE;
+
   if ((DE = x3f_get(x3f, X3F_SECi, X3F_IMAGE_RAW_HUFFMAN_10BIT)) != NULL)
     return DE;
 
@@ -1374,6 +1377,7 @@ static void huffman_decode_row(x3f_info_t *I,
       c[color] += get_huffman_diff(&BS, &HUF->tree);
 
       switch (ID->type_format) {
+      case X3F_IMAGE_RAW_HUFFMAN_X530:
       case X3F_IMAGE_RAW_HUFFMAN_10BIT:
         c_fix[color] = (int16_t)c[color] > 0 ? c[color] : 0;
 
@@ -1568,6 +1572,7 @@ static void x3f_load_huffman(x3f_info_t *I,
   }
 
   switch (ID->type_format) {
+  case X3F_IMAGE_RAW_HUFFMAN_X530:
   case X3F_IMAGE_RAW_HUFFMAN_10BIT:
     HUF->x3rgb16.size = ID->columns * ID->rows * 3;
     HUF->x3rgb16.element =
@@ -1610,6 +1615,7 @@ static void x3f_load_image(x3f_info_t *I, x3f_directory_entry_t *DE)
   case X3F_IMAGE_RAW_TRUE_SD1:
     x3f_load_true(I, DE);
     break;
+  case X3F_IMAGE_RAW_HUFFMAN_X530:
   case X3F_IMAGE_RAW_HUFFMAN_10BIT:
     x3f_load_huffman(I, DE, 10, 1, ID->row_stride);
     break;

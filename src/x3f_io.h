@@ -50,6 +50,9 @@
 /* TODO: bad name */
 #define X3F_IMAGE_RAW_TRUE_SD1      (uint32_t)(0x0001001e)
 
+/* TODO: bad name */
+#define X3F_IMAGE_RAW_HUFFMAN_X530  (uint32_t)(0x00030005)
+
 #define X3F_IMAGE_RAW_TRUE          (uint32_t)(0x0003001e)
 #define X3F_IMAGE_RAW_HUFFMAN_10BIT (uint32_t)(0x00030006)
 #define X3F_IMAGE_THUMB             (uint32_t)(0x00020003)
