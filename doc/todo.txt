@@ -6,10 +6,6 @@ NOW
 
 * More error handling x3f_io.c
 
-* Tool that merges SD15 or SD1 images into DP1 file
-  The reason for this is that several tools on the net
-  dont handle SD15 and SD1
-
 * Use stdout for image files in extract (and maybe stdin for x3f file)
 
 * Logic for getting thumbs images is wrong. There might be two
