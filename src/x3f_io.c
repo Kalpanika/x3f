@@ -757,6 +757,16 @@ static uint32_t row_offsets_size(x3f_huffman_t *HUF)
   return HUF->row_offsets.size * sizeof(HUF->row_offsets.element[0]);
 }
 
+/* This function in place modifies x3f_template, putting the image
+   data from x3f_images there. The reason for this strange function is
+   that some image readers refuse to read images from some cameras, in
+   particular x3f_template can be a DP1 image and x3f_images an SD15
+   image. */
+/* extern */ x3f_return_t x3f_merge(x3f_t *x3f_template, x3f_t *x3f_images)
+{
+  return X3F_OK;
+}
+
 /* extern */ x3f_return_t x3f_write_to_file(x3f_t *x3f, FILE *outfile)
 {
   x3f_info_t *I = NULL;
