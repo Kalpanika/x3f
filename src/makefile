@@ -59,15 +59,21 @@ BINDIR = ../bin/$(SYS)
 # Build dependencies
 # -----------------------------------------------------------
 
-all: $(BINDIR)/x3f_extract$(EXE) $(BINDIR)/x3f_io_test$(EXE)
+all: $(BINDIR)/x3f_extract$(EXE) $(BINDIR)/x3f_io_test$(EXE) $(BINDIR)/x3f_merge$(EXE)
 
 $(BINDIR)/x3f_extract$(EXE): $(BINDIR)/x3f_extract.o $(BINDIR)/x3f_io.o
 	gcc $^ -o $@ $(LDFLAGS)
+
+$(BINDIR)/x3f_merge$(EXE): $(BINDIR)/x3f_merge.o $(BINDIR)/x3f_io.o
+	gcc $^ -o $@ $(LDFLAGS) 
 
 $(BINDIR)/x3f_io_test$(EXE): $(BINDIR)/x3f_io_test.o $(BINDIR)/x3f_io.o
 	gcc $^ -o $@ $(LDFLAGS) 
 
 $(BINDIR)/x3f_extract.o: x3f_extract.c x3f_io.h $(BINDIR)/.dummy
+	gcc $(CFLAGS) $< -c -o $@
+
+$(BINDIR)/x3f_merge.o: x3f_merge.c x3f_io.h $(BINDIR)/.dummy
 	gcc $(CFLAGS) $< -c -o $@
 
 $(BINDIR)/x3f_io_test.o: x3f_io_test.c x3f_io.h $(BINDIR)/.dummy
