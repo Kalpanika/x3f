@@ -292,18 +292,9 @@ static x3f_huffman_t *new_huffman(x3f_huffman_t **HUFP)
 /* Creating a new x3f structure from file                                */
 /* --------------------------------------------------------------------- */
 
-static x3f_t *x3f_new()
-{
-  x3f_t *x3f = (x3f_t *)calloc(1, sizeof(x3f_t));
-
-  x3f->header.identifier = X3F_FOVb;
-
-  return x3f;
-}
-
 /* extern */ x3f_t *x3f_new_from_file(FILE *infile)
 {
-  x3f_t *x3f = x3f_new();
+  x3f_t *x3f = (x3f_t *)calloc(1, sizeof(x3f_t));
   x3f_info_t *I = NULL;
   x3f_header_t *H = NULL;
   x3f_directory_section_t *DS = NULL;
@@ -323,6 +314,13 @@ static x3f_t *x3f_new()
   H = &x3f->header;
   fseek(infile, 0, SEEK_SET);
   GET4(H->identifier);
+
+  if (H->identifier != X3F_FOVb) {
+    fprintf(stderr, "Faulty file type\n");
+    x3f_delete(x3f);
+    return NULL;
+  }
+
   GET4(H->version);
   GETN(H->unique_identifier, SIZE_UNIQUE_IDENTIFIER);
   GET4(H->mark_bits);
