@@ -53,7 +53,7 @@ int main(int argc, char *argv[])
       x3f_load_data(x3f, x3f_get_raw(x3f));
 
       printf("LOAD THUMBNAIL DATA\n");
-      x3f_load_data(x3f, x3f_get_thumb(x3f));
+      x3f_load_data(x3f, x3f_get_thumb_plain(x3f));
 
       printf("LOAD HUFFMAN THUMBNAIL DATA\n");
       x3f_load_data(x3f, x3f_get_thumb_huffman(x3f));

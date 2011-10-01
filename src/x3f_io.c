@@ -292,18 +292,9 @@ static x3f_huffman_t *new_huffman(x3f_huffman_t **HUFP)
 /* Creating a new x3f structure from file                                */
 /* --------------------------------------------------------------------- */
 
-static x3f_t *x3f_new()
-{
-  x3f_t *x3f = (x3f_t *)calloc(1, sizeof(x3f_t));
-
-  x3f->header.identifier = X3F_FOVb;
-
-  return x3f;
-}
-
 /* extern */ x3f_t *x3f_new_from_file(FILE *infile)
 {
-  x3f_t *x3f = x3f_new();
+  x3f_t *x3f = (x3f_t *)calloc(1, sizeof(x3f_t));
   x3f_info_t *I = NULL;
   x3f_header_t *H = NULL;
   x3f_directory_section_t *DS = NULL;
@@ -323,6 +314,13 @@ static x3f_t *x3f_new()
   H = &x3f->header;
   fseek(infile, 0, SEEK_SET);
   GET4(H->identifier);
+
+  if (H->identifier != X3F_FOVb) {
+    fprintf(stderr, "Faulty file type\n");
+    x3f_delete(x3f);
+    return NULL;
+  }
+
   GET4(H->version);
   GETN(H->unique_identifier, SIZE_UNIQUE_IDENTIFIER);
   GET4(H->mark_bits);
@@ -1011,9 +1009,9 @@ static x3f_directory_entry_t *x3f_get(x3f_t *x3f,
   return NULL;
 }
 
-/* extern */ x3f_directory_entry_t *x3f_get_thumb(x3f_t *x3f)
+/* extern */ x3f_directory_entry_t *x3f_get_thumb_plain(x3f_t *x3f)
 {
-  return x3f_get(x3f, X3F_SECi, X3F_IMAGE_THUMB);
+  return x3f_get(x3f, X3F_SECi, X3F_IMAGE_THUMB_PLAIN);
 }
 
 /* extern */ x3f_directory_entry_t *x3f_get_thumb_huffman(x3f_t *x3f)
@@ -1613,7 +1611,7 @@ static void x3f_load_image(x3f_info_t *I, x3f_directory_entry_t *DE)
   case X3F_IMAGE_RAW_HUFFMAN_10BIT:
     x3f_load_huffman(I, DE, 10, 1, ID->row_stride);
     break;
-  case X3F_IMAGE_THUMB:
+  case X3F_IMAGE_THUMB_PLAIN:
     x3f_load_pixmap(I, DE);
     break;
   case X3F_IMAGE_THUMB_HUFFMAN:
@@ -1927,6 +1925,47 @@ static void gamma_convert_data(int rows,
       }
 
   free(gammatab);
+}
+
+/* extern */ x3f_return_t x3f_swap_images(x3f_t *x3f_1, x3f_t *x3f_2)
+{
+  x3f_directory_entry_t *DE_1 = NULL;
+  x3f_directory_entry_t *DE_2 = NULL;
+  x3f_directory_entry_t tmp;
+
+  if (x3f_1 == NULL)
+    return X3F_ARGUMENT_ERROR;
+
+  if (x3f_2 == NULL)
+    return X3F_ARGUMENT_ERROR;
+
+  if (NULL == (DE_1 = x3f_get_raw(x3f_1))) {
+    fprintf(stderr, "Cannot find RAW 1 data\n");
+    return X3F_INTERNAL_ERROR;
+  }
+
+  if (NULL == (DE_2 = x3f_get_raw(x3f_2))) {
+    fprintf(stderr, "Cannot find RAW 2 data\n");
+    return X3F_INTERNAL_ERROR;
+  }
+
+  /* TODO - here shall we do some sanity tests whether thwe SWAP below
+     is possible */
+
+  /* As we dont care about the content of the images, we can load them
+     as a RAW blocks, including huffman tables, headers and/or
+     whatever. */
+  x3f_load_image_block(x3f_1, DE_1); 
+  x3f_load_image_block(x3f_2, DE_2); 
+
+  /* SWAP the internal image areas, including all headers. NOTE: this
+     will result in wrong input.offset - but it does not matter as it
+     is not used when writing loaded images */
+  memcpy((void *)&tmp, (void *)DE_1, sizeof(x3f_directory_entry_t));
+  memcpy((void *)DE_1, (void *)DE_2, sizeof(x3f_directory_entry_t));
+  memcpy((void *)DE_2, (void *)&tmp, sizeof(x3f_directory_entry_t));
+
+  return X3F_OK;
 }
 
 /* extern */ x3f_return_t x3f_dump_raw_data(x3f_t *x3f,
