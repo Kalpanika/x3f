@@ -52,7 +52,7 @@
 
 #define X3F_IMAGE_RAW_TRUE          (uint32_t)(0x0003001e)
 #define X3F_IMAGE_RAW_HUFFMAN_10BIT (uint32_t)(0x00030006)
-#define X3F_IMAGE_THUMB             (uint32_t)(0x00020003)
+#define X3F_IMAGE_THUMB_PLAIN       (uint32_t)(0x00020003)
 #define X3F_IMAGE_THUMB_HUFFMAN     (uint32_t)(0x0002000b)
 #define X3F_IMAGE_THUMB_JPEG        (uint32_t)(0x00020012)
 
@@ -344,7 +344,7 @@ extern x3f_return_t x3f_delete(x3f_t *x3f);
 
 extern x3f_directory_entry_t *x3f_get_raw(x3f_t *x3f);
 
-extern x3f_directory_entry_t *x3f_get_thumb(x3f_t *x3f);
+extern x3f_directory_entry_t *x3f_get_thumb_plain(x3f_t *x3f);
 
 extern x3f_directory_entry_t *x3f_get_thumb_huffman(x3f_t *x3f);
 

@@ -762,6 +762,12 @@ static uint32_t row_offsets_size(x3f_huffman_t *HUF)
    image. */
 /* extern */ x3f_return_t x3f_merge(x3f_t *x3f_template, x3f_t *x3f_images)
 {
+  if (x3f_merge == NULL)
+    return X3F_ARGUMENT_ERROR;
+
+  if (x3f_template == NULL)
+    return X3F_ARGUMENT_ERROR;
+
   return X3F_OK;
 }
 
@@ -1019,9 +1025,9 @@ static x3f_directory_entry_t *x3f_get(x3f_t *x3f,
   return NULL;
 }
 
-/* extern */ x3f_directory_entry_t *x3f_get_thumb(x3f_t *x3f)
+/* extern */ x3f_directory_entry_t *x3f_get_thumb_plain(x3f_t *x3f)
 {
-  return x3f_get(x3f, X3F_SECi, X3F_IMAGE_THUMB);
+  return x3f_get(x3f, X3F_SECi, X3F_IMAGE_THUMB_PLAIN);
 }
 
 /* extern */ x3f_directory_entry_t *x3f_get_thumb_huffman(x3f_t *x3f)
@@ -1621,7 +1627,7 @@ static void x3f_load_image(x3f_info_t *I, x3f_directory_entry_t *DE)
   case X3F_IMAGE_RAW_HUFFMAN_10BIT:
     x3f_load_huffman(I, DE, 10, 1, ID->row_stride);
     break;
-  case X3F_IMAGE_THUMB:
+  case X3F_IMAGE_THUMB_PLAIN:
     x3f_load_pixmap(I, DE);
     break;
   case X3F_IMAGE_THUMB_HUFFMAN:
