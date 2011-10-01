@@ -21,7 +21,6 @@
 #define HUF_TREE_GET_LENGTH(_v) (((_v)>>27)&0x1f)
 #define HUF_TREE_GET_CODE(_v) ((_v)&0x07ffffff)
 
-
 /* --------------------------------------------------------------------- */
 /* Reading and writing - assuming little endian in the file              */
 /* --------------------------------------------------------------------- */
@@ -1430,11 +1429,36 @@ static void simple_decode_row(x3f_info_t *I,
   uint16_t c[3] = {0,0,0}, c_fix[3];
   int col;
 
+  uint32_t mask = 0;
+
+  switch (bits) {
+  case 8:
+    mask = 0x0ff;
+    break;
+  case 9:
+    mask = 0x1ff;
+    break;
+  case 10:
+    mask = 0x3ff;
+    break;
+  case 11:
+    mask = 0x7ff;
+    break;
+  case 12:
+    mask = 0xfff;
+    break;
+  default:
+    fprintf(stderr, "Unknown number of bits: %d\n", bits);
+    mask = 0;
+    break;
+  }
+
   for (col = 0; col < ID->columns; col++) {
     int color;
+    uint32_t val = data[col];
 
     for (color = 0; color < 3; color++) {
-      c[color] += get_simple_diff(HUF, (data[col*3]>>(color*bits)) & 0x3ff);
+      c[color] += get_simple_diff(HUF, (val>>(color*bits))&mask);
 
       switch (ID->type_format) {
       case X3F_IMAGE_RAW_HUFFMAN_X530:
