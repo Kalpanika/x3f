@@ -27,6 +27,8 @@ int main(int argc, char *argv[])
     goto err;
   }
 
+  printf("Open and read infiles\n");
+
   if (NULL == (f_in_template = fopen(argv[1], "rb"))) {
     fprintf(stderr, "Could not open template infile %s\n", argv[1]);
     goto err;
@@ -42,18 +44,22 @@ int main(int argc, char *argv[])
     goto err;
   }
 
-  if (NULL == (x3f_template = x3f_new_from_file(f_in_template))) {
+  if (NULL == (x3f_images = x3f_new_from_file(f_in_images))) {
     fprintf(stderr, "Could not read template infile %s\n", argv[1]);
     goto err;
   }
 
-  if (NULL == (f_out = fopen(argv[3], "wb"))) {
-    fprintf(stderr, "Could not open outfile %s\n", argv[3]);
+  printf("Merge\n");
+
+  if (X3F_OK != x3f_swap_images(x3f_template, x3f_images)) {
+    fprintf(stderr, "Could not merge %s and %s\n", argv[1], argv[2]);
     goto err;
   }
 
-  if (X3F_OK != x3f_merge(x3f_template, x3f_images)) {
-    fprintf(stderr, "Could not merge %s and %s\n", argv[1], argv[2]);
+  printf("Open and write outfile\n");
+
+  if (NULL == (f_out = fopen(argv[3], "wb"))) {
+    fprintf(stderr, "Could not open outfile %s\n", argv[3]);
     goto err;
   }
 
@@ -69,6 +75,8 @@ int main(int argc, char *argv[])
   retval = 1;
 
  cleanup:
+
+  printf("Cleanup\n");
 
   CLEANUP(x3f_delete, x3f_template);
   CLEANUP(x3f_delete, x3f_images);
