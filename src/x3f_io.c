@@ -1406,6 +1406,69 @@ static void huffman_decode(x3f_info_t *I,
     huffman_decode_row(I, DE, bits, row);
 }
 
+
+static int32_t get_simple_diff(x3f_huffman_t *HUF, uint16_t index)
+{
+  if (HUF->mapping.size == 0)
+    return index;
+  else
+    return HUF->mapping.element[index];
+}
+
+static void simple_decode_row(x3f_info_t *I,
+                              x3f_directory_entry_t *DE,
+                              int bits,
+                              int row,
+                              int row_stride)
+{
+  x3f_directory_entry_header_t *DEH = &DE->header;
+  x3f_image_data_t *ID = &DEH->data_subsection.image_data;
+  x3f_huffman_t *HUF = ID->huffman;
+
+  uint32_t *data = (uint32_t *)(ID->data + row*row_stride); 
+
+  uint16_t c[3] = {0,0,0}, c_fix[3];
+  int col;
+
+  for (col = 0; col < ID->columns; col++) {
+    int color;
+
+    for (color = 0; color < 3; color++) {
+      c[color] += get_simple_diff(HUF, (data[col*3]>>(color*bits)) & 0x3ff);
+
+      switch (ID->type_format) {
+      case X3F_IMAGE_RAW_HUFFMAN_X530:
+      case X3F_IMAGE_RAW_HUFFMAN_10BIT:
+        c_fix[color] = (int16_t)c[color] > 0 ? c[color] : 0;
+
+        HUF->x3rgb16.element[3*(row*ID->columns + col) + color] = c_fix[color]; 
+        break;
+      case X3F_IMAGE_THUMB_HUFFMAN:
+        c_fix[color] = (int8_t)c[color] > 0 ? c[color] : 0;
+
+        HUF->rgb8.element[3*(row*ID->columns + col) + color] = c_fix[color]; 
+        break;
+      default:
+        fprintf(stderr, "Unknown huffman image type\n");
+      }
+    }
+  }
+}
+
+static void simple_decode(x3f_info_t *I,
+                          x3f_directory_entry_t *DE,
+                          int bits,
+                          int row_stride)
+{
+  x3f_directory_entry_header_t *DEH = &DE->header;
+  x3f_image_data_t *ID = &DEH->data_subsection.image_data;
+
+  int row;
+
+  for (row = 0; row < ID->rows; row++)
+    simple_decode_row(I, DE, bits, row, row_stride);
+}
+
 /* --------------------------------------------------------------------- */
 /* Loading the data in a directory entry                                 */
 /* --------------------------------------------------------------------- */
@@ -1538,19 +1601,18 @@ static void x3f_load_huffman_compressed(x3f_info_t *I,
   huffman_decode(I, DE, bits);
 }
 
-static void x3f_load_huffman_plain(x3f_info_t *I,
-                                   x3f_directory_entry_t *DE,
-                                   int bits,
-                                   int use_map_table,
-                                   int row_stride)
+static void x3f_load_huffman_not_compressed(x3f_info_t *I,
+                                            x3f_directory_entry_t *DE,
+                                            int bits,
+                                            int use_map_table,
+                                            int row_stride)
 {
   x3f_directory_entry_header_t *DEH = &DE->header;
   x3f_image_data_t *ID = &DEH->data_subsection.image_data;
-  //x3f_huffman_t *HUF = ID->huffman;
 
   ID->data_size = read_data_block(&ID->data, I, DE, 0);
 
-  printf("TODO: loading huffman plain not fully implemented yet\n");
+  simple_decode(I, DE, bits, row_stride);
 }
 
 static void x3f_load_huffman(x3f_info_t *I,
@@ -1588,7 +1650,7 @@ static void x3f_load_huffman(x3f_info_t *I,
   if (row_stride == 0)
     return x3f_load_huffman_compressed(I, DE, bits, use_map_table);
   else
-    return x3f_load_huffman_plain(I, DE, bits, use_map_table, row_stride);
+    return x3f_load_huffman_not_compressed(I, DE, bits, use_map_table, row_stride);
 }
 
 static void x3f_load_pixmap(x3f_info_t *I, x3f_directory_entry_t *DE)
