@@ -11,9 +11,13 @@ NOW
 * Logic for getting thumbs images is wrong. There might be two
   and they might be of same type but different size.
 
+* Reading the CAMF data values
+
 --------------------------------------------------------------------
 LONG TERM
 --------------------------------------------------------------------
+
+* Coding of images ??
 
 * Making a color correct image
 
