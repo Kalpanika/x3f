@@ -1,3 +1,6 @@
+x3f_041: Roland 2012-03-25
+  Dump TIFF as default
+
 x3f_040: Roland 2011-10-02
   Added support for X530
 

@@ -18,9 +18,10 @@ static void usage(char *progname)
           "usage: %s [-jpg]"
           " [{-raw|-tiff [-gamma <GAMMA> [-min <MIN>] [-max <MAX>]]}]"
           " <file1> ...\n"
-          "   -jpg:       Dump embedded JPG\n"
+          "   -jpg:       Dump embedded JPG. Turn off RAW dumping\n"
+          "   -no-raw:    Do not dump any RAW\n"
           "   -raw:       Dump RAW area undecoded\n"
-          "   -tiff:      Dump RAW as 3x16 bit TIFF\n"
+          "   -tiff:      Dump RAW as 3x16 bit TIFF (default)\n"
           "   -ppm-ascii: Dump RAW as 3x16 bit PPM of type P3 (ascii)\n"
           "               NOTE: 16 bit PPM/P3 is not generally supported\n"
           "   -ppm:       Dump RAW as 3x16 bit PPM of type P6 (binary)\n"
@@ -34,18 +35,20 @@ static void usage(char *progname)
 int main(int argc, char *argv[])
 {
   int extract_jpg = 0;
-  int extract_raw = 0;
+  int extract_raw = 1;
   int min = -1;
   int max = -1;
   double gamma = -1.0;
-  raw_file_type_t file_type = NONE;
+  raw_file_type_t file_type = TIFF;
   int files = 0;
 
   int i;
 
   for (i=1; i<argc; i++)
     if (!strcmp(argv[i], "-jpg"))
-      extract_jpg = 1;
+      extract_raw = 0, file_type = NONE, extract_jpg = 1;
+    else if (!strcmp(argv[i], "-no-raw"))
+      extract_raw = 0, file_type = NONE;
     else if (!strcmp(argv[i], "-raw"))
       extract_raw = 1, file_type = RAW;
     else if (!strcmp(argv[i], "-tiff"))
