@@ -41,7 +41,7 @@ ifeq (linux, $(SYS))
 else
 ifeq (osx, $(SYS))
   EXE =
-  ARCH = -arch i386 -arch ppc
+  ARCH = -arch i386 -arch x86_64 -arch ppc
   CFBASE = -O3 -Wall $(ARCH)
   LDFLAGS = -lm $(ARCH)
 else
