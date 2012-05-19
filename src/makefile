@@ -41,7 +41,13 @@ ifeq (linux, $(SYS))
 else
 ifeq (osx, $(SYS))
   EXE =
-  ARCH = -arch i386 -arch x86_64 -arch ppc
+  ARCHX = -arch i386 -arch x86_64 -arch ppc
+  ifdef PPC64
+    # To be able to compile ppc64 on a 10.6 machine
+    ARCH = $(ARCHX) -arch ppc64 -mmacosx-version-min=10.5 -isysroot /Developer/SDKs/MacOSX10.5.sdk
+  else
+    ARCH = $(ARCHX)
+  endif
   CFBASE = -O3 -Wall $(ARCH)
   LDFLAGS = -lm $(ARCH)
 else
