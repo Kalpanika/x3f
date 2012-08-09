@@ -3,4 +3,4 @@
 default: all
 
 all clean clobber:
-	make -C src $@
+	$(MAKE) -C src $@
