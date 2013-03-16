@@ -2418,7 +2418,7 @@ static void write_array_32(FILE *f_out, uint32_t num, uint32_t *vals)
         }
       }
 
-      for (i=0; i < max; i++) {
+      for (i=0; i <= max; i++) {
         uint16_t val[3];
 
         for (color=0; color < 3; color++)
