@@ -10,7 +10,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-typedef enum {NONE, RAW, TIFF, PPMP3, PPMP6} raw_file_type_t;
+typedef enum {RAW, TIFF, PPMP3, PPMP6, HISTOGRAM} raw_file_type_t;
 
 static void usage(char *progname)
 {
@@ -19,13 +19,13 @@ static void usage(char *progname)
           " [{-raw|-tiff [-gamma <GAMMA> [-min <MIN>] [-max <MAX>]]}]"
           " <file1> ...\n"
           "   -jpg:       Dump embedded JPG. Turn off RAW dumping\n"
-          "   -no-raw:    Do not dump any RAW\n"
           "   -raw:       Dump RAW area undecoded\n"
           "   -tiff:      Dump RAW as 3x16 bit TIFF (default)\n"
           "   -ppm-ascii: Dump RAW as 3x16 bit PPM of type P3 (ascii)\n"
           "               NOTE: 16 bit PPM/P3 is not generally supported\n"
           "   -ppm:       Dump RAW as 3x16 bit PPM of type P6 (binary)\n"
-          "   -gamma <GAMMA>:  Gamma for scaled PPM/TIFF\n"
+          "   -histogram: Dump histogram as csv file\n"
+          "   -gamma <GAMMA>:  Gamma for scaled PPM/TIFF (def=-1.0 (off))\n"
           "   -min <MIN>:      Min for scaled PPM/TIFF (def=automatic)\n"
           "   -max <MAX>:      Max for scaled PPM/TIFF (def=automatic)\n",
           progname);
@@ -46,9 +46,7 @@ int main(int argc, char *argv[])
 
   for (i=1; i<argc; i++)
     if (!strcmp(argv[i], "-jpg"))
-      extract_raw = 0, file_type = NONE, extract_jpg = 1;
-    else if (!strcmp(argv[i], "-no-raw"))
-      extract_raw = 0, file_type = NONE;
+      extract_raw = 0, extract_jpg = 1;
     else if (!strcmp(argv[i], "-raw"))
       extract_raw = 1, file_type = RAW;
     else if (!strcmp(argv[i], "-tiff"))
@@ -57,6 +55,8 @@ int main(int argc, char *argv[])
       extract_raw = 1, file_type = PPMP3;
     else if (!strcmp(argv[i], "-ppm"))
       extract_raw = 1, file_type = PPMP6;
+    else if (!strcmp(argv[i], "-histogram"))
+      extract_raw = 1, file_type = HISTOGRAM;
     else if ((!strcmp(argv[i], "-gamma")) && (i+1)<argc)
       gamma = atof(argv[++i]);
     else if ((!strcmp(argv[i], "-min")) && (i+1)<argc)
@@ -73,7 +73,7 @@ int main(int argc, char *argv[])
     if (gamma <= 0.0)
       usage(argv[0]);
 
-  /* If gamma is set but no file type that can output gaamma - ERROR */
+  /* If gamma is set but no file type that can output gamma - ERROR */
   if (gamma > 0.0)
     if (file_type != TIFF && file_type != PPMP3 && file_type != PPMP6)
       usage(argv[0]);
@@ -87,7 +87,7 @@ int main(int argc, char *argv[])
 
     if (f_in == NULL) {
       fprintf(stderr, "Could not open infile %s\n", infilename);
-      return 1;
+      goto clean_up;
     }
 
     printf("READ THE X3F FILE %s\n", infilename);
@@ -95,7 +95,7 @@ int main(int argc, char *argv[])
 
     if (x3f == NULL) {
       fprintf(stderr, "Could not read infile %s\n", infilename);
-      return 1;
+      goto clean_up;
     }
 
     if (extract_jpg) {
@@ -113,45 +113,52 @@ int main(int argc, char *argv[])
 
     if (extract_raw) {
       char outfilename[1024];
-      x3f_return_t ret_load = X3F_OK;
       x3f_return_t ret_dump = X3F_OK;
+
+      printf("Load RAW block from %s\n", infilename);
+      if (file_type == RAW) {
+        if (X3F_OK != x3f_load_image_block(x3f, x3f_get_raw(x3f))) {
+          fprintf(stderr, "Could not load unconverted RAW from memory\n");
+          goto clean_up;
+        }
+      } else {
+        if (X3F_OK != x3f_load_data(x3f, x3f_get_raw(x3f))) {
+          fprintf(stderr, "Could not load RAW from memory\n");
+          goto clean_up;
+        }
+      }
 
       strcpy(outfilename, infilename);
 
       switch (file_type) {
-      case NONE:
-	break;
       case RAW:
-	printf("Load RAW block from %s\n", infilename);
-	ret_load = x3f_load_image_block(x3f, x3f_get_raw(x3f));
 	strcat(outfilename, ".raw");
 	printf("Dump RAW block to %s\n", outfilename);
 	ret_dump = x3f_dump_raw_data(x3f, outfilename);
 	break;
       case TIFF:
-	printf("Load RAW from %s\n", infilename);
-	ret_load = x3f_load_data(x3f, x3f_get_raw(x3f));
 	strcat(outfilename, ".tif");
 	printf("Dump RAW as TIFF to %s\n", outfilename);
 	ret_dump = x3f_dump_raw_data_as_tiff(x3f, outfilename, gamma, min, max);
 	break;
       case PPMP3:
       case PPMP6:
-	printf("Load RAW from %s\n", infilename);
-	ret_load = x3f_load_data(x3f, x3f_get_raw(x3f));
 	strcat(outfilename, ".ppm");
 	printf("Dump RAW as PPM to %s\n", outfilename);
 	ret_dump = x3f_dump_raw_data_as_ppm(x3f, outfilename, gamma, min, max,
-                                       file_type == PPMP6);
+                                            file_type == PPMP6);
+      case HISTOGRAM:
+	strcat(outfilename, ".csv");
+	printf("Dump RAW as CSV histogram to %s\n", outfilename);
+	ret_dump = x3f_dump_raw_data_as_histogram(x3f, outfilename);
 	break;
       }
-
-      if (X3F_OK != ret_load)
-        fprintf(stderr, "Could not load RAW from memory\n");
 
       if (X3F_OK != ret_dump)
         fprintf(stderr, "Could not dump RAW to %s\n", outfilename);
     }
+
+  clean_up:
 
     x3f_delete(x3f);
 

@@ -2370,6 +2370,74 @@ static void write_array_32(FILE *f_out, uint32_t num, uint32_t *vals)
   return X3F_OK;
 }
 
+/* extern */ x3f_return_t x3f_dump_raw_data_as_histogram(x3f_t *x3f,
+                                                         char *outfilename)
+{
+  x3f_directory_entry_t *DE = x3f_get_raw(x3f);
+
+  if (DE == NULL) {
+    return X3F_ARGUMENT_ERROR;
+  } else {
+    x3f_directory_entry_header_t *DEH = &DE->header;
+    x3f_image_data_t *ID = &DEH->data_subsection.image_data;
+    x3f_huffman_t *HUF = ID->huffman;
+    x3f_true_t *TRU = ID->tru;
+    uint16_t *data = NULL;
+    uint16_t max = 0;
+
+    if (HUF != NULL)
+      data = HUF->x3rgb16.element;
+
+    if (TRU != NULL)
+      data = TRU->x3rgb16.element;
+
+    if (data == NULL) {
+      return X3F_INTERNAL_ERROR;
+    } else {
+      FILE *f_out = fopen(outfilename, "wb");
+
+      /* Create a cleared histogram */
+      uint16_t *histogram[3];
+      int color, i;
+
+      for (color=0; color < 3; color++)
+        histogram[color] = (uint16_t *)calloc(1<<16, sizeof(uint16_t));
+
+      if (f_out != NULL) {
+        int row;
+
+        for (row=0; row < ID->rows; row++) {
+          int col;
+
+          for (col=0; col < ID->columns; col++)
+            for (color=0; color < 3; color++) {
+              uint16_t val = data[3 * (ID->columns * row + col) + color];
+              histogram[color][val]++;
+              if (val > max) max = val;
+            }
+        }
+      }
+
+      for (i=0; i < max; i++) {
+        uint16_t val[3];
+
+        for (color=0; color < 3; color++)
+          val[color] = histogram[color][i];
+
+        fprintf(f_out, "%5d , %5d , %5d , %5d\n", i, val[0], val[1], val[2]);
+      }
+
+      for (color=0; color < 3; color++)
+        free(histogram[color]);
+
+      fclose(f_out);
+
+    }
+  }
+
+  return X3F_OK;
+}
+
 /* extern */ x3f_return_t x3f_dump_jpeg(x3f_t *x3f, char *outfilename)
 {
   x3f_directory_entry_t *DE = x3f_get_thumb_jpeg(x3f);
