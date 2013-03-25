@@ -17,6 +17,11 @@ int ilog(int i, double base, int steps)
   }
 }
 
+int ilog_inv(int i, double base, int steps)
+{
+  return (int)round(pow(base, (double)i/steps));
+}
+
 int main(int argc, char *argv[])
 {
   int max = 4095;
@@ -48,7 +53,11 @@ int main(int argc, char *argv[])
   for (i = 0; i <= max; i++) {
     int curr = ilog(i, 2.0, steps);
     if (curr != prev) {
-      printf("%d: %d (%g)\n", i, curr, (double)curr/steps);
+      printf("%d: %d (%g) [%d]\n",
+             i,
+             curr,
+             (double)curr/steps,
+             ilog_inv(curr, 2.0, steps));
       prev = curr;
     }
   }
