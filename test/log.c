@@ -5,10 +5,9 @@
 #include <math.h>
 #include <string.h>
 
-
 int ilog(int i, double base, int steps)
 {
-  if (i == 0)
+  if (i <= 0)
     /* Special case as log(0) is not defined. */
     return 0;
   else {
