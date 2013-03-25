@@ -25,6 +25,7 @@ static void usage(char *progname)
           "               NOTE: 16 bit PPM/P3 is not generally supported\n"
           "   -ppm:       Dump RAW as 3x16 bit PPM of type P6 (binary)\n"
           "   -histogram: Dump histogram as csv file\n"
+          "   -loghist:   Dump histogram as csv file, with log exposure\n"
           "   -gamma <GAMMA>:  Gamma for scaled PPM/TIFF (def=-1.0 (off))\n"
           "   -min <MIN>:      Min for scaled PPM/TIFF (def=automatic)\n"
           "   -max <MAX>:      Max for scaled PPM/TIFF (def=automatic)\n",
@@ -41,6 +42,7 @@ int main(int argc, char *argv[])
   double gamma = -1.0;
   raw_file_type_t file_type = TIFF;
   int files = 0;
+  int log_hist = 0;
 
   int i;
 
@@ -57,6 +59,8 @@ int main(int argc, char *argv[])
       extract_raw = 1, file_type = PPMP6;
     else if (!strcmp(argv[i], "-histogram"))
       extract_raw = 1, file_type = HISTOGRAM;
+    else if (!strcmp(argv[i], "-loghist"))
+      extract_raw = 1, file_type = HISTOGRAM, log_hist = 1;
     else if ((!strcmp(argv[i], "-gamma")) && (i+1)<argc)
       gamma = atof(argv[++i]);
     else if ((!strcmp(argv[i], "-min")) && (i+1)<argc)
@@ -150,7 +154,7 @@ int main(int argc, char *argv[])
       case HISTOGRAM:
 	strcat(outfilename, ".csv");
 	printf("Dump RAW as CSV histogram to %s\n", outfilename);
-	ret_dump = x3f_dump_raw_data_as_histogram(x3f, outfilename);
+	ret_dump = x3f_dump_raw_data_as_histogram(x3f, outfilename, log_hist);
 	break;
       }
 

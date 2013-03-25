@@ -2370,8 +2370,29 @@ static void write_array_32(FILE *f_out, uint32_t num, uint32_t *vals)
   return X3F_OK;
 }
 
+static int ilog(int i, double base, int steps)
+{
+  if (i <= 0)
+    /* Special case as log(0) is not defined. */
+    return 0;
+  else {
+    double log = log10((double)i) / log10(base);
+
+    return (int)(steps * log);
+  }
+}
+
+static int ilog_inv(int i, double base, int steps)
+{
+  return (int)round(pow(base, (double)i/steps));
+}
+
+#define BASE 2.0
+#define STEPS 10
+
 /* extern */ x3f_return_t x3f_dump_raw_data_as_histogram(x3f_t *x3f,
-                                                         char *outfilename)
+                                                         char *outfilename,
+                                                         int log_hist)
 {
   x3f_directory_entry_t *DE = x3f_get_raw(x3f);
 
@@ -2412,6 +2433,10 @@ static void write_array_32(FILE *f_out, uint32_t num, uint32_t *vals)
           for (col=0; col < ID->columns; col++)
             for (color=0; color < 3; color++) {
               uint16_t val = data[3 * (ID->columns * row + col) + color];
+
+              if (log_hist)
+                val = ilog(val, BASE, STEPS);
+
               histogram[color][val]++;
               if (val > max) max = val;
             }
@@ -2424,7 +2449,15 @@ static void write_array_32(FILE *f_out, uint32_t num, uint32_t *vals)
         for (color=0; color < 3; color++)
           val[color] = histogram[color][i];
 
-        fprintf(f_out, "%5d , %5d , %5d , %5d\n", i, val[0], val[1], val[2]);
+        if (val[0] || val[1] || val[2]) {
+          if (log_hist) {
+            fprintf(f_out, "%5d, %5d , %5d , %5d , %5d\n",
+                    i, ilog_inv(i, BASE, STEPS), val[0], val[1], val[2]);
+          } else {
+            fprintf(f_out, "%5d , %5d , %5d , %5d\n",
+                    i, val[0], val[1], val[2]);
+          }
+        }
       }
 
       for (color=0; color < 3; color++)
