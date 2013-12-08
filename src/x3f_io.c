@@ -13,6 +13,12 @@
 #include <stdio.h>
 
 /* --------------------------------------------------------------------- */
+/* Hacky external flags                                                 */
+/* --------------------------------------------------------------------- */
+
+/* extern */ bool_t verbatim = 0;
+
+/* --------------------------------------------------------------------- */
 /* Huffman Decode Macros                                                 */
 /* --------------------------------------------------------------------- */
 
@@ -1355,35 +1361,42 @@ static int32_t get_huffman_diff(bit_state_t *BS, x3f_hufftree_t *HTP)
 static void huffman_decode_row(x3f_info_t *I,
                                x3f_directory_entry_t *DE,
                                int bits,
-                               int row)
+                               int row,
+                               int offset,
+                               int *minimum)
 {
   x3f_directory_entry_header_t *DEH = &DE->header;
   x3f_image_data_t *ID = &DEH->data_subsection.image_data;
   x3f_huffman_t *HUF = ID->huffman;
 
-  uint16_t c[3] = {0,0,0}, c_fix[3];
+  int16_t c[3] = {offset,offset,offset};
   int col;
   bit_state_t BS;
-
+  
   set_bit_state(&BS, ID->data + HUF->row_offsets.element[row]);
 
   for (col = 0; col < ID->columns; col++) {
     int color;
 
     for (color = 0; color < 3; color++) {
+      uint16_t c_fix;
+
       c[color] += get_huffman_diff(&BS, &HUF->tree);
+      if (c[color] < 0) {
+        c_fix = 0;
+        if (c[color] < *minimum)
+          *minimum = c[color];
+      } else {
+        c_fix = c[color];
+      }
 
       switch (ID->type_format) {
       case X3F_IMAGE_RAW_HUFFMAN_X530:
       case X3F_IMAGE_RAW_HUFFMAN_10BIT:
-        c_fix[color] = (int16_t)c[color] > 0 ? c[color] : 0;
-
-        HUF->x3rgb16.element[3*(row*ID->columns + col) + color] = c_fix[color]; 
+        HUF->x3rgb16.element[3*(row*ID->columns + col) + color] = (uint16_t)c_fix;
         break;
       case X3F_IMAGE_THUMB_HUFFMAN:
-        c_fix[color] = (int8_t)c[color] > 0 ? c[color] : 0;
-
-        HUF->rgb8.element[3*(row*ID->columns + col) + color] = c_fix[color]; 
+        HUF->rgb8.element[3*(row*ID->columns + col) + color] = (uint8_t)c_fix; 
         break;
       default:
         fprintf(stderr, "Unknown huffman image type\n");
@@ -1400,11 +1413,20 @@ static void huffman_decode(x3f_info_t *I,
   x3f_image_data_t *ID = &DEH->data_subsection.image_data;
 
   int row;
+  int minimum = 0;
+  int offset = 0;
 
+  printf("Huffman decode with offset: %d\n", offset);
   for (row = 0; row < ID->rows; row++)
-    huffman_decode_row(I, DE, bits, row);
-}
+    huffman_decode_row(I, DE, bits, row, offset, &minimum);
 
+  if (!verbatim && minimum < 0) {
+    offset = -minimum;
+    printf("Redo with offset: %d\n", offset);
+    for (row = 0; row < ID->rows; row++)
+      huffman_decode_row(I, DE, bits, row, offset, &minimum);
+  }
+}
 
 static int32_t get_simple_diff(x3f_huffman_t *HUF, uint16_t index)
 {
@@ -1426,7 +1448,7 @@ static void simple_decode_row(x3f_info_t *I,
 
   uint32_t *data = (uint32_t *)(ID->data + row*row_stride); 
 
-  uint16_t c[3] = {0,0,0}, c_fix[3];
+  uint16_t c[3] = {0,0,0};
   int col;
 
   uint32_t mask = 0;
@@ -1458,19 +1480,20 @@ static void simple_decode_row(x3f_info_t *I,
     uint32_t val = data[col];
 
     for (color = 0; color < 3; color++) {
+      uint16_t c_fix;
       c[color] += get_simple_diff(HUF, (val>>(color*bits))&mask);
 
       switch (ID->type_format) {
       case X3F_IMAGE_RAW_HUFFMAN_X530:
       case X3F_IMAGE_RAW_HUFFMAN_10BIT:
-        c_fix[color] = (int16_t)c[color] > 0 ? c[color] : 0;
+        c_fix = (int16_t)c[color] > 0 ? c[color] : 0;
 
-        HUF->x3rgb16.element[3*(row*ID->columns + col) + color] = c_fix[color]; 
+        HUF->x3rgb16.element[3*(row*ID->columns + col) + color] = c_fix; 
         break;
       case X3F_IMAGE_THUMB_HUFFMAN:
-        c_fix[color] = (int8_t)c[color] > 0 ? c[color] : 0;
+        c_fix = (int8_t)c[color] > 0 ? c[color] : 0;
 
-        HUF->rgb8.element[3*(row*ID->columns + col) + color] = c_fix[color]; 
+        HUF->rgb8.element[3*(row*ID->columns + col) + color] = c_fix; 
         break;
       default:
         fprintf(stderr, "Unknown huffman image type\n");
@@ -1530,6 +1553,8 @@ static void x3f_load_image_verbatim(x3f_info_t *I, x3f_directory_entry_t *DE)
   x3f_directory_entry_header_t *DEH = &DE->header;
   x3f_image_data_t *ID = &DEH->data_subsection.image_data;
 
+  printf("Load image verbatim\n");
+
   ID->data_size = read_data_block(&ID->data, I, DE, 0);
 }
 
@@ -1561,6 +1586,8 @@ static void x3f_load_true(x3f_info_t *I,
   x3f_image_data_t *ID = &DEH->data_subsection.image_data;
   x3f_true_t *TRU = new_true(&ID->tru);
   int i;
+
+  printf("Load TRUE\n");
 
   /* Read TRUE header data */
   GET2(TRU->seed[0]);		/* TODO : should it always be 512 ?? */
@@ -1607,6 +1634,8 @@ static void x3f_load_huffman_compressed(x3f_info_t *I,
   int table_size = 1<<bits;
   int row_offsets_size = ID->rows * sizeof(HUF->row_offsets.element[0]);
 
+  printf("Load huffman compressed\n");
+
   GET_TABLE(HUF->table, GET4, table_size);
 
   ID->data_size = read_data_block(&ID->data, I, DE, row_offsets_size);
@@ -1633,6 +1662,8 @@ static void x3f_load_huffman_not_compressed(x3f_info_t *I,
 {
   x3f_directory_entry_header_t *DEH = &DE->header;
   x3f_image_data_t *ID = &DEH->data_subsection.image_data;
+
+  printf("Load huffman not compressed\n");
 
   ID->data_size = read_data_block(&ID->data, I, DE, 0);
 

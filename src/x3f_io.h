@@ -335,6 +335,8 @@ typedef enum x3f_return_e {
   X3F_INTERNAL_ERROR=4
 } x3f_return_t;
 
+extern int verbatim;
+
 extern x3f_t *x3f_new_from_file(FILE *infile);
 
 extern void x3f_print(x3f_t *x3f);

@@ -18,14 +18,15 @@ static void usage(char *progname)
           "usage: %s [-jpg]"
           " [{-raw|-tiff [-gamma <GAMMA> [-min <MIN>] [-max <MAX>]]}]"
           " <file1> ...\n"
-          "   -jpg:       Dump embedded JPG. Turn off RAW dumping\n"
-          "   -raw:       Dump RAW area undecoded\n"
-          "   -tiff:      Dump RAW as 3x16 bit TIFF (default)\n"
-          "   -ppm-ascii: Dump RAW as 3x16 bit PPM of type P3 (ascii)\n"
-          "               NOTE: 16 bit PPM/P3 is not generally supported\n"
-          "   -ppm:       Dump RAW as 3x16 bit PPM of type P6 (binary)\n"
-          "   -histogram: Dump histogram as csv file\n"
-          "   -loghist:   Dump histogram as csv file, with log exposure\n"
+          "   -jpg:            Dump embedded JPG. Turn off RAW dumping\n"
+          "   -raw:            Dump RAW area undecoded\n"
+          "   -tiff:           Dump RAW as 3x16 bit TIFF (default)\n"
+          "   -ppm-ascii:      Dump RAW as 3x16 bit PPM of type P3 (ascii)\n"
+          "                    NOTE: 16 bit PPM/P3 is not generally supported\n"
+          "   -ppm:            Dump RAW as 3x16 bit PPM of type P6 (binary)\n"
+          "   -histogram:      Dump histogram as csv file\n"
+          "   -verbatim:       Do not try to be clever whan converting\n"
+          "   -loghist:        Dump histogram as csv file, with log exposure\n"
           "   -gamma <GAMMA>:  Gamma for scaled PPM/TIFF (def=-1.0 (off))\n"
           "   -min <MIN>:      Min for scaled PPM/TIFF (def=automatic)\n"
           "   -max <MAX>:      Max for scaled PPM/TIFF (def=automatic)\n",
@@ -67,6 +68,8 @@ int main(int argc, char *argv[])
       min = atoi(argv[++i]);
     else if ((!strcmp(argv[i], "-max")) && (i+1)<argc)
       max = atoi(argv[++i]);
+    else if (!strcmp(argv[i], "-verbatim"))
+      verbatim = 1; /* extern var */
     else if (!strncmp(argv[i], "-", 1))
       usage(argv[0]);
     else
@@ -166,7 +169,8 @@ int main(int argc, char *argv[])
 
     x3f_delete(x3f);
 
-    fclose(f_in);
+    if (f_in != NULL)
+      fclose(f_in);
   }
 
   if (files == 0)
