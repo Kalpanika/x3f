@@ -16,7 +16,8 @@
 /* Hacky external flags                                                 */
 /* --------------------------------------------------------------------- */
 
-/* extern */ bool_t verbatim = 0;
+/* extern */ int legacy_offset = 0;
+/* extern */ bool_t auto_legacy_offset = 1;
 
 /* --------------------------------------------------------------------- */
 /* Huffman Decode Macros                                                 */
@@ -1414,13 +1415,13 @@ static void huffman_decode(x3f_info_t *I,
 
   int row;
   int minimum = 0;
-  int offset = 0;
+  int offset = legacy_offset;
 
   printf("Huffman decode with offset: %d\n", offset);
   for (row = 0; row < ID->rows; row++)
     huffman_decode_row(I, DE, bits, row, offset, &minimum);
 
-  if (!verbatim && minimum < 0) {
+  if (auto_legacy_offset && minimum < 0) {
     offset = -minimum;
     printf("Redo with offset: %d\n", offset);
     for (row = 0; row < ID->rows; row++)
