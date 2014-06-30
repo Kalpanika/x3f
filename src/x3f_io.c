@@ -1012,7 +1012,10 @@ static x3f_directory_entry_t *x3f_get(x3f_t *x3f,
   if ((DE = x3f_get(x3f, X3F_SECi, X3F_IMAGE_RAW_TRUE)) != NULL)
     return DE;
 
-  if ((DE = x3f_get(x3f, X3F_SECi, X3F_IMAGE_RAW_TRUE_SD1)) != NULL)
+  if ((DE = x3f_get(x3f, X3F_SECi, X3F_IMAGE_RAW_MERRILL)) != NULL)
+    return DE;
+
+  if ((DE = x3f_get(x3f, X3F_SECi, X3F_IMAGE_RAW_QUATTRO)) != NULL)
     return DE;
 
   return NULL;
@@ -1728,7 +1731,8 @@ static void x3f_load_image(x3f_info_t *I, x3f_directory_entry_t *DE)
   
   switch (ID->type_format) {
   case X3F_IMAGE_RAW_TRUE:
-  case X3F_IMAGE_RAW_TRUE_SD1:
+  case X3F_IMAGE_RAW_MERRILL:
+  case X3F_IMAGE_RAW_QUATTRO:
     x3f_load_true(I, DE);
     break;
   case X3F_IMAGE_RAW_HUFFMAN_X530:

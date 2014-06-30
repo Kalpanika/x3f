@@ -47,17 +47,15 @@
 #define X3F_CMbM (uint32_t)(0x4d624d43)
 #define X3F_CMb  (uint32_t)(0x00624d43)
 
-/* TODO: bad name */
-#define X3F_IMAGE_RAW_TRUE_SD1      (uint32_t)(0x0001001e)
-
-/* TODO: bad name */
-#define X3F_IMAGE_RAW_HUFFMAN_X530  (uint32_t)(0x00030005)
-
-#define X3F_IMAGE_RAW_TRUE          (uint32_t)(0x0003001e)
-#define X3F_IMAGE_RAW_HUFFMAN_10BIT (uint32_t)(0x00030006)
 #define X3F_IMAGE_THUMB_PLAIN       (uint32_t)(0x00020003)
 #define X3F_IMAGE_THUMB_HUFFMAN     (uint32_t)(0x0002000b)
 #define X3F_IMAGE_THUMB_JPEG        (uint32_t)(0x00020012)
+
+#define X3F_IMAGE_RAW_HUFFMAN_X530  (uint32_t)(0x00030005)
+#define X3F_IMAGE_RAW_HUFFMAN_10BIT (uint32_t)(0x00030006)
+#define X3F_IMAGE_RAW_TRUE          (uint32_t)(0x0003001e)
+#define X3F_IMAGE_RAW_MERRILL       (uint32_t)(0x0001001e)
+#define X3F_IMAGE_RAW_QUATTRO       (uint32_t)(0x00010023)
 
 #define X3F_IMAGE_HEADER_SIZE 28
 #define X3F_CAMF_HEADER_SIZE 28
