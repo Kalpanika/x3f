@@ -640,7 +640,7 @@ static char *x3f_id(uint32_t id)
       }
 
       if (TRU == NULL) {
-        printf("        tru           = %p\n", TRU);
+        printf("        tru         = %p\n", TRU);
       } else {
 	int i;
 
