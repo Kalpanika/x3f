@@ -248,6 +248,36 @@ static x3f_true_t *new_true(x3f_true_t **TRUP)
   return TRU;
 }
 
+static void cleanup_quattro(x3f_quattro_t **QP)
+{
+  x3f_quattro_t *Q = *QP;
+
+  if (Q == NULL) return;
+
+  FREE(Q);
+
+  *QP = NULL;
+}
+
+static x3f_quattro_t *new_quattro(x3f_quattro_t **QP)
+{
+  x3f_quattro_t *Q = (x3f_quattro_t *)calloc(1, sizeof(x3f_quattro_t));
+  int i;
+
+  cleanup_quattro(QP);
+
+  for (i=0; i<TRUE_PLANES; i++) {
+    Q->plane[i].columns = 0;
+    Q->plane[i].rows = 0;
+  }
+
+  Q->unknown = 0;
+
+  *QP = Q;
+
+  return Q;
+}
+
 /* --------------------------------------------------------------------- */
 /* Allocating Huffman engine help data                                   */
 /* --------------------------------------------------------------------- */
@@ -609,6 +639,7 @@ static char *x3f_id(uint32_t id)
       x3f_image_data_t *ID = &DEH->data_subsection.image_data;
       x3f_huffman_t *HUF = ID->huffman;
       x3f_true_t *TRU = ID->tru;
+      x3f_quattro_t *Q = ID->quattro;
 
       printf("      data_subsection.image_data.\n");
       printf("        type        = %08x\n", ID->type);
@@ -664,6 +695,22 @@ static char *x3f_id(uint32_t id)
 	       TRU->tree.free_node_index, TRU->tree.nodes);
         printf("          x3rgb16     = %x %p\n",
                TRU->x3rgb16.size, TRU->x3rgb16.element);
+      }
+
+      if (Q == NULL) {
+	printf("        quattro     = %p\n", Q);
+      } else {
+	int i;
+
+	printf("        quattro->\n");
+	printf("          planes (");
+	for (i=0; i<TRUE_PLANES; i++) {
+	  printf(" %d", Q->plane[i].columns);
+	  printf("x%d", Q->plane[i].rows);
+	}
+	printf(" )\n");
+        printf("          unknown     = %x %d\n",
+               Q->unknown, Q->unknown);
       }
 
       printf("        data        = %p\n", ID->data);
@@ -1589,7 +1636,19 @@ static void x3f_load_true(x3f_info_t *I,
   x3f_directory_entry_header_t *DEH = &DE->header;
   x3f_image_data_t *ID = &DEH->data_subsection.image_data;
   x3f_true_t *TRU = new_true(&ID->tru);
+  x3f_quattro_t *Q = NULL;
   int i;
+
+  if (ID->type_format == X3F_IMAGE_RAW_QUATTRO) {
+    printf("Load Quattro extra info\n");
+
+    Q = new_quattro(&ID->quattro);
+
+    for (i=0; i<TRUE_PLANES; i++) {
+      GET2(Q->plane[i].columns);
+      GET2(Q->plane[i].rows);
+    }
+  }
 
   printf("Load TRUE\n");
 
@@ -1599,6 +1658,14 @@ static void x3f_load_true(x3f_info_t *I,
   GET2(TRU->seed[2]);		/* TODO : should it always be 512 ?? */
   GET2(TRU->unknown);		/* TODO : should it always be zero ?? */
   GET_TRUE_HUFF_TABLE(TRU->table);
+
+  if (ID->type_format == X3F_IMAGE_RAW_QUATTRO) {
+
+    printf("Load Quattro extra info 2\n");
+
+    GET4(Q->unknown);
+  }
+
   GET_TABLE(TRU->plane_size, GET4, TRUE_PLANES);
 
   /* Read image data */
@@ -1613,9 +1680,8 @@ static void x3f_load_true(x3f_info_t *I,
   print_huffman_tree(TRU->tree.nodes, 0, 0);
 #endif
 
-  /* TODO : we here assume 3 planes - thats not neccessarily right */
   TRU->plane_address[0] = ID->data;
-  for (i=1; i<3; i++)
+  for (i=1; i<TRUE_PLANES; i++)
     TRU->plane_address[i] = 
       TRU->plane_address[i-1] +
       (((TRU->plane_size.element[i-1] + 15) / 16) * 16); 

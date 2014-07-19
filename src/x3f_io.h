@@ -146,11 +146,11 @@ typedef struct x3f_true_huffman_s {
   x3f_true_huffman_element_t *element;
 } x3f_true_huffman_t;
 
-/* TODO: is this a constant? */
+/* 0=bottom, 1=middle, 2=top */
 #define TRUE_PLANES 3
 
 typedef struct x3f_true_s {
-  uint16_t seed[3];		/* Always 512,512,512 */
+  uint16_t seed[TRUE_PLANES];	/* Always 512,512,512 */
   uint16_t unknown;		/* Always 0 */
   x3f_true_huffman_t table;	/* Huffman table - zero
 				   terminated. size is the number of
@@ -161,6 +161,14 @@ typedef struct x3f_true_s {
   x3f_hufftree_t tree;		/* Coding tree */
   x3f_table16_t x3rgb16;        /* 3x16 bit X3-RGB data */
 } x3f_true_t;
+
+typedef struct x3f_quattro_s {
+  struct {
+    uint16_t columns;
+    uint16_t rows;
+  } plane[TRUE_PLANES];
+  uint32_t unknown;
+} x3f_quattro_t;
 
 typedef struct x3f_huffman_s {
   x3f_table16_t mapping;   /* Value Mapping = X3F lossy compression */
@@ -185,13 +193,15 @@ typedef struct x3f_image_data_s {
                                    18 = JPEG */
   uint32_t type_format;         /* type<<16 + format */
   /* ------------------------------------------------------------------ */
+
   uint32_t columns;             /* width / row size in pixels */
   uint32_t rows;                /* height */
   uint32_t row_stride;          /* row size in bytes */
 
+  /* NULL if not used */
   x3f_huffman_t *huffman;       /* Huffman help data */
-
-  x3f_true_t *tru;		/* TRUE coding help data */
+  x3f_true_t *tru;		/* TRUE help data */
+  x3f_quattro_t *quattro;	/* Quattro help data */
 
   void *data;                   /* Take from file if NULL. Otherwise,
                                    this is the actual data bytes in
