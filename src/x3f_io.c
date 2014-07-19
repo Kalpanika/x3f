@@ -900,12 +900,23 @@ static uint32_t row_offsets_size(x3f_huffman_t *HUF)
         /* Write row offset data if valid */
         PUT_TABLE(HUF->row_offsets, PUT4);
       } else if (TRU != NULL) {
+	x3f_quattro_t *Q = ID->quattro;
 	/* Write TRUE data */
+
+	if (Q != NULL) {
+	  for (i=0; i<TRUE_PLANES; i++) {
+	    PUT2(Q->plane[i].columns);
+	    PUT2(Q->plane[i].rows);
+	  }
+	}
 	PUT2(TRU->seed[0]);
 	PUT2(TRU->seed[1]);
 	PUT2(TRU->seed[2]);
 	PUT2(TRU->unknown);
 	PUT_TRUE_HUFF_TABLE(TRU->table);
+	if (Q != NULL) {
+	  PUT4(Q->unknown);
+	}
 	PUT_TABLE(TRU->plane_size, PUT4);
 
         /* Write the image data */
