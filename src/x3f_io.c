@@ -1352,7 +1352,6 @@ static void true_decode_one_color(x3f_image_data_t *ID, int color)
   int32_t row_start_acc[2][2];
   uint32_t rows = ID->rows;
   uint32_t cols = ID->columns;
-  uint32_t out_rows = ID->rows;
   uint32_t out_cols = ID->columns;
 
   uint16_t *dst = TRU->x3rgb16.element + color;
@@ -1386,9 +1385,30 @@ static void true_decode_one_color(x3f_image_data_t *ID, int color)
       if (col < 2)
 	row_start_acc[odd_row][odd_col] = value;
 
-      if (col < out_cols && row < out_rows) {
+      if (col < out_cols) { /* For quattro the input may be larger
+			       than the output */
 	*dst = value;
 	dst += 3;
+      }
+    }
+  }
+
+  if ((ID->type_format == X3F_IMAGE_RAW_QUATTRO) && (color < 2)) {
+    /* The pixels in the layers with lower resolution are duplicated
+       to four values. This is done in place, therefore done backwards */
+
+    uint16_t *base = TRU->x3rgb16.element + color;
+
+    for (row = rows-1; row >= 0; row--) {
+      int col;
+
+      for (col = cols-1; col >= 0; col--) {
+	uint16_t val = base[3*(cols*row + col)];
+
+	base[3*(2*cols*(2*row+1) + 2*col+1)] = val;
+	base[3*(2*cols*(2*row+1) + 2*col+0)] = val;
+	base[3*(2*cols*(2*row+0) + 2*col+1)] = val;
+	base[3*(2*cols*(2*row+0) + 2*col+0)] = val;
       }
     }
   }
