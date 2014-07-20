@@ -1352,6 +1352,8 @@ static void true_decode_one_color(x3f_image_data_t *ID, int color)
   int32_t row_start_acc[2][2];
   uint32_t rows = ID->rows;
   uint32_t cols = ID->columns;
+  uint32_t out_rows = ID->rows;
+  uint32_t out_cols = ID->columns;
 
   uint16_t *dst = TRU->x3rgb16.element + color;
 
@@ -1362,7 +1364,7 @@ static void true_decode_one_color(x3f_image_data_t *ID, int color)
   row_start_acc[1][0] = seed;
   row_start_acc[1][1] = seed;
 
-  if ((ID->type_format == X3F_IMAGE_RAW_QUATTRO) && (color < 2)) {
+  if (ID->type_format == X3F_IMAGE_RAW_QUATTRO) {
     rows = ID->quattro->plane[color].rows;
     cols = ID->quattro->plane[color].columns;
   }
@@ -1384,8 +1386,10 @@ static void true_decode_one_color(x3f_image_data_t *ID, int color)
       if (col < 2)
 	row_start_acc[odd_row][odd_col] = value;
 
-      *dst = value;
-      dst += 3;
+      if (col < out_cols && row < out_rows) {
+	*dst = value;
+	dst += 3;
+      }
     }
   }
 }
