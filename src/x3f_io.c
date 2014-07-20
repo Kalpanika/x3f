@@ -1362,6 +1362,11 @@ static void true_decode_one_color(x3f_image_data_t *ID, int color)
   row_start_acc[1][0] = seed;
   row_start_acc[1][1] = seed;
 
+  if ((ID->type_format == X3F_IMAGE_RAW_QUATTRO) && (color < 2)) {
+    rows = ID->quattro->plane[color].rows;
+    cols = ID->quattro->plane[color].columns;
+  }
+
   for (row = 0; row < rows; row++) {
     int col;
     bool_t odd_row = row&1;
