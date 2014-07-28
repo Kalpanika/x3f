@@ -1353,8 +1353,12 @@ static void true_decode_one_color(x3f_image_data_t *ID, int color)
   uint32_t rows = ID->rows;
   uint32_t cols = ID->columns;
   uint32_t out_cols = ID->columns;
+  bool_t quattro_modified = 0;
 
   uint16_t *dst = TRU->x3rgb16.element + color;
+
+  printf("TRUE decode one color (%d) rows=%d cols=%d\n",
+	 color, rows, cols);
 
   set_bit_state(&BS, TRU->plane_address[color]);
 
@@ -1364,8 +1368,17 @@ static void true_decode_one_color(x3f_image_data_t *ID, int color)
   row_start_acc[1][1] = seed;
 
   if (ID->type_format == X3F_IMAGE_RAW_QUATTRO) {
-    rows = ID->quattro->plane[color].rows;
-    cols = ID->quattro->plane[color].columns;
+    uint32_t qrows = ID->quattro->plane[color].rows;
+    uint32_t qcols = ID->quattro->plane[color].columns;
+
+    if (qcols != cols) { /* Strange test, due to X3F file format uses
+			    the same type_format for binned data. */
+      rows = qrows;
+      cols = qcols;
+      quattro_modified = 1;
+      printf("Quattro modified decode one color (%d) rows=%d cols=%d\n",
+	     color, rows, cols);
+    }
   }
 
   for (row = 0; row < rows; row++) {
@@ -1393,11 +1406,13 @@ static void true_decode_one_color(x3f_image_data_t *ID, int color)
     }
   }
 
-  if ((ID->type_format == X3F_IMAGE_RAW_QUATTRO) && (color < 2)) {
+  if (quattro_modified && (color < 2)) {
     /* The pixels in the layers with lower resolution are duplicated
        to four values. This is done in place, therefore done backwards */
 
     uint16_t *base = TRU->x3rgb16.element + color;
+
+    printf("Expand Quattro layer %d\n", color);
 
     for (row = rows-1; row >= 0; row--) {
       int col;
@@ -1411,7 +1426,11 @@ static void true_decode_one_color(x3f_image_data_t *ID, int color)
 	base[3*(2*cols*(2*row+0) + 2*col+0)] = val;
       }
     }
+
+    printf("Expanded\n");
   }
+
+  /* TODO - here should really non square binning be expanded */
 }
 
 static void true_decode(x3f_info_t *I,
