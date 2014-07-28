@@ -1,3 +1,6 @@
+x3f_043: Roland Karlsson 2014-07-28
+  Fixing binning for Quattro
+
 x3f_042: Roland Karlsson 2014-07-27
   Supporting Quattro
 
