@@ -1,8 +1,19 @@
 TODO
 
 --------------------------------------------------------------------
-NOW
+REFACTORING
 --------------------------------------------------------------------
+
+* color/plane -> layer
+  Simple naming fix. A layer should always be called a layer.
+  The layers might be called colors after converting to RGB.
+
+
+--------------------------------------------------------------------
+SMALL THINGS
+--------------------------------------------------------------------
+
+* Decoding the CAMF data values
 
 * More error handling x3f_io.c
 
@@ -11,14 +22,37 @@ NOW
 * Logic for getting thumbs images is wrong. There might be two
   and they might be of same type but different size.
 
-* Reading the CAMF data values
+* Expanding non square image data.
+
+--------------------------------------------------------------------
+QUESTIONS
+--------------------------------------------------------------------
+
+* Encoding?
+
+  The current code tries to encode a new file from read data.
+  There are some problems with that
+  - sometimes the encoded file is invalid, i.e. wrong.
+  - data cannot be encided, e.g. image data and camf data? 
+  Some questions
+  - How about encoding of files? Shall that be removed? Or fixed?
+  - How about encoding of image data?
+  - How about encoding of meta/camf data?
+
 
 --------------------------------------------------------------------
 LONG TERM
 --------------------------------------------------------------------
 
-* Coding of images ??
+* Understanding important meta data, e.g. color balance
 
 * Making a color correct image
 
-* Making B&W images
+* Making a B&W image
+
+
+--------------------------------------------------------------------
+DOCUMENTATION
+--------------------------------------------------------------------
+
+* Document the format
