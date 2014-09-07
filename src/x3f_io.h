@@ -211,16 +211,21 @@ typedef struct x3f_image_data_s {
 } x3f_image_data_t;
 
 typedef struct camf_entry_s {
+  /* pointer into decoded data */
+  void *entry;
+
+  /* entry header */
   uint32_t id;
   uint32_t version;
   uint32_t entry_size;
   uint32_t name_offset;
   uint32_t value_offset;
-  void *entry;			/* pointer into decoded data */
 
   /* computed values */
   uint8_t *name_address;
   void *value_address;
+  uint32_t name_size;
+  uint32_t value_size;
 } camf_entry_t;
 
 typedef struct camf_entry_table_s {

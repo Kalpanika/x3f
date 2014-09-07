@@ -762,10 +762,16 @@ static char *x3f_id(uint32_t id)
 	camf_entry_t *entry = CAMF->entry_table.element;
 	int i;
 
-	for (i=0; i<CAMF->entry_table.size; i++)
+	for (i=0; i<CAMF->entry_table.size; i++) {
 	  printf("          element[%d].name = \"%s\"\n",
-		 i,
-		 entry[i].name_address);
+		 i, entry[i].name_address);
+	  printf("            entry_size = %d\n",
+		 entry[i].entry_size);
+	  printf("            name_size = %d\n",
+		 entry[i].name_size);
+	  printf("            value_size = %d\n",
+		 entry[i].value_size);
+        }
       }
     }
   }
@@ -2018,23 +2024,28 @@ static void x3f_setup_camf_entries(x3f_camf_t *CAMF)
     if ((*p4 & 0xffffff) != X3F_CMb) {
       /* TODO: whats this all about ? Is it OK to just terminate if
 	 you find an invalid entry ? */
-      fprintf(stderr, "Unknown CAMF entry %x\n", *p4);
+      fprintf(stderr, "Unknown CAMF entry %x (size = %d)\n", *p4, *(p+8));
       break;
     }
 
     /* TODO: lots of realloc - may be inefficient */
     table = (camf_entry_t *)realloc(table, (i+1)*sizeof(camf_entry_t));
 
+    /* Pointer */
+    table[i].entry = p;
+
+    /* Header */
     table[i].id = *p4++;
     table[i].version = *p4++;
     table[i].entry_size = *p4++;
     table[i].name_offset = *p4++;
     table[i].value_offset = *p4++;
 
-    table[i].entry = p;
-
+    /* Comute adresses and sizes */
     table[i].name_address = p + table[i].name_offset; 
     table[i].value_address = p + table[i].value_offset; 
+    table[i].name_size = table[i].value_offset - table[i].name_offset;
+    table[i].value_size = table[i].entry_size - table[i].value_offset;
 
     p += table[i].entry_size;
   }
