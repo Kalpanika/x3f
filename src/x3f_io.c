@@ -571,13 +571,18 @@ static char *x3f_id(uint32_t id)
   printf("  rows              = %08x (%d)\n", H->rows, H->rows);
   printf("  rotation          = %08x (%d)\n", H->rotation, H->rotation);
   if (x3f->header.version > X3F_VERSION_2_0) {
+    int i;
+
     printf("  white_balance     = %s\n", H->white_balance);
-    printf("  extended_types    = %02x%02x%02x%02x...\n",
-           H->extended_types[0],
-           H->extended_types[1],
-           H->extended_types[2],
-           H->extended_types[3]);
-    printf("  extended_data     = %08x...\n", H->extended_data[0]);
+ 
+    printf("  extended_types\n");
+    for (i=0; i<NUM_EXT_DATA; i++) {
+      uint8_t type = H->extended_types[i];
+      float data = H->extended_data[i];
+      if (type != 0) {
+        printf("    %2d: %3d = %9f\n", i, type, data);
+      }
+    }
   }
 
   DS = &x3f->directory_section;

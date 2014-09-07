@@ -319,7 +319,7 @@ typedef struct x3f_header_s {
   /* Added for 2.1 and 2.2 */
   uint8_t white_balance[SIZE_WHITE_BALANCE];
   uint8_t extended_types[NUM_EXT_DATA]; /* x3f_extended_types_t */
-  uint32_t extended_data[NUM_EXT_DATA];
+  float extended_data[NUM_EXT_DATA]; /* 32 bits, but do type differ? */
 } x3f_header_t;
 
 typedef struct x3f_info_s {
