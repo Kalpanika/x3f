@@ -541,6 +541,13 @@ static char *x3f_id(uint32_t id)
   return x3f_id_buf;
 }
 
+static void print_bytes(uint8_t *p, uint32_t size)
+{
+  while (size--) {
+    printf("%02x ", *(p++));
+  }
+}
+
 /* extern */ void x3f_print(x3f_t *x3f)
 {
   int d;
@@ -765,12 +772,17 @@ static char *x3f_id(uint32_t id)
 	for (i=0; i<CAMF->entry_table.size; i++) {
 	  printf("          element[%d].name = \"%s\"\n",
 		 i, entry[i].name_address);
+	  printf("            id = %x\n",
+		 entry[i].id);
 	  printf("            entry_size = %d\n",
 		 entry[i].entry_size);
 	  printf("            name_size = %d\n",
 		 entry[i].name_size);
 	  printf("            value_size = %d\n",
 		 entry[i].value_size);
+	  printf("            value = <");
+          print_bytes(entry[i].value_address, entry[i].value_size);
+          printf(" >\n");
         }
       }
     }
@@ -2020,12 +2032,18 @@ static void x3f_setup_camf_entries(x3f_camf_t *CAMF)
 
   for (i=0; p < end; i++) {
     uint32_t *p4 = (uint32_t *)p;
+    uint32_t id = *p4;
 
-    if ((*p4 & 0xffffff) != X3F_CMb) {
-      /* TODO: whats this all about ? Is it OK to just terminate if
-	 you find an invalid entry ? */
-      fprintf(stderr, "Unknown CAMF entry %x (size = %d)\n", *p4, *(p+8));
+    switch (id) {
+    case X3F_CMbP:
       break;
+    case X3F_CMbT:
+      break;
+    case X3F_CMbM:
+      break;
+    default:
+      fprintf(stderr, "Unknown CAMF entry %x (size = %d)\n", *p4, *(p+8));
+      goto stop;
     }
 
     /* TODO: lots of realloc - may be inefficient */
@@ -2047,8 +2065,20 @@ static void x3f_setup_camf_entries(x3f_camf_t *CAMF)
     table[i].name_size = table[i].value_offset - table[i].name_offset;
     table[i].value_size = table[i].entry_size - table[i].value_offset;
 
-    p += table[i].entry_size;
+    /* TODO: unpack data */
+    switch (id) {
+    case X3F_CMbP:
+      break;
+    case X3F_CMbT:
+      break;
+    case X3F_CMbM:
+      break;
+    }
   }
+
+  p += table[i].entry_size;
+
+ stop:
 
   CAMF->entry_table.size = i;
   CAMF->entry_table.element = table;
