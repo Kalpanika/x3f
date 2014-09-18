@@ -226,6 +226,11 @@ typedef struct camf_entry_s {
   void *value_address;
   uint32_t name_size;
   uint32_t value_size;
+
+  /* copied values */
+  uint32_t text_size;
+  uint8_t *text;
+
 } camf_entry_t;
 
 typedef struct camf_entry_table_s {

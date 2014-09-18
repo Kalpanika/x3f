@@ -548,6 +548,20 @@ static void print_bytes(uint8_t *p, uint32_t size)
   }
 }
 
+static char *id_to_str(uint32_t id)
+{
+  char *idp = (char *)&id;
+  static char buf[5];
+
+  buf[0] = *(idp + 0);
+  buf[1] = *(idp + 1);
+  buf[2] = *(idp + 2);
+  buf[3] = *(idp + 3);
+  buf[4] = 0;
+
+  return buf;
+}
+
 /* extern */ void x3f_print(x3f_t *x3f)
 {
   int d;
@@ -772,8 +786,8 @@ static void print_bytes(uint8_t *p, uint32_t size)
 	for (i=0; i<CAMF->entry_table.size; i++) {
 	  printf("          element[%d].name = \"%s\"\n",
 		 i, entry[i].name_address);
-	  printf("            id = %x\n",
-		 entry[i].id);
+	  printf("            id = %x (%s)\n",
+		 entry[i].id, id_to_str(entry[i].id));
 	  printf("            entry_size = %d\n",
 		 entry[i].entry_size);
 	  printf("            name_size = %d\n",
@@ -783,6 +797,10 @@ static void print_bytes(uint8_t *p, uint32_t size)
 	  printf("            value = <");
           print_bytes(entry[i].value_address, entry[i].value_size);
           printf(" >\n");
+          if (entry[i].text != NULL) {
+            printf("            text_size = %d\n", entry[i].text_size);
+            printf("            text = \"%s\"\n", entry[i].text);
+          }
         }
       }
     }
@@ -2068,10 +2086,17 @@ static void x3f_setup_camf_entries(x3f_camf_t *CAMF)
     table[i].value_size = table[i].entry_size - table[i].value_offset;
 
     /* TODO: unpack data */
+
+    table[i].text_size = 0;
+    table[i].text = NULL;
+
     switch (id) {
     case X3F_CMbP:
       break;
     case X3F_CMbT:
+      table[i].text_size = *(uint32_t *)table[i].value_address;
+      table[i].text = (uint8_t *)malloc(table[i].text_size);
+      memcpy(table[i].text, table[i].value_address + 4, table[i].text_size + 1);
       break;
     case X3F_CMbM:
       break;
