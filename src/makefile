@@ -1,5 +1,5 @@
 # MAKEFILE
-# 
+#
 # Copyright (c) 2010 - Roland Karlsson (roland@proxel.se)
 # BSD-style - see doc/copyright.txt
 
@@ -51,7 +51,7 @@ ifeq (osx, $(SYS))
   CFBASE = -O3 -Wall $(ARCH)
   LDFLAGS = -lm $(ARCH)
 else
-  EXE = 
+  EXE =
   CFBASE = -O3 -Wall
   LDFLAGS = -lm
 endif
@@ -71,10 +71,10 @@ $(BINDIR)/x3f_extract$(EXE): $(BINDIR)/x3f_extract.o $(BINDIR)/x3f_io.o
 	gcc $^ -o $@ $(LDFLAGS)
 
 $(BINDIR)/x3f_merge$(EXE): $(BINDIR)/x3f_merge.o $(BINDIR)/x3f_io.o
-	gcc $^ -o $@ $(LDFLAGS) 
+	gcc $^ -o $@ $(LDFLAGS)
 
 $(BINDIR)/x3f_io_test$(EXE): $(BINDIR)/x3f_io_test.o $(BINDIR)/x3f_io.o
-	gcc $^ -o $@ $(LDFLAGS) 
+	gcc $^ -o $@ $(LDFLAGS)
 
 $(BINDIR)/x3f_extract.o: x3f_extract.c x3f_io.h $(BINDIR)/.dummy
 	gcc $(CFLAGS) $< -c -o $@

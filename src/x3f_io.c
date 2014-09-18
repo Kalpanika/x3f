@@ -1,8 +1,8 @@
 /* X3F_IO.C - Library for accessing X3F Files.
- * 
+ *
  * Copyright (c) 2010 - Roland Karlsson (roland@proxel.se)
  * BSD-style - see doc/copyright.txt
- * 
+ *
  */
 
 #include "x3f_io.h"
@@ -35,19 +35,19 @@
 static int x3f_get1(FILE *f)
 {
   /* Little endian file */
-  return getc(f); 
+  return getc(f);
 }
 
 static int x3f_get2(FILE *f)
 {
   /* Little endian file */
-  return (getc(f)<<0) + (getc(f)<<8); 
+  return (getc(f)<<0) + (getc(f)<<8);
 }
 
 static int x3f_get4(FILE *f)
 {
   /* Little endian file */
-  return (getc(f)<<0) + (getc(f)<<8) + (getc(f)<<16) + (getc(f)<<24); 
+  return (getc(f)<<0) + (getc(f)<<8) + (getc(f)<<16) + (getc(f)<<24);
 }
 
 static void x3f_put1(FILE *f, uint8_t v)
@@ -183,7 +183,7 @@ static void x3f_convert4(void *to, void *from)
   uint16_t *t = (uint16_t *)to;
 
   /* Little endian memory */
-  *t = (uint32_t)((*(f+0)<<0) + (*(f+1)<<8) + (*(f+2)<<16) + (*(f+3)<<24)); 
+  *t = (uint32_t)((*(f+0)<<0) + (*(f+1)<<8) + (*(f+2)<<16) + (*(f+3)<<24));
 }
 
 #define CONV2(_v, _p) do {x3f_conv2(_p, _v);} while (0)
@@ -386,7 +386,7 @@ static x3f_huffman_t *new_huffman(x3f_huffman_t **HUFP)
   }
 
   /* Traverse the directory */
-  for (d=0; d<DS->num_directory_entries; d++) { 
+  for (d=0; d<DS->num_directory_entries; d++) {
     x3f_directory_entry_t *DE = &DS->directory_entry[d];
     x3f_directory_entry_header_t *DEH = &DE->header;
     uint32_t save_dir_pos;
@@ -533,10 +533,10 @@ static char x3f_id_buf[5] = {0,0,0,0,0};
 
 static char *x3f_id(uint32_t id)
 {
-  x3f_id_buf[0] = (id>>0) & 0xff; 
-  x3f_id_buf[1] = (id>>8) & 0xff; 
-  x3f_id_buf[2] = (id>>16) & 0xff; 
-  x3f_id_buf[3] = (id>>24) & 0xff; 
+  x3f_id_buf[0] = (id>>0) & 0xff;
+  x3f_id_buf[1] = (id>>8) & 0xff;
+  x3f_id_buf[2] = (id>>16) & 0xff;
+  x3f_id_buf[3] = (id>>24) & 0xff;
 
   return x3f_id_buf;
 }
@@ -581,7 +581,7 @@ static void print_bytes(uint8_t *p, uint32_t size)
     int i;
 
     printf("  white_balance     = %s\n", H->white_balance);
- 
+
     printf("  extended_types\n");
     for (i=0; i<NUM_EXT_DATA; i++) {
       uint8_t type = H->extended_types[i];
@@ -599,7 +599,7 @@ static void print_bytes(uint8_t *p, uint32_t size)
   printf("  num_directory_entries = %08x\n", DS->num_directory_entries);
   printf("  directory_entry       = %p\n", DS->directory_entry);
 
-  for (d=0; d<DS->num_directory_entries; d++) { 
+  for (d=0; d<DS->num_directory_entries; d++) {
     x3f_directory_entry_t *DE = &DS->directory_entry[d];
     x3f_directory_entry_header_t *DEH = &DE->header;
 
@@ -845,7 +845,7 @@ static uint32_t row_offsets_size(x3f_huffman_t *HUF)
   I = &x3f->info;
   I->error = NULL;
   I->output.file = outfile;
-  
+
   if (outfile == NULL) {
     I->error = "No outfile";
     return X3F_OUTFILE_ERROR;
@@ -871,7 +871,7 @@ static uint32_t row_offsets_size(x3f_huffman_t *HUF)
   DS = &x3f->directory_section;
 
   /* Traverse the directory */
-  for (d=0; d<DS->num_directory_entries; d++) { 
+  for (d=0; d<DS->num_directory_entries; d++) {
     x3f_directory_entry_t *DE = &DS->directory_entry[d];
     x3f_directory_entry_header_t *DEH = &DE->header;
 
@@ -974,7 +974,7 @@ static uint32_t row_offsets_size(x3f_huffman_t *HUF)
   PUT4(DS->num_directory_entries);
 
   /* Write the directory entries */
-  for (d=0; d<DS->num_directory_entries; d++) { 
+  for (d=0; d<DS->num_directory_entries; d++) {
     x3f_directory_entry_t *DE = &DS->directory_entry[d];
 
     PUT4(DE->output.offset);
@@ -1003,7 +1003,7 @@ static uint32_t row_offsets_size(x3f_huffman_t *HUF)
 
   DS = &x3f->directory_section;
 
-  for (d=0; d<DS->num_directory_entries; d++) { 
+  for (d=0; d<DS->num_directory_entries; d++) {
     x3f_directory_entry_t *DE = &DS->directory_entry[d];
     x3f_directory_entry_header_t *DEH = &DE->header;
 
@@ -1057,10 +1057,10 @@ static x3f_directory_entry_t *x3f_get(x3f_t *x3f,
 
   DS = &x3f->directory_section;
 
-  for (d=0; d<DS->num_directory_entries; d++) { 
+  for (d=0; d<DS->num_directory_entries; d++) {
     x3f_directory_entry_t *DE = &DS->directory_entry[d];
     x3f_directory_entry_header_t *DEH = &DE->header;
-    
+
     if (DEH->identifier == type) {
       switch (DEH->identifier) {
       case X3F_SECi:
@@ -1203,7 +1203,7 @@ static void populate_true_huffman_tree(x3f_hufftree_t *tree,
   for (i=0; i<table->size; i++) {
     x3f_true_huffman_element_t *element = &table->element[i];
     uint32_t length = element->code_size;
-    
+
     if (length != 0) {
       /* add_code_to_tree wants the code right adjusted */
       uint32_t code = ((element->code) >> (8 - length)) & 0xff;
@@ -1237,7 +1237,7 @@ static void populate_huffman_tree(x3f_hufftree_t *tree,
 
     if (element != 0) {
       uint32_t length = HUF_TREE_GET_LENGTH(element);
-      uint32_t code = HUF_TREE_GET_CODE(element); 
+      uint32_t code = HUF_TREE_GET_CODE(element);
       uint32_t value;
 
       /* If we have a valid mapping table - then the value from the
@@ -1343,8 +1343,8 @@ static int32_t get_true_diff(bit_state_t *BS, x3f_hufftree_t *HTP)
     diff = first_bit;
 
     for (i=1; i<bits; i++)
-      diff = (diff << 1) + get_bit(BS); 
-    
+      diff = (diff << 1) + get_bit(BS);
+
     if (first_bit == 0)
       diff -= (1<<bits) - 1;
   }
@@ -1505,7 +1505,7 @@ static void huffman_decode_row(x3f_info_t *I,
   int16_t c[3] = {offset,offset,offset};
   int col;
   bit_state_t BS;
-  
+
   set_bit_state(&BS, ID->data + HUF->row_offsets.element[row]);
 
   for (col = 0; col < ID->columns; col++) {
@@ -1529,7 +1529,7 @@ static void huffman_decode_row(x3f_info_t *I,
         HUF->x3rgb16.element[3*(row*ID->columns + col) + color] = (uint16_t)c_fix;
         break;
       case X3F_IMAGE_THUMB_HUFFMAN:
-        HUF->rgb8.element[3*(row*ID->columns + col) + color] = (uint8_t)c_fix; 
+        HUF->rgb8.element[3*(row*ID->columns + col) + color] = (uint8_t)c_fix;
         break;
       default:
         fprintf(stderr, "Unknown huffman image type\n");
@@ -1579,7 +1579,7 @@ static void simple_decode_row(x3f_info_t *I,
   x3f_image_data_t *ID = &DEH->data_subsection.image_data;
   x3f_huffman_t *HUF = ID->huffman;
 
-  uint32_t *data = (uint32_t *)(ID->data + row*row_stride); 
+  uint32_t *data = (uint32_t *)(ID->data + row*row_stride);
 
   uint16_t c[3] = {0,0,0};
   int col;
@@ -1621,12 +1621,12 @@ static void simple_decode_row(x3f_info_t *I,
       case X3F_IMAGE_RAW_HUFFMAN_10BIT:
         c_fix = (int16_t)c[color] > 0 ? c[color] : 0;
 
-        HUF->x3rgb16.element[3*(row*ID->columns + col) + color] = c_fix; 
+        HUF->x3rgb16.element[3*(row*ID->columns + col) + color] = c_fix;
         break;
       case X3F_IMAGE_THUMB_HUFFMAN:
         c_fix = (int8_t)c[color] > 0 ? c[color] : 0;
 
-        HUF->rgb8.element[3*(row*ID->columns + col) + color] = c_fix; 
+        HUF->rgb8.element[3*(row*ID->columns + col) + color] = c_fix;
         break;
       default:
         fprintf(stderr, "Unknown huffman image type\n");
@@ -1706,7 +1706,7 @@ static void x3f_load_property_list(x3f_info_t *I, x3f_directory_entry_t *DE)
 
   for (i=0; i<PL->num_properties; i++) {
     x3f_property_t *P = &PL->property_table.element[i];
- 
+
     P->name = ((utf16_t *)PL->data + P->name_offset);
     P->value = ((utf16_t *)PL->data + P->value_offset);
   }
@@ -1753,7 +1753,7 @@ static void x3f_load_true(x3f_info_t *I,
   /* Read image data */
   ID->data_size = read_data_block(&ID->data, I, DE, 0);
 
-  /* TODO: can it be fewer than 8 bits? Maybe taken from TRU->table? */  
+  /* TODO: can it be fewer than 8 bits? Maybe taken from TRU->table? */
   new_huffman_tree(&TRU->tree, 8);
 
   populate_true_huffman_tree(&TRU->tree, &TRU->table);
@@ -1764,9 +1764,9 @@ static void x3f_load_true(x3f_info_t *I,
 
   TRU->plane_address[0] = ID->data;
   for (i=1; i<TRUE_PLANES; i++)
-    TRU->plane_address[i] = 
+    TRU->plane_address[i] =
       TRU->plane_address[i-1] +
-      (((TRU->plane_size.element[i-1] + 15) / 16) * 16); 
+      (((TRU->plane_size.element[i-1] + 15) / 16) * 16);
 
   TRU->x3rgb16.size = ID->columns * ID->rows * 3;
   TRU->x3rgb16.element =
@@ -1835,7 +1835,7 @@ static void x3f_load_huffman(x3f_info_t *I,
   if (use_map_table) {
     int table_size = 1<<bits;
 
-    GET_TABLE(HUF->mapping, GET2, table_size); 
+    GET_TABLE(HUF->mapping, GET2, table_size);
   }
 
   switch (ID->type_format) {
@@ -1876,7 +1876,7 @@ static void x3f_load_image(x3f_info_t *I, x3f_directory_entry_t *DE)
   x3f_image_data_t *ID = &DEH->data_subsection.image_data;
 
   read_data_set_offset(I, DE, X3F_IMAGE_HEADER_SIZE);
-  
+
   switch (ID->type_format) {
   case X3F_IMAGE_RAW_TRUE:
   case X3F_IMAGE_RAW_MERRILL:
@@ -2011,7 +2011,7 @@ static void x3f_load_camf_decode_type4(x3f_camf_t *CAMF)
 #define CAMF_T4_DATA_OFFSET 32
   CAMF->decoding_start = (uint8_t *)CAMF->data + CAMF_T4_DATA_OFFSET;
 
-  /* TODO: can it be fewer than 8 bits? Maybe taken from TRU->table? */  
+  /* TODO: can it be fewer than 8 bits? Maybe taken from TRU->table? */
   new_huffman_tree(&CAMF->tree, 8);
 
   populate_true_huffman_tree(&CAMF->tree, &CAMF->table);
@@ -2062,8 +2062,8 @@ static void x3f_setup_camf_entries(x3f_camf_t *CAMF)
     table[i].value_offset = *p4++;
 
     /* Comute adresses and sizes */
-    table[i].name_address = p + table[i].name_offset; 
-    table[i].value_address = p + table[i].value_offset; 
+    table[i].name_address = p + table[i].name_offset;
+    table[i].value_address = p + table[i].value_offset;
     table[i].name_size = table[i].value_offset - table[i].name_offset;
     table[i].value_size = table[i].entry_size - table[i].value_offset;
 
@@ -2196,7 +2196,7 @@ static void gamma_convert_data(int rows,
     printf("forced max = %d\n", max);
   }
 
-  gammatab = (double *)malloc(65536*sizeof(double)); 
+  gammatab = (double *)malloc(65536*sizeof(double));
 
   for (i = 0; i <= min; i++) {
     gammatab[i] = 0.0;
@@ -2258,8 +2258,8 @@ static void gamma_convert_data(int rows,
   /* As we dont care about the content of the images, we can load them
      as a RAW blocks, including huffman tables, headers and/or
      whatever. */
-  x3f_load_image_block(x3f_1, DE_1); 
-  x3f_load_image_block(x3f_2, DE_2); 
+  x3f_load_image_block(x3f_1, DE_1);
+  x3f_load_image_block(x3f_2, DE_2);
 
   /* SWAP the internal image areas, including all headers. NOTE: this
      will result in wrong input.offset - but it does not matter as it
@@ -2353,7 +2353,7 @@ static void write_16B(FILE *f_out, uint16_t val)
 
           for (col=0; col < ID->columns; col++) {
             int color;
-      
+
             if (binary) {
               for (color=0; color < 3; color++)
                 write_16B(f_out, data[3 * (ID->columns * row + col) + color]);
@@ -2520,7 +2520,7 @@ static void write_array_32(FILE *f_out, uint32_t num, uint32_t *vals)
 
             for (col=0; col < ID->columns; col++) {
               int color;
-      
+
               for (color=0; color < 3; color++)
                 write_16L(f_out, data[3 * (ID->columns * row + col) + color]);
             }
@@ -2560,7 +2560,7 @@ static void write_array_32(FILE *f_out, uint32_t num, uint32_t *vals)
         write_entry_of(f_out, TIFFTAG_YRESOLUTION, TIFF_RATIONAL,
                        1, resolution_offset);
         write_entry_16(f_out, TIFFTAG_RESOLUTIONUNIT, RESUNIT_INCH);
-        
+
         /* Offset of the next IFD = 0 => no more IFDs */
 
         write_32L(f_out, 0);

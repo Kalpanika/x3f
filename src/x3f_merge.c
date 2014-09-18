@@ -1,8 +1,8 @@
 /* X3F_MERGE.C - Merging image data from one RAW file to another.
- * 
+ *
  * Copyright 2011 (c) - Roland Karlsson (roland@proxel.se)
  * BSD-style - see doc/copyright.txt
- * 
+ *
  */
 
 #include "x3f_io.h"
