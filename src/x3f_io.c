@@ -2030,6 +2030,8 @@ static void x3f_setup_camf_entries(x3f_camf_t *CAMF)
   camf_entry_t *table = NULL;
   int i;
 
+  printf("SETUP CAMF ENTRIES\n");
+
   for (i=0; p < end; i++) {
     uint32_t *p4 = (uint32_t *)p;
     uint32_t id = *p4;
@@ -2074,14 +2076,16 @@ static void x3f_setup_camf_entries(x3f_camf_t *CAMF)
     case X3F_CMbM:
       break;
     }
-  }
 
-  p += table[i].entry_size;
+    p += table[i].entry_size;
+  }
 
  stop:
 
   CAMF->entry_table.size = i;
   CAMF->entry_table.element = table;
+
+  printf("SETUP CAMF ENTRIES (READY)\n");
 }
 
 static void x3f_load_camf(x3f_info_t *I, x3f_directory_entry_t *DE)
