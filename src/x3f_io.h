@@ -227,9 +227,13 @@ typedef struct camf_entry_s {
   uint32_t name_size;
   uint32_t value_size;
 
-  /* copied values */
+  /* extracted values for explicit CAMF entry types*/
   uint32_t text_size;
   uint8_t *text;
+  uint32_t property_num;
+  uint8_t **property_name;
+  uint8_t **property_value;
+  uint32_t matrix_dim;
 
 } camf_entry_t;
 

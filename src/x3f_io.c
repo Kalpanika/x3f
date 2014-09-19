@@ -543,8 +543,11 @@ static char *x3f_id(uint32_t id)
 
 static void print_bytes(uint8_t *p, uint32_t size)
 {
-  while (size--) {
-    printf("%02x ", *(p++));
+  int i;
+
+  for (i=0; i<size; i++) {
+    uint8_t b = p[i];
+    printf("%3d: %3x %3d %3c\n", i, b, b, b);
   }
 }
 
@@ -794,13 +797,31 @@ static char *id_to_str(uint32_t id)
 		 entry[i].name_size);
 	  printf("            value_size = %d\n",
 		 entry[i].value_size);
-	  printf("            value = <");
-          print_bytes(entry[i].value_address, entry[i].value_size);
-          printf(" >\n");
-          if (entry[i].text != NULL) {
+
+	  /* Text CAMF */
+          if (entry[i].text_size != 0) {
             printf("            text_size = %d\n", entry[i].text_size);
             printf("            text = \"%s\"\n", entry[i].text);
           }
+
+	  /* Property CAMF */
+          if (entry[i].property_num != 0) {
+	    int j;
+            printf("            property_num = %d\n", entry[i].property_num);
+	    for (j=0; j<entry[i].property_num; j++) {
+	      printf("              \"%s\" = \"%s\"\n",
+		     entry[i].property_name[j],
+		     entry[i].property_value[j]);
+	    }
+          }
+
+	  /* Matrix CAMF */
+          if (entry[i].matrix_dim != 0) {
+	    /* TODO: remove */
+	    printf("            value =\n");
+	    print_bytes(entry[i].value_address, entry[i].value_size);
+	  }
+
         }
       }
     }
@@ -2041,6 +2062,39 @@ static void x3f_load_camf_decode_type4(x3f_camf_t *CAMF)
   camf_decode_type4(CAMF);
 }
 
+static void x3f_setup_camf_text_entry(camf_entry_t *entry)
+{
+  entry->text_size = *(uint32_t *)entry->value_address;
+  entry->text = entry->value_address + 4;
+}
+
+static void x3f_setup_camf_property_entry(camf_entry_t *entry)
+{
+  int i;
+  uint8_t *e =
+    entry->entry;
+  uint8_t *v =
+    entry->value_address;
+  uint32_t num =
+    entry->property_num = *(uint32_t *)v;
+  uint32_t off = *(uint32_t *)(v + 4);
+
+  entry->property_name = (uint8_t **)malloc(num*sizeof(uint8_t*));
+  entry->property_value = (uint8_t **)malloc(num*sizeof(uint8_t*));
+
+  for (i=0; i<num; i++) {
+    uint32_t name_off = off + *(uint32_t *)(v + 8 + 8*i);
+    uint32_t value_off = off + *(uint32_t *)(v + 8 + 8*i + 4);
+
+    entry->property_name[i] = e + name_off;
+    entry->property_value[i] = e + value_off;
+  }
+}
+
+static void x3f_setup_camf_matrix_entry(camf_entry_t *entry)
+{
+}
+
 static void x3f_setup_camf_entries(x3f_camf_t *CAMF)
 {
   uint8_t *p = (uint8_t *)CAMF->decoded_data;
@@ -2089,16 +2143,20 @@ static void x3f_setup_camf_entries(x3f_camf_t *CAMF)
 
     table[i].text_size = 0;
     table[i].text = NULL;
+    table[i].property_num = 0;
+    table[i].property_name = NULL;
+    table[i].property_value = NULL;
+    table[i].matrix_dim = 0;
 
     switch (id) {
     case X3F_CMbP:
+      x3f_setup_camf_property_entry(&table[i]);
       break;
     case X3F_CMbT:
-      table[i].text_size = *(uint32_t *)table[i].value_address;
-      table[i].text = (uint8_t *)malloc(table[i].text_size);
-      memcpy(table[i].text, table[i].value_address + 4, table[i].text_size + 1);
+      x3f_setup_camf_text_entry(&table[i]);
       break;
     case X3F_CMbM:
+      x3f_setup_camf_matrix_entry(&table[i]);
       break;
     }
 
