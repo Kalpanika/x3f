@@ -210,6 +210,13 @@ typedef struct x3f_image_data_s {
 
 } x3f_image_data_t;
 
+typedef struct camf_dim_entry_s {
+  uint32_t size;
+  uint32_t name_offset;
+  uint32_t n; /* 0,1,2,3... */
+  uint8_t *name;
+} camf_dim_entry_t;
+
 typedef struct camf_entry_s {
   /* pointer into decoded data */
   void *entry;
@@ -233,7 +240,25 @@ typedef struct camf_entry_s {
   uint32_t property_num;
   uint8_t **property_name;
   uint8_t **property_value;
+  uint32_t matrix_type; /* 0: 2 byte integer
+			   1: ???
+			   2: ???
+			   3: ???
+			   5: 1 byte integer
+			   6: 2 byte integer
+			*/
   uint32_t matrix_dim;
+  uint32_t matrix_data_off;
+  camf_dim_entry_t *matrix_dim_entry;
+
+  /* Looked up, depending on type. */
+  uint32_t matrix_element_size;
+  uint32_t matrix_element_is_float;
+
+  /* Help data to try to estimate element size */
+  uint32_t matrix_elements;
+  uint32_t matrix_used_space;
+  double matrix_estimated_element_size;
 
 } camf_entry_t;
 

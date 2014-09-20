@@ -817,6 +817,26 @@ static char *id_to_str(uint32_t id)
 
 	  /* Matrix CAMF */
           if (entry[i].matrix_dim != 0) {
+	    int j;
+	    camf_dim_entry_t *dentry = entry[i].matrix_dim_entry;
+
+            printf("            matrix_type = %d\n", entry[i].matrix_type);
+            printf("            matrix_dim = %d\n", entry[i].matrix_dim);
+            printf("            matrix_data_off = %d\n", entry[i].matrix_data_off);
+
+	    for (j=0; j<entry[i].matrix_dim; j++) {
+	      printf("            %d\n", j);
+	      printf("              size = %d\n", dentry[j].size);
+	      printf("              name_offset = %d\n", dentry[j].name_offset);
+	      printf("              n = %d\n", dentry[j].n);
+	      printf("              name = \"%s\"\n", dentry[j].name);
+	    }
+
+            printf("            matrix_element_size = %d\n", entry[i].matrix_element_size);
+            printf("            matrix_element_is_float = %d\n", entry[i].matrix_element_is_float);
+            printf("            matrix_elements = %d\n", entry[i].matrix_elements);
+            printf("            matrix_estimated_element_size = %g\n", entry[i].matrix_estimated_element_size);
+
 	    /* TODO: remove */
 	    printf("            value =\n");
 	    print_bytes(entry[i].value_address, entry[i].value_size);
@@ -2091,8 +2111,76 @@ static void x3f_setup_camf_property_entry(camf_entry_t *entry)
   }
 }
 
+static void set_matrix_element_info(uint32_t type, uint32_t *size, uint32_t *is_float)
+{
+  switch (type) {
+  case 0:
+    *size = 2;
+    *is_float = 0;
+    break;
+  case 1:
+    *size = 4;
+    *is_float = 0;
+    break;
+  case 2:
+    *size = 4;
+    *is_float = 0;
+    break;
+  case 3:
+    *size = 4;
+    *is_float = 1;
+    break;
+  case 5:
+    *size = 1;
+    *is_float = 0;
+    break;
+  case 6:
+    *size = 2;
+    *is_float = 0;
+    break;
+  default:
+    fprintf(stderr, "Unknown matrix type (%ud)\n", type);
+    *size = 4;
+    *is_float = 0;
+  }
+}
+
 static void x3f_setup_camf_matrix_entry(camf_entry_t *entry)
 {
+  int i;
+  int totalsize = 1;
+
+  uint8_t *e =
+    entry->entry;
+  uint8_t *v =
+    entry->value_address;
+  uint32_t type =
+    entry->matrix_type = *(uint32_t *)(v + 0);
+  uint32_t dim =
+    entry->matrix_dim = *(uint32_t *)(v + 4);
+  uint32_t off =
+    entry->matrix_data_off = *(uint32_t *)(v + 8);
+  camf_dim_entry_t *dentry =
+    entry->matrix_dim_entry =
+    (camf_dim_entry_t*)malloc(dim*sizeof(camf_dim_entry_t));
+
+  for (i=0; i<dim; i++) {
+    uint32_t size =
+      dentry[i].size = *(uint32_t *)(v + 12 + 12*i + 0);
+    dentry[i].name_offset = *(uint32_t *)(v + 12 + 12*i + 4);
+    dentry[i].n = *(uint32_t *)(v + 12 + 12*i + 8);
+    dentry[i].name = e + dentry[i].name_offset;
+
+    totalsize *= size;
+  }
+
+  set_matrix_element_info(type, &entry->matrix_element_size, &entry->matrix_element_is_float);
+
+  entry->matrix_elements = totalsize;
+  entry->matrix_used_space = entry->entry_size - off;
+
+  /* This estimate only works for matrices above a certain size */
+  entry->matrix_estimated_element_size = entry->matrix_used_space / totalsize;
 }
 
 static void x3f_setup_camf_entries(x3f_camf_t *CAMF)
@@ -2146,7 +2234,10 @@ static void x3f_setup_camf_entries(x3f_camf_t *CAMF)
     table[i].property_num = 0;
     table[i].property_name = NULL;
     table[i].property_value = NULL;
+    table[i].matrix_type = 0;
     table[i].matrix_dim = 0;
+    table[i].matrix_data_off = 0;
+    table[i].matrix_dim_entry = NULL;
 
     switch (id) {
     case X3F_CMbP:
