@@ -2177,6 +2177,7 @@ static void x3f_setup_camf_matrix_entry(camf_entry_t *entry)
   set_matrix_element_info(type,
 			  &entry->matrix_element_size,
 			  &entry->matrix_element_is_float);
+  entry->matrix = (void *)(e + off);
 
   entry->matrix_elements = totalsize;
   entry->matrix_used_space = entry->entry_size - off;
