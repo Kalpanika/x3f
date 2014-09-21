@@ -546,8 +546,24 @@ static void print_bytes(uint8_t *p, uint32_t size)
   int i;
 
   for (i=0; i<size; i++) {
-    uint8_t b = p[i];
-    printf("%3d: %3x %3d %3c\n", i, b, b, b);
+    uint8_t b = *(p+i);
+
+    printf("%3d: %3x %3d %3c", i, b, b, b);
+
+    if ((i % 2) == 0) {
+      uint16_t b2 = *(uint16_t *)(p + i);
+
+      printf("%6d", b2);
+    }
+
+    if ((i % 4) == 0) {
+      uint32_t b4 = *(uint32_t *)(p + i);
+      float d4; memcpy(&d4, &b4, 4);
+
+      printf("%12d %g", b4, d4);
+    }
+
+    printf("\n");
   }
 }
 
@@ -563,6 +579,92 @@ static char *id_to_str(uint32_t id)
   buf[4] = 0;
 
   return buf;
+}
+
+static void print_matrix_1D(camf_entry_t *entry, uint8_t *p, uint32_t incr_1D)
+{
+  uint32_t size = entry->matrix_dim_entry[0].size;
+  int i;
+  int mask;
+
+  switch (incr_1D) {
+  case 1: mask = 0x000000ff; break;
+  case 2: mask = 0x0000ffff; break;
+  case 4: mask = 0xffffffff; break;
+  default:
+    fprintf(stderr, "Unknown matrix elelement size (%d)", incr_1D),
+    mask = 0xffffffff;
+    break;
+  }
+
+  for (i = 0; i < size; i++) {
+    uint32_t v = (*(uint32_t *)(p + i*incr_1D))&mask;
+    float fv;
+
+    switch (entry->matrix_element_is_float) {
+    case 0:
+      printf("%10d ", v);
+      break;
+    case 1:
+      memcpy(&fv, &v, 4);
+      printf("%10g ", fv);
+      break;
+    }
+  }
+  printf("\n");
+}
+
+static void print_matrix_2D(camf_entry_t *entry, uint8_t *p, uint32_t incr_1D, uint32_t incr_2D)
+{
+  uint32_t size = entry->matrix_dim_entry[1].size;
+  int i;
+
+  for (i = 0; i < size; i++) {
+    print_matrix_1D(entry, p + i*incr_2D, incr_1D);
+  }
+  printf("\n");
+}
+
+static void print_matrix_3D(camf_entry_t *entry, uint8_t *p, uint32_t incr_1D, uint32_t incr_2D, uint32_t incr_3D)
+{
+  uint32_t size = entry->matrix_dim_entry[2].size;
+  int i;
+
+  for (i = 0; i < size; i++) {
+    print_matrix_2D(entry, p + i*incr_3D, incr_1D, incr_2D);
+  }
+  printf("\n");
+}
+
+static void print_matrix(camf_entry_t *entry)
+{
+  uint32_t dim = entry->matrix_dim;
+  uint8_t* p = entry->matrix;
+  uint32_t incr_1D = entry->matrix_element_size;
+  uint32_t size_1D = entry->matrix_dim_entry[0].size;
+  uint32_t incr_2D = incr_1D * size_1D;
+  uint32_t size_2D = entry->matrix_dim_entry[1].size;
+  uint32_t incr_3D = incr_2D * size_2D;
+
+  printf("\nMATRIX BEGIN ---------------------------------------------------------------\n");
+
+  switch (dim) {
+  case 1:
+    print_matrix_1D(entry, p, incr_1D);
+    break;
+  case 2:
+    print_matrix_2D(entry, p, incr_1D, incr_2D);
+    break;
+  case 3:
+    print_matrix_3D(entry, p, incr_1D, incr_2D, incr_3D);
+    break;
+  default:
+    printf("Not support for higher than 3D in printout\n");
+    fprintf(stderr, "Not support for higher than 3D in printout\n");
+  }
+
+  printf("\nMATRIX END -----------------------------------------------------------------\n");
+
 }
 
 /* extern */ void x3f_print(x3f_t *x3f)
@@ -837,9 +939,9 @@ static char *id_to_str(uint32_t id)
             printf("            matrix_elements = %d\n", entry[i].matrix_elements);
             printf("            matrix_estimated_element_size = %g\n", entry[i].matrix_estimated_element_size);
 
-	    /* TODO: remove */
-	    printf("            value =\n");
-	    print_bytes(entry[i].value_address, entry[i].value_size);
+	    print_matrix(&entry[i]);
+
+	    /* print_bytes(entry[i].value_address, entry[i].value_size); */
 	  }
 
         }
@@ -2169,6 +2271,9 @@ static void x3f_setup_camf_matrix_entry(camf_entry_t *entry)
       dentry[i].size = *(uint32_t *)(v + 12 + 12*i + 0);
     dentry[i].name_offset = *(uint32_t *)(v + 12 + 12*i + 4);
     dentry[i].n = *(uint32_t *)(v + 12 + 12*i + 8);
+    if (dentry[i].n != i) {
+      fprintf(stderr, "WARNING: matrix entries out of order (%d != %d)", dentry[i].n, i);
+    }
     dentry[i].name = e + dentry[i].name_offset;
 
     totalsize *= size;
