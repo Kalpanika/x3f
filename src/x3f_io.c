@@ -1794,10 +1794,10 @@ static void x3f_load_true(x3f_info_t *I,
   printf("Load TRUE\n");
 
   /* Read TRUE header data */
-  GET2(TRU->seed[0]);		/* TODO : should it always be 512 ?? */
-  GET2(TRU->seed[1]);		/* TODO : should it always be 512 ?? */
-  GET2(TRU->seed[2]);		/* TODO : should it always be 512 ?? */
-  GET2(TRU->unknown);		/* TODO : should it always be zero ?? */
+  GET2(TRU->seed[0]);
+  GET2(TRU->seed[1]);
+  GET2(TRU->seed[2]);
+  GET2(TRU->unknown);
   GET_TRUE_HUFF_TABLE(TRU->table);
 
   if (ID->type_format == X3F_IMAGE_RAW_QUATTRO) {
@@ -2066,7 +2066,7 @@ static void x3f_load_camf_decode_type4(x3f_camf_t *CAMF)
   CAMF->table.size = i;
   CAMF->table.element = element;
 
-  /* TODO: where does thes value 32 come from? */
+  /* TODO: where does the value 32 come from? */
 #define CAMF_T4_DATA_OFFSET 32
   CAMF->decoding_start = (uint8_t *)CAMF->data + CAMF_T4_DATA_OFFSET;
 
@@ -2174,7 +2174,9 @@ static void x3f_setup_camf_matrix_entry(camf_entry_t *entry)
     totalsize *= size;
   }
 
-  set_matrix_element_info(type, &entry->matrix_element_size, &entry->matrix_element_is_float);
+  set_matrix_element_info(type,
+			  &entry->matrix_element_size,
+			  &entry->matrix_element_is_float);
 
   entry->matrix_elements = totalsize;
   entry->matrix_used_space = entry->entry_size - off;
@@ -2221,13 +2223,11 @@ static void x3f_setup_camf_entries(x3f_camf_t *CAMF)
     table[i].name_offset = *p4++;
     table[i].value_offset = *p4++;
 
-    /* Comute adresses and sizes */
+    /* Compute adresses and sizes */
     table[i].name_address = p + table[i].name_offset;
     table[i].value_address = p + table[i].value_offset;
     table[i].name_size = table[i].value_offset - table[i].name_offset;
     table[i].value_size = table[i].entry_size - table[i].value_offset;
-
-    /* TODO: unpack data */
 
     table[i].text_size = 0;
     table[i].text = NULL;

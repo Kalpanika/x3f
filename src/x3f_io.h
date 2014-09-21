@@ -237,21 +237,15 @@ typedef struct camf_entry_s {
   /* extracted values for explicit CAMF entry types*/
   uint32_t text_size;
   uint8_t *text;
+
   uint32_t property_num;
   uint8_t **property_name;
   uint8_t **property_value;
-  uint32_t matrix_type; /* 0: 2 byte integer
-			   1: ???
-			   2: ???
-			   3: ???
-			   5: 1 byte integer
-			   6: 2 byte integer
-			*/
+
+  uint32_t matrix_type;
   uint32_t matrix_dim;
   uint32_t matrix_data_off;
   camf_dim_entry_t *matrix_dim_entry;
-
-  /* Looked up, depending on type. */
   uint32_t matrix_element_size;
   uint32_t matrix_element_is_float;
 
