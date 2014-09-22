@@ -581,24 +581,26 @@ static char *id_to_str(uint32_t id)
   return buf;
 }
 
-static void print_matrix_1D(camf_entry_t *entry, uint8_t *p, uint32_t incr_1D)
+static uint8_t *print_matrix_1D(camf_entry_t *entry, uint8_t *p)
 {
-  uint32_t size = entry->matrix_dim_entry[0].size;
+  uint32_t dim = entry->matrix_dim;
+  uint32_t size = entry->matrix_dim_entry[dim-1].size;
+  uint32_t element_size = entry->matrix_element_size;
   int i;
   int mask;
 
-  switch (incr_1D) {
+  switch (element_size) {
   case 1: mask = 0x000000ff; break;
   case 2: mask = 0x0000ffff; break;
   case 4: mask = 0xffffffff; break;
   default:
-    fprintf(stderr, "Unknown matrix elelement size (%d)", incr_1D),
-    mask = 0xffffffff;
+    fprintf(stderr, "Unknown matrix element size (%d)", element_size),
+      mask = 0xffffffff;
     break;
   }
 
   for (i = 0; i < size; i++) {
-    uint32_t v = (*(uint32_t *)(p + i*incr_1D))&mask;
+    uint32_t v = (*(uint32_t *)(p + i*element_size))&mask;
     float fv;
 
     switch (entry->matrix_element_is_float) {
@@ -611,52 +613,64 @@ static void print_matrix_1D(camf_entry_t *entry, uint8_t *p, uint32_t incr_1D)
       break;
     }
   }
+
   printf("\n");
+
+  return p + size*element_size;
 }
 
-static void print_matrix_2D(camf_entry_t *entry, uint8_t *p, uint32_t incr_1D, uint32_t incr_2D)
+static uint8_t *print_matrix_2D(camf_entry_t *entry, uint8_t *p)
 {
-  uint32_t size = entry->matrix_dim_entry[1].size;
+  uint32_t dim = entry->matrix_dim;
+  uint32_t size = entry->matrix_dim_entry[dim-2].size;
   int i;
+  uint8_t *newp = p;
 
   for (i = 0; i < size; i++) {
-    print_matrix_1D(entry, p + i*incr_2D, incr_1D);
+    newp = print_matrix_1D(entry, newp);
   }
+
   printf("\n");
+
+  return newp;
 }
 
-static void print_matrix_3D(camf_entry_t *entry, uint8_t *p, uint32_t incr_1D, uint32_t incr_2D, uint32_t incr_3D)
+static void print_matrix_3D(camf_entry_t *entry, uint8_t *p)
 {
-  uint32_t size = entry->matrix_dim_entry[2].size;
+  uint32_t dim = entry->matrix_dim;
+  uint32_t size = entry->matrix_dim_entry[dim-3].size;
   int i;
+  uint8_t *newp = p;
 
   for (i = 0; i < size; i++) {
-    print_matrix_2D(entry, p + i*incr_3D, incr_1D, incr_2D);
+    newp = print_matrix_2D(entry, newp);
   }
+
   printf("\n");
 }
 
 static void print_matrix(camf_entry_t *entry)
 {
   uint32_t dim = entry->matrix_dim;
-  uint8_t* p = entry->matrix;
-  uint32_t incr_1D = entry->matrix_element_size;
-  uint32_t size_1D = entry->matrix_dim_entry[0].size;
-  uint32_t incr_2D = incr_1D * size_1D;
-  uint32_t size_2D = entry->matrix_dim_entry[1].size;
-  uint32_t incr_3D = incr_2D * size_2D;
+  uint8_t* p = entry->matrix_data;
 
   printf("\nMATRIX BEGIN ---------------------------------------------------------------\n");
 
   switch (dim) {
   case 1:
-    print_matrix_1D(entry, p, incr_1D);
+    printf("x: %s\n", entry->matrix_dim_entry[0].name);
+    print_matrix_1D(entry, p);
     break;
   case 2:
-    print_matrix_2D(entry, p, incr_1D, incr_2D);
+    printf("x: %s\n", entry->matrix_dim_entry[1].name);
+    printf("y: %s\n", entry->matrix_dim_entry[0].name);
+    print_matrix_2D(entry, p);
     break;
   case 3:
-    print_matrix_3D(entry, p, incr_1D, incr_2D, incr_3D);
+    printf("x: %s\n", entry->matrix_dim_entry[2].name);
+    printf("y: %s\n", entry->matrix_dim_entry[1].name);
+    printf("z: %s (i.e. group)\n", entry->matrix_dim_entry[0].name);
+    print_matrix_3D(entry, p);
     break;
   default:
     printf("Not support for higher than 3D in printout\n");
@@ -2282,7 +2296,7 @@ static void x3f_setup_camf_matrix_entry(camf_entry_t *entry)
   set_matrix_element_info(type,
 			  &entry->matrix_element_size,
 			  &entry->matrix_element_is_float);
-  entry->matrix = (void *)(e + off);
+  entry->matrix_data = (void *)(e + off);
 
   entry->matrix_elements = totalsize;
   entry->matrix_used_space = entry->entry_size - off;
@@ -2343,6 +2357,7 @@ static void x3f_setup_camf_entries(x3f_camf_t *CAMF)
     table[i].matrix_type = 0;
     table[i].matrix_dim = 0;
     table[i].matrix_data_off = 0;
+    table[i].matrix_data = NULL;
     table[i].matrix_dim_entry = NULL;
 
     switch (id) {
