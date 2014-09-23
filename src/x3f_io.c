@@ -1168,6 +1168,11 @@ static uint32_t row_offsets_size(x3f_huffman_t *HUF)
 /* Clean up an x3f structure                                             */
 /* --------------------------------------------------------------------- */
 
+static void free_camf_entry(camf_entry_t *entry)
+{
+  /* TODO: fill this with something */
+}
+
 /* extern */ x3f_return_t x3f_delete(x3f_t *x3f)
 {
   x3f_directory_section_t *DS;
@@ -1199,11 +1204,16 @@ static uint32_t row_offsets_size(x3f_huffman_t *HUF)
 
     if (DEH->identifier == X3F_SECc) {
       x3f_camf_t *CAMF = &DEH->data_subsection.camf;
+      int i;
 
       FREE(CAMF->data);
       FREE(CAMF->table.element);
       cleanup_huffman_tree(&CAMF->tree);
       FREE(CAMF->decoded_data);
+      FREE(CAMF->entry_table.element);
+      for (i=0; i < CAMF->entry_table.size; i++) {
+	free_camf_entry(&CAMF->entry_table.element[i]);
+      }
       FREE(CAMF->entry_table.element);
     }
   }
