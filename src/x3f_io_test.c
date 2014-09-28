@@ -7,72 +7,106 @@
 
 #include "x3f_io.h"
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+static void usage(char *progname)
+{
+  fprintf(stderr,
+          "usage: %s [-unpack] [-noprint] [-write] <X3F-file>\n",
+          progname);
+  exit(1);
+}
+
+static void write_x3f(x3f_t *x3f, char *infilename, char *extension)
+{
+  char outfilename[1024];
+  strcpy(outfilename, infilename);
+  strcat(outfilename, extension);
+  FILE *f_out = fopen(outfilename, "wb");
+
+  if (f_out == NULL) {
+    fprintf(stderr, "Could not open outfile %s\n", outfilename);
+  } else {
+    printf("WRITE THE X3F FILE %s\n", outfilename);
+    x3f_write_to_file(x3f, f_out);
+    fclose(f_out);
+  }
+}
 
 int main(int argc, char *argv[])
 {
   FILE *f_in = NULL;
   x3f_t *x3f = NULL;
 
-  if (argc < 2) {
-    fprintf(stderr, "usage: %s infile [outfile [outfile2]]\n", argv[0]);
-    return 1;
+  int do_unpack_data = 0;
+  int do_print_info = 1;
+  int do_write_x3f = 0;
+
+  char *infilename;
+
+  int i;
+
+  for (i=1; i<argc; i++)
+    if (!strcmp(argv[i], "-unpack"))
+      do_unpack_data = 1;
+    else if (!strcmp(argv[i], "-noprint"))
+      do_print_info = 0;
+    else if (!strcmp(argv[i], "-write"))
+      do_write_x3f = 1;
+    else
+      break;			/* Now comes the file name */
+
+  if (argc != i+1) {
+    usage(argv[0]);
   }
 
-  f_in = fopen(argv[1], "rb");
+  infilename = argv[i];
+  f_in = fopen(infilename, "rb");
 
   if (f_in == NULL) {
-    fprintf(stderr, "Could not open infile %s\n", argv[1]);
+    fprintf(stderr, "Could not open infile %s\n", infilename);
     return 1;
   }
 
   printf("READ THE X3F FILE %s\n", argv[1]);
   x3f = x3f_new_from_file(f_in);
 
-  printf("PRINT THE X3F STRUCTURE\n");
-  x3f_print(x3f);
+  if (do_print_info) {
+    printf("PRINT THE SKELETON X3F STRUCTURE\n");
+    x3f_print(x3f);
+  }
 
-  if (argc > 2) {
-    FILE *f_out = fopen(argv[2], "wb");
-
-    if (f_out == NULL) {
-      fprintf(stderr, "Could not open outfile %s\n", argv[2]);
-    } else {
-      printf("WRITE THE X3F FILE %s\n", argv[2]);
-      x3f_write_to_file(x3f, f_out);
-      fclose(f_out);
-    }
+  if (do_write_x3f) {
+    write_x3f(x3f, infilename, ".skeleton.x3f");
   }
   
-  if (argc > 3) {
-    FILE *f_out = fopen(argv[3], "wb");
+  if (do_unpack_data) {
+    printf("LOAD RAW DATA\n");
+    x3f_load_data(x3f, x3f_get_raw(x3f));
 
-    if (f_out == NULL) {
-      fprintf(stderr, "Could not open outfile %s\n", argv[3]);
-    } else {
-      printf("LOAD RAW DATA\n");
-      x3f_load_data(x3f, x3f_get_raw(x3f));
+    printf("LOAD THUMBNAIL DATA\n");
+    x3f_load_data(x3f, x3f_get_thumb_plain(x3f));
 
-      printf("LOAD THUMBNAIL DATA\n");
-      x3f_load_data(x3f, x3f_get_thumb_plain(x3f));
+    printf("LOAD HUFFMAN THUMBNAIL DATA\n");
+    x3f_load_data(x3f, x3f_get_thumb_huffman(x3f));
 
-      printf("LOAD HUFFMAN THUMBNAIL DATA\n");
-      x3f_load_data(x3f, x3f_get_thumb_huffman(x3f));
+    printf("LOAD JPEG THUMBNAIL DATA\n");
+    x3f_load_data(x3f, x3f_get_thumb_jpeg(x3f));
 
-      printf("LOAD JPEG THUMBNAIL DATA\n");
-      x3f_load_data(x3f, x3f_get_thumb_jpeg(x3f));
+    printf("LOAD CAMF DATA\n");
+    x3f_load_data(x3f, x3f_get_camf(x3f));
 
-      printf("LOAD CAMF DATA\n");
-      x3f_load_data(x3f, x3f_get_camf(x3f));
+    printf("LOAD PROP DATA\n");
+    x3f_load_data(x3f, x3f_get_prop(x3f));
 
-      printf("LOAD PROP DATA\n");
-      x3f_load_data(x3f, x3f_get_prop(x3f));
-
-      printf("PRINT THE X3F STRUCTURE (AGAIN)\n");
+    if (do_print_info) {
+      printf("PRINT THE UNPACKED X3F STRUCTURE\n");
       x3f_print(x3f);
+    }
 
-      printf("WRITE THE X3F FILE %s\n", argv[3]);
-      x3f_write_to_file(x3f, f_out);
-      fclose(f_out);
+    if (do_write_x3f) {
+      write_x3f(x3f, infilename, ".unpacked.x3f");
     }
   }
 
