@@ -581,7 +581,22 @@ static char *id_to_str(uint32_t id)
   return buf;
 }
 
-static uint8_t *print_matrix_1D(camf_entry_t *entry, uint8_t *p)
+static void print_matrix_element(camf_entry_t *entry, uint32_t v)
+{
+  float fv;
+
+  switch (entry->matrix_element_is_float) {
+  case 0:
+    printf("%10d ", v);
+    break;
+  case 1:
+    memcpy(&fv, &v, 4);
+    printf("%10g ", fv);
+    break;
+  }
+}
+
+static uint8_t *print_matrix_data_1D(camf_entry_t *entry, uint8_t *p)
 {
   uint32_t dim = entry->matrix_dim;
   uint32_t size = entry->matrix_dim_entry[dim-1].size;
@@ -600,18 +615,7 @@ static uint8_t *print_matrix_1D(camf_entry_t *entry, uint8_t *p)
   }
 
   for (i = 0; i < size; i++) {
-    uint32_t v = (*(uint32_t *)(p + i*element_size))&mask;
-    float fv;
-
-    switch (entry->matrix_element_is_float) {
-    case 0:
-      printf("%10d ", v);
-      break;
-    case 1:
-      memcpy(&fv, &v, 4);
-      printf("%10g ", fv);
-      break;
-    }
+    print_matrix_element(entry, (*(uint32_t *)(p + i*element_size))&mask);
   }
 
   printf("\n");
@@ -619,7 +623,7 @@ static uint8_t *print_matrix_1D(camf_entry_t *entry, uint8_t *p)
   return p + size*element_size;
 }
 
-static uint8_t *print_matrix_2D(camf_entry_t *entry, uint8_t *p)
+static uint8_t *print_matrix_data_2D(camf_entry_t *entry, uint8_t *p)
 {
   uint32_t dim = entry->matrix_dim;
   uint32_t size = entry->matrix_dim_entry[dim-2].size;
@@ -627,7 +631,7 @@ static uint8_t *print_matrix_2D(camf_entry_t *entry, uint8_t *p)
   uint8_t *newp = p;
 
   for (i = 0; i < size; i++) {
-    newp = print_matrix_1D(entry, newp);
+    newp = print_matrix_data_1D(entry, newp);
   }
 
   printf("\n");
@@ -635,7 +639,7 @@ static uint8_t *print_matrix_2D(camf_entry_t *entry, uint8_t *p)
   return newp;
 }
 
-static void print_matrix_3D(camf_entry_t *entry, uint8_t *p)
+static void print_matrix_data_3D(camf_entry_t *entry, uint8_t *p)
 {
   uint32_t dim = entry->matrix_dim;
   uint32_t size = entry->matrix_dim_entry[dim-3].size;
@@ -643,42 +647,41 @@ static void print_matrix_3D(camf_entry_t *entry, uint8_t *p)
   uint8_t *newp = p;
 
   for (i = 0; i < size; i++) {
-    newp = print_matrix_2D(entry, newp);
+    newp = print_matrix_data_2D(entry, newp);
   }
 
   printf("\n");
 }
 
-static void print_matrix(camf_entry_t *entry)
+static void print_matrix_data(camf_entry_t *entry)
 {
   uint32_t dim = entry->matrix_dim;
   uint8_t* p = entry->matrix_data;
 
-  printf("\nMATRIX BEGIN ---------------------------------------------------------------\n");
+  printf("\nMATRIX DATA BEGIN ---------------------------------------------------------------\n");
 
   switch (dim) {
   case 1:
     printf("x: %s\n", entry->matrix_dim_entry[0].name);
-    print_matrix_1D(entry, p);
+    print_matrix_data_1D(entry, p);
     break;
   case 2:
     printf("x: %s\n", entry->matrix_dim_entry[1].name);
     printf("y: %s\n", entry->matrix_dim_entry[0].name);
-    print_matrix_2D(entry, p);
+    print_matrix_data_2D(entry, p);
     break;
   case 3:
     printf("x: %s\n", entry->matrix_dim_entry[2].name);
     printf("y: %s\n", entry->matrix_dim_entry[1].name);
     printf("z: %s (i.e. group)\n", entry->matrix_dim_entry[0].name);
-    print_matrix_3D(entry, p);
+    print_matrix_data_3D(entry, p);
     break;
   default:
     printf("Not support for higher than 3D in printout\n");
     fprintf(stderr, "Not support for higher than 3D in printout\n");
   }
 
-  printf("\nMATRIX END -----------------------------------------------------------------\n");
-
+  printf("\nMATRIX DATA END -----------------------------------------------------------------\n");
 }
 
 /* extern */ void x3f_print(x3f_t *x3f)
@@ -953,7 +956,7 @@ static void print_matrix(camf_entry_t *entry)
             printf("            matrix_elements = %d\n", entry[i].matrix_elements);
             printf("            matrix_estimated_element_size = %g\n", entry[i].matrix_estimated_element_size);
 
-	    print_matrix(&entry[i]);
+	    print_matrix_data(&entry[i]);
 
 	    /* print_bytes(entry[i].value_address, entry[i].value_size); */
 	  }
@@ -2236,6 +2239,8 @@ static void x3f_setup_camf_property_entry(camf_entry_t *entry)
     entry->property_value[i] = e + value_off;
   }
 }
+
+/* TODO: should there not be a flag for is_unsigned? */
 
 static void set_matrix_element_info(uint32_t type, uint32_t *size, uint32_t *is_float)
 {
