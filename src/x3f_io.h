@@ -246,6 +246,11 @@ typedef struct camf_entry_s {
   uint32_t matrix_dim;
   uint32_t matrix_data_off;
   void *matrix_data;
+  struct {
+    float *as_float;
+    uint32_t *as_uint;
+    int32_t *as_int;
+  } matrix;
   camf_dim_entry_t *matrix_dim_entry;
   uint32_t matrix_element_size;
   uint32_t matrix_element_is_float;
