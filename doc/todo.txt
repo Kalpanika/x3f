@@ -13,11 +13,14 @@ REFACTORING
 SMALL THINGS
 --------------------------------------------------------------------
 
-* Decoding the CAMF data values
+* Signed vs unsigned for CAMF matrix data ?
+
+* Decoding Quattro CAMF data
 
 * More error handling x3f_io.c
 
-* Use stdout for image files in extract (and maybe stdin for x3f file)
+* Possible to use stdout for output files in extract
+  (and maybe stdin for x3f file)
 
 * Logic for getting thumbs images is wrong. There might be two
   and they might be of same type but different size.
