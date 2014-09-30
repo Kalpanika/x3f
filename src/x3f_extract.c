@@ -15,7 +15,7 @@ typedef enum {RAW, TIFF, PPMP3, PPMP6, HISTOGRAM} raw_file_type_t;
 static void usage(char *progname)
 {
   fprintf(stderr,
-          "usage: %s [-jpg]"
+          "usage: %s [-jpg] [-meta]"
           " [{-raw|-tiff [-gamma <GAMMA> [-min <MIN>] [-max <MAX>]]}]"
           " <file1> ...\n"
           "   -jpg            Dump embedded JPG. Turn off RAW dumping\n"
@@ -38,6 +38,7 @@ static void usage(char *progname)
 int main(int argc, char *argv[])
 {
   int extract_jpg = 0;
+  int extract_meta = 0;
   int extract_raw = 1;
   int min = -1;
   int max = -1;
@@ -51,6 +52,8 @@ int main(int argc, char *argv[])
   for (i=1; i<argc; i++)
     if (!strcmp(argv[i], "-jpg"))
       extract_raw = 0, extract_jpg = 1;
+    else if (!strcmp(argv[i], "-meta"))
+      extract_raw = 0, extract_meta = 1;
     else if (!strcmp(argv[i], "-raw"))
       extract_raw = 1, file_type = RAW;
     else if (!strcmp(argv[i], "-tiff"))
@@ -116,6 +119,21 @@ int main(int argc, char *argv[])
 
       printf("Dump JPEG to %s\n", outfilename);
       if (X3F_OK != x3f_dump_jpeg(x3f, outfilename))
+        fprintf(stderr, "Could not dump JPEG to %s\n", outfilename);
+    }
+
+    if (extract_meta) {
+      char outfilename[1024];
+
+      x3f_load_data(x3f, x3f_get_thumb_jpeg(x3f));
+      x3f_load_data(x3f, x3f_get_prop(x3f));
+      x3f_load_data(x3f, x3f_get_camf(x3f));
+
+      strcpy(outfilename, infilename);
+      strcat(outfilename, ".meta");
+
+      printf("Dump META DATA to %s\n", outfilename);
+      if (X3F_OK != x3f_dump_meta_data(x3f, outfilename))
         fprintf(stderr, "Could not dump JPEG to %s\n", outfilename);
     }
 

@@ -426,5 +426,7 @@ extern x3f_return_t x3f_dump_raw_data_as_histogram(x3f_t *x3f,
 
 extern x3f_return_t x3f_dump_jpeg(x3f_t *x3f, char *outfilename);
 
+extern x3f_return_t x3f_dump_meta_data(x3f_t *x3f, char *outfilename);
+
 
 #endif /* X3F_IO_H */

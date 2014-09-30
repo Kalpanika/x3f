@@ -2990,6 +2990,41 @@ static int ilog_inv(int i, double base, int steps)
   return X3F_OK;
 }
 
+/* extern */ x3f_return_t x3f_dump_meta_data(x3f_t *x3f, char *outfilename)
+{
+  x3f_directory_entry_t *JPEG_DE = x3f_get_thumb_jpeg(x3f);
+  x3f_directory_entry_t *CAMF_DE = x3f_get_camf(x3f);
+  x3f_directory_entry_t *PROP_DE = x3f_get_prop(x3f);
+
+  FILE *f_out = fopen(outfilename, "wb");
+
+  if (f_out == NULL) {
+    return X3F_OUTFILE_ERROR;
+  }
+
+  if (JPEG_DE == NULL) {
+    fprintf(stderr, "Did not find any JPEG\n");
+  } else {
+    fprintf(stderr, "No meta data extraction from JPEG implemented\n");
+  }
+
+  if (CAMF_DE == NULL) {
+    fprintf(stderr, "Did not find any CAMF\n");
+  } else {
+    fprintf(stderr, "No meta data extraction from CAMF implemented\n");
+  }
+
+  if (PROP_DE == NULL) {
+    fprintf(stderr, "Did not find any PROP\n");
+  } else {
+    fprintf(stderr, "No meta data extraction from PROP implemented\n");
+  }
+
+  fclose(f_out);
+
+  return X3F_OK;
+}
+
 /* --------------------------------------------------------------------- */
 /* The End                                                               */
 /* --------------------------------------------------------------------- */
