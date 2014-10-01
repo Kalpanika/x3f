@@ -667,7 +667,7 @@ static void print_jpeg_exif_meta_data(FILE *f_out, x3f_t *x3f)
 
 static void print_camf_meta_data2(FILE *f_out, x3f_camf_t *CAMF)
 {
-  fprintf(f_out, "BEGIN: PROP meta data\n\n");
+  fprintf(f_out, "BEGIN: CAMF meta data\n\n");
 
   if (CAMF->entry_table.size != 0) {
     camf_entry_t *entry = CAMF->entry_table.element;
@@ -729,7 +729,7 @@ static void print_camf_meta_data2(FILE *f_out, x3f_camf_t *CAMF)
     }
   }
 
-  fprintf(f_out, "END: PROP meta data\n\n");
+  fprintf(f_out, "END: CAMF meta data\n\n");
 }
 
 static void print_camf_meta_data(FILE *f_out, x3f_t *x3f)
