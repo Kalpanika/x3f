@@ -1,5 +1,9 @@
-x3f_044: Roland Karlsson 2014-09-29
+x3f_045: Roland Karlsson 2014-10-01
+  Extracting meta data
   Decoding CAMF (up to Merrill)
+
+x3f_044: Roland Karlsson 2014-09-29
+  Decoding CAMF (up to Merrill) / Broken CAMF matrix !!
 
 x3f_043: Roland Karlsson 2014-07-28
   Fixing binning for Quattro
