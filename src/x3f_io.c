@@ -555,24 +555,24 @@ static char *id_to_str(uint32_t id)
   return buf;
 }
 
-static void print_matrix_element(camf_entry_t *entry, uint32_t i)
+static void print_matrix_element(FILE *f_out, camf_entry_t *entry, uint32_t i)
 {
   float *as_float = entry->matrix.as_float;
   uint32_t *as_uint = entry->matrix.as_uint;
   int32_t *as_int = entry->matrix.as_int;
 
   if (as_float != NULL) {
-    printf("%12g ", as_float[i]);
+    fprintf(f_out, "%12g ", as_float[i]);
   } else if (as_uint != NULL) {
-    printf("%12u ", as_uint[i]);
+    fprintf(f_out, "%12u ", as_uint[i]);
   } else if (as_int != NULL) {
-    printf("%12d ", as_int[i]);
+    fprintf(f_out, "%12d ", as_int[i]);
   } else {
-    printf("%12s ", "-");
+    fprintf(f_out, "%12s ", "-");
   }
 }
 
-static void print_matrix(camf_entry_t *entry)
+static void print_matrix(FILE *f_out, camf_entry_t *entry)
 {
   uint32_t dim = entry->matrix_dim;
   uint32_t linesize = entry->matrix_dim_entry[dim-1].size;
@@ -580,41 +580,224 @@ static void print_matrix(camf_entry_t *entry)
   uint32_t totalsize = entry->matrix_elements;
   int i;
 
-  printf("\nMatrix BEGIN (%s) ---\n\n", entry->name_address);
+  fprintf(f_out, "\nMatrix BEGIN (%s) ---\n\n", entry->name_address);
 
   switch (dim) {
   case 1:
-    printf("x: %s\n", entry->matrix_dim_entry[0].name);
+    fprintf(f_out, "x: %s\n", entry->matrix_dim_entry[0].name);
     break;
   case 2:
-    printf("x: %s\n", entry->matrix_dim_entry[1].name);
-    printf("y: %s\n", entry->matrix_dim_entry[0].name);
+    fprintf(f_out, "x: %s\n", entry->matrix_dim_entry[1].name);
+    fprintf(f_out, "y: %s\n", entry->matrix_dim_entry[0].name);
     break;
   case 3:
-    printf("x: %s\n", entry->matrix_dim_entry[2].name);
-    printf("y: %s\n", entry->matrix_dim_entry[1].name);
-    printf("z: %s (i.e. group)\n", entry->matrix_dim_entry[0].name);
+    fprintf(f_out, "x: %s\n", entry->matrix_dim_entry[2].name);
+    fprintf(f_out, "y: %s\n", entry->matrix_dim_entry[1].name);
+    fprintf(f_out, "z: %s (i.e. group)\n", entry->matrix_dim_entry[0].name);
     blocksize = linesize * entry->matrix_dim_entry[dim-2].size; 
     break;
   default:
-    printf("Not support for higher than 3D in printout\n");
+    fprintf(f_out, "Not support for higher than 3D in printout\n");
     fprintf(stderr, "Not support for higher than 3D in printout\n");
   }
 
   for (i=0; i<totalsize; i++) {
-    print_matrix_element(entry, i);
-    if ((i+1)%linesize == 0) printf("\n");
-    if ((i+1)%blocksize == 0) printf("\n");
+    print_matrix_element(f_out, entry, i);
+    if ((i+1)%linesize == 0) fprintf(f_out, "\n");
+    if ((i+1)%blocksize == 0) fprintf(f_out, "\n");
   }
 
-  printf("\nMatrix END --------------------------------------------------\n\n");
+  fprintf(f_out, "\nMatrix END --------------------------------------------------\n\n");
+}
+
+static void print_file_header_meta_data(FILE *f_out, x3f_t *x3f)
+{
+  x3f_info_t *I = NULL;
+  x3f_header_t *H = NULL;
+
+  fprintf(f_out, "BEGIN: file header meta data\n\n");
+
+  I = &x3f->info;
+  fprintf(f_out, "info.\n");
+  fprintf(f_out, "  error = %s\n", I->error);
+  fprintf(f_out, "  input.\n");
+  fprintf(f_out, "    file = %p\n", I->input.file);
+  fprintf(f_out, "  output.\n");
+  fprintf(f_out, "    file = %p\n", I->output.file);
+
+  H = &x3f->header;
+  fprintf(f_out, "header.\n");
+  fprintf(f_out, "  identifier        = %08x (%s)\n", H->identifier, x3f_id(H->identifier));
+  fprintf(f_out, "  version           = %08x\n", H->version);
+  fprintf(f_out, "  unique_identifier = %02x...\n", H->unique_identifier[0]);
+  fprintf(f_out, "  mark_bits         = %08x\n", H->mark_bits);
+  fprintf(f_out, "  columns           = %08x (%d)\n", H->columns, H->columns);
+  fprintf(f_out, "  rows              = %08x (%d)\n", H->rows, H->rows);
+  fprintf(f_out, "  rotation          = %08x (%d)\n", H->rotation, H->rotation);
+  if (x3f->header.version > X3F_VERSION_2_0) {
+    int i;
+
+    fprintf(f_out, "  white_balance     = %s\n", H->white_balance);
+
+    fprintf(f_out, "  extended_types\n");
+    for (i=0; i<NUM_EXT_DATA; i++) {
+      uint8_t type = H->extended_types[i];
+      float data = H->extended_data[i];
+      if (type != 0) {
+        fprintf(f_out, "    %2d: %3d = %9f\n", i, type, data);
+      }
+    }
+  }
+
+  fprintf(f_out, "END: file header meta data\n\n");
+}
+
+static void print_jpeg_exif_meta_data(FILE *f_out, x3f_t *x3f)
+{
+  x3f_directory_entry_t *DE = x3f_get_thumb_jpeg(x3f);
+
+  if (DE == NULL) {
+    fprintf(f_out, "INFO: No JPEG thumbnail found\n\n");
+    return;
+  }
+
+  fprintf(f_out, "TODO: JPEG EXIF meta data not implemented\n\n");
+  fprintf(stderr, "TODO: JPEG EXIF meta data not implemented\n\n");
+}
+
+static void print_camf_meta_data2(FILE *f_out, x3f_camf_t *CAMF)
+{
+  fprintf(f_out, "BEGIN: PROP meta data\n\n");
+
+  if (CAMF->entry_table.size != 0) {
+    camf_entry_t *entry = CAMF->entry_table.element;
+    int i;
+
+    for (i=0; i<CAMF->entry_table.size; i++) {
+      fprintf(f_out, "          element[%d].name = \"%s\"\n",
+	      i, entry[i].name_address);
+      fprintf(f_out, "            id = %x (%s)\n",
+	      entry[i].id, id_to_str(entry[i].id));
+      fprintf(f_out, "            entry_size = %d\n",
+	      entry[i].entry_size);
+      fprintf(f_out, "            name_size = %d\n",
+	      entry[i].name_size);
+      fprintf(f_out, "            value_size = %d\n",
+	      entry[i].value_size);
+
+      /* Text CAMF */
+      if (entry[i].text_size != 0) {
+	fprintf(f_out, "            text_size = %d\n", entry[i].text_size);
+	fprintf(f_out, "            text = \"%s\"\n", entry[i].text);
+      }
+
+      /* Property CAMF */
+      if (entry[i].property_num != 0) {
+	int j;
+	fprintf(f_out, "            property_num = %d\n", entry[i].property_num);
+	for (j=0; j<entry[i].property_num; j++) {
+	  fprintf(f_out, "              \"%s\" = \"%s\"\n",
+		  entry[i].property_name[j],
+		  entry[i].property_value[j]);
+	}
+      }
+
+      /* Matrix CAMF */
+      if (entry[i].matrix_dim != 0) {
+	int j;
+	camf_dim_entry_t *dentry = entry[i].matrix_dim_entry;
+
+	fprintf(f_out, "            matrix_type = %d\n", entry[i].matrix_type);
+	fprintf(f_out, "            matrix_dim = %d\n", entry[i].matrix_dim);
+	fprintf(f_out, "            matrix_data_off = %d\n", entry[i].matrix_data_off);
+
+	for (j=0; j<entry[i].matrix_dim; j++) {
+	  fprintf(f_out, "            %d\n", j);
+	  fprintf(f_out, "              size = %d\n", dentry[j].size);
+	  fprintf(f_out, "              name_offset = %d\n", dentry[j].name_offset);
+	  fprintf(f_out, "              n = %d\n", dentry[j].n);
+	  fprintf(f_out, "              name = \"%s\"\n", dentry[j].name);
+	}
+
+	fprintf(f_out, "            matrix_element_size = %d\n", entry[i].matrix_element_size);
+	fprintf(f_out, "            matrix_element_is_float = %d\n", entry[i].matrix_element_is_float);
+	fprintf(f_out, "            matrix_elements = %d\n", entry[i].matrix_elements);
+	fprintf(f_out, "            matrix_estimated_element_size = %g\n", entry[i].matrix_estimated_element_size);
+
+	print_matrix(f_out, &entry[i]);
+      }
+    }
+  }
+
+  fprintf(f_out, "END: PROP meta data\n\n");
+}
+
+static void print_camf_meta_data(FILE *f_out, x3f_t *x3f)
+{
+  x3f_directory_entry_t *DE = x3f_get_camf(x3f);
+
+  if (DE == NULL) {
+    fprintf(f_out, "INFO: No CAMF meta data found\n\n");
+    return;
+  }
+
+  x3f_directory_entry_header_t *DEH = &DE->header;
+  x3f_camf_t *CAMF = &DEH->data_subsection.camf;
+
+  print_camf_meta_data2(f_out, CAMF);
+}
+
+static void print_prop_meta_data2(FILE *f_out, x3f_property_list_t *PL)
+{
+  fprintf(f_out, "BEGIN: PROP meta data\n\n");
+
+  fprintf(f_out, "      data_subsection.property_list.\n");
+  fprintf(f_out, "        num_properties   = %08x\n", PL->num_properties);
+  fprintf(f_out, "        character_format = %08x\n", PL->character_format);
+  fprintf(f_out, "        reserved         = %08x\n", PL->reserved);
+  fprintf(f_out, "        total_length     = %08x\n", PL->total_length);
+  fprintf(f_out, "    property_table       = %x %p\n",
+	  PL->property_table.size, PL->property_table.element);
+  fprintf(f_out, "        data             = %p\n", PL->data);
+  fprintf(f_out, "        data_size        = %x\n", PL->data_size);
+  if (PL->property_table.size != 0) {
+    int i;
+    x3f_property_t *P = PL->property_table.element;
+
+    fprintf(f_out, "        property_table.element\n");
+    for (i=0; i<PL->num_properties; i++) {
+      char buf1[100], buf2[100];
+
+      fprintf(f_out, "          [%d] = %8p %8p (%s = %s)\n",
+	      i,
+	      P[i].name,
+	      P[i].value,
+	      display_utf16(P[i].name, buf1),
+	      display_utf16(P[i].value, buf2));
+    }
+  }
+
+  fprintf(f_out, "END: PROP meta data\n\n");
+}
+
+static void print_prop_meta_data(FILE *f_out, x3f_t *x3f)
+{
+  x3f_directory_entry_t *DE = x3f_get_prop(x3f);
+
+  if (DE == NULL) {
+    fprintf(f_out, "INFO: No PROP meta data found\n\n");
+    return;
+  }
+
+  x3f_directory_entry_header_t *DEH = &DE->header;
+  x3f_property_list_t *PL = &DEH->data_subsection.property_list;
+
+  print_prop_meta_data2(f_out, PL);
 }
 
 /* extern */ void x3f_print(x3f_t *x3f)
 {
   int d;
-  x3f_info_t *I = NULL;
-  x3f_header_t *H = NULL;
   x3f_directory_section_t *DS = NULL;
 
   if (x3f == NULL) {
@@ -622,37 +805,7 @@ static void print_matrix(camf_entry_t *entry)
     return;
   }
 
-  I = &x3f->info;
-  printf("info.\n");
-  printf("  error = %s\n", I->error);
-  printf("  input.\n");
-  printf("    file = %p\n", I->input.file);
-  printf("  output.\n");
-  printf("    file = %p\n", I->output.file);
-
-  H = &x3f->header;
-  printf("header.\n");
-  printf("  identifier        = %08x (%s)\n", H->identifier, x3f_id(H->identifier));
-  printf("  version           = %08x\n", H->version);
-  printf("  unique_identifier = %02x...\n", H->unique_identifier[0]);
-  printf("  mark_bits         = %08x\n", H->mark_bits);
-  printf("  columns           = %08x (%d)\n", H->columns, H->columns);
-  printf("  rows              = %08x (%d)\n", H->rows, H->rows);
-  printf("  rotation          = %08x (%d)\n", H->rotation, H->rotation);
-  if (x3f->header.version > X3F_VERSION_2_0) {
-    int i;
-
-    printf("  white_balance     = %s\n", H->white_balance);
-
-    printf("  extended_types\n");
-    for (i=0; i<NUM_EXT_DATA; i++) {
-      uint8_t type = H->extended_types[i];
-      float data = H->extended_data[i];
-      if (type != 0) {
-        printf("    %2d: %3d = %9f\n", i, type, data);
-      }
-    }
-  }
+  print_file_header_meta_data(stdout, x3f);
 
   DS = &x3f->directory_section;
   printf("directory_section.\n");
@@ -682,31 +835,7 @@ static void print_matrix(camf_entry_t *entry)
 
     if (DEH->identifier == X3F_SECp) {
       x3f_property_list_t *PL = &DEH->data_subsection.property_list;
-      printf("      data_subsection.property_list.\n");
-      printf("        num_properties   = %08x\n", PL->num_properties);
-      printf("        character_format = %08x\n", PL->character_format);
-      printf("        reserved         = %08x\n", PL->reserved);
-      printf("        total_length     = %08x\n", PL->total_length);
-      printf("    property_table       = %x %p\n",
-	     PL->property_table.size, PL->property_table.element);
-      printf("        data             = %p\n", PL->data);
-      printf("        data_size        = %x\n", PL->data_size);
-      if (PL->property_table.size != 0) {
-	int i;
-	x3f_property_t *P = PL->property_table.element;
-
-	printf("        property_table.element\n");
-	for (i=0; i<PL->num_properties; i++) {
-	  char buf1[100], buf2[100];
-
-	  printf("          [%d] = %8p %8p (%s = %s)\n",
-		 i,
-		 P[i].name,
-		 P[i].value,
-		 display_utf16(P[i].name, buf1),
-		 display_utf16(P[i].value, buf2));
-	}
-      }
+      print_prop_meta_data2(stdout, PL);
     }
 
     if (DEH->identifier == X3F_SECi) {
@@ -827,6 +956,11 @@ static void print_matrix(camf_entry_t *entry)
       printf("        entry_table      = %x %p\n",
 	     CAMF->entry_table.size, CAMF->entry_table.element);
 
+      print_camf_meta_data2(stdout, CAMF);
+
+
+
+
       if (CAMF->entry_table.size != 0) {
 	camf_entry_t *entry = CAMF->entry_table.element;
 	int i;
@@ -882,7 +1016,7 @@ static void print_matrix(camf_entry_t *entry)
             printf("            matrix_elements = %d\n", entry[i].matrix_elements);
             printf("            matrix_estimated_element_size = %g\n", entry[i].matrix_estimated_element_size);
 
-	    print_matrix(&entry[i]);
+	    print_matrix(stdout, &entry[i]);
 
 	    /* print_bytes(entry[i].value_address, entry[i].value_size); */
 	  }
@@ -2992,33 +3126,19 @@ static int ilog_inv(int i, double base, int steps)
 
 /* extern */ x3f_return_t x3f_dump_meta_data(x3f_t *x3f, char *outfilename)
 {
-  x3f_directory_entry_t *JPEG_DE = x3f_get_thumb_jpeg(x3f);
-  x3f_directory_entry_t *CAMF_DE = x3f_get_camf(x3f);
-  x3f_directory_entry_t *PROP_DE = x3f_get_prop(x3f);
-
   FILE *f_out = fopen(outfilename, "wb");
 
   if (f_out == NULL) {
     return X3F_OUTFILE_ERROR;
   }
 
-  if (JPEG_DE == NULL) {
-    fprintf(stderr, "Did not find any JPEG\n");
-  } else {
-    fprintf(stderr, "No meta data extraction from JPEG implemented\n");
-  }
+  print_file_header_meta_data(f_out, x3f);
 
-  if (CAMF_DE == NULL) {
-    fprintf(stderr, "Did not find any CAMF\n");
-  } else {
-    fprintf(stderr, "No meta data extraction from CAMF implemented\n");
-  }
+  print_jpeg_exif_meta_data(f_out, x3f);
 
-  if (PROP_DE == NULL) {
-    fprintf(stderr, "Did not find any PROP\n");
-  } else {
-    fprintf(stderr, "No meta data extraction from PROP implemented\n");
-  }
+  print_camf_meta_data(f_out, x3f);
+
+  print_prop_meta_data(f_out, x3f);
 
   fclose(f_out);
 
