@@ -612,18 +612,9 @@ static void print_matrix(FILE *f_out, camf_entry_t *entry)
 
 static void print_file_header_meta_data(FILE *f_out, x3f_t *x3f)
 {
-  x3f_info_t *I = NULL;
   x3f_header_t *H = NULL;
 
   fprintf(f_out, "BEGIN: file header meta data\n\n");
-
-  I = &x3f->info;
-  fprintf(f_out, "info.\n");
-  fprintf(f_out, "  error = %s\n", I->error);
-  fprintf(f_out, "  input.\n");
-  fprintf(f_out, "    file = %p\n", I->input.file);
-  fprintf(f_out, "  output.\n");
-  fprintf(f_out, "    file = %p\n", I->output.file);
 
   H = &x3f->header;
   fprintf(f_out, "header.\n");
@@ -751,15 +742,6 @@ static void print_prop_meta_data2(FILE *f_out, x3f_property_list_t *PL)
 {
   fprintf(f_out, "BEGIN: PROP meta data\n\n");
 
-  fprintf(f_out, "      data_subsection.property_list.\n");
-  fprintf(f_out, "        num_properties   = %08x\n", PL->num_properties);
-  fprintf(f_out, "        character_format = %08x\n", PL->character_format);
-  fprintf(f_out, "        reserved         = %08x\n", PL->reserved);
-  fprintf(f_out, "        total_length     = %08x\n", PL->total_length);
-  fprintf(f_out, "    property_table       = %x %p\n",
-	  PL->property_table.size, PL->property_table.element);
-  fprintf(f_out, "        data             = %p\n", PL->data);
-  fprintf(f_out, "        data_size        = %x\n", PL->data_size);
   if (PL->property_table.size != 0) {
     int i;
     x3f_property_t *P = PL->property_table.element;
@@ -799,11 +781,20 @@ static void print_prop_meta_data(FILE *f_out, x3f_t *x3f)
 {
   int d;
   x3f_directory_section_t *DS = NULL;
+  x3f_info_t *I = NULL;
 
   if (x3f == NULL) {
     printf("Null x3f\n");
     return;
   }
+
+  I = &x3f->info;
+  printf("info.\n");
+  printf("  error = %s\n", I->error);
+  printf("  input.\n");
+  printf("    file = %p\n", I->input.file);
+  printf("  output.\n");
+  printf("    file = %p\n", I->output.file);
 
   print_file_header_meta_data(stdout, x3f);
 
@@ -835,6 +826,16 @@ static void print_prop_meta_data(FILE *f_out, x3f_t *x3f)
 
     if (DEH->identifier == X3F_SECp) {
       x3f_property_list_t *PL = &DEH->data_subsection.property_list;
+      printf("      data_subsection.property_list.\n");
+      printf("        num_properties   = %08x\n", PL->num_properties);
+      printf("        character_format = %08x\n", PL->character_format);
+      printf("        reserved         = %08x\n", PL->reserved);
+      printf("        total_length     = %08x\n", PL->total_length);
+      printf("    property_table       = %x %p\n",
+	      PL->property_table.size, PL->property_table.element);
+      printf("        data             = %p\n", PL->data);
+      printf("        data_size        = %x\n", PL->data_size);
+
       print_prop_meta_data2(stdout, PL);
     }
 
