@@ -1,3 +1,7 @@
+x3f_046: Roland Karlsson 2014-10-02
+  Prettyfying extracted meta data
+  Handling of signed/unsigned matrix data
+
 x3f_045: Roland Karlsson 2014-10-01
   Extracting meta data
   Decoding CAMF (up to Merrill)
