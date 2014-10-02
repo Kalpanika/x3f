@@ -386,6 +386,8 @@ typedef enum x3f_return_e {
 extern int legacy_offset;
 extern bool_t auto_legacy_offset;
 
+extern uint32_t max_printed_matrix_elements;
+
 extern x3f_t *x3f_new_from_file(FILE *infile);
 
 extern void x3f_print(x3f_t *x3f);

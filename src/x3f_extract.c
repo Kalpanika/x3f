@@ -31,6 +31,7 @@ static void usage(char *progname)
           "   -gamma <GAMMA>  Gamma for scaled PPM/TIFF (def=-1.0 (off))\n"
           "   -min <MIN>      Min for scaled PPM/TIFF (def=automatic)\n"
           "   -max <MAX>      Max for scaled PPM/TIFF (def=automatic)\n",
+          "   -matrixmax      Max matrix when extracting metadata (def=100)\n",
           progname);
   exit(1);
 }
@@ -74,6 +75,8 @@ int main(int argc, char *argv[])
       max = atoi(argv[++i]);
     else if ((!strcmp(argv[i], "-offset")) && (i+1)<argc)
       legacy_offset = atoi(argv[++i]), auto_legacy_offset = 0;
+    else if ((!strcmp(argv[i], "-matrixmax")) && (i+1)<argc)
+      max_printed_matrix_elements = atoi(argv[++i]);
     else if (!strncmp(argv[i], "-", 1))
       usage(argv[0]);
     else

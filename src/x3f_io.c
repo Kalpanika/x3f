@@ -19,6 +19,8 @@
 /* extern */ int legacy_offset = 0;
 /* extern */ bool_t auto_legacy_offset = 1;
 
+/* extern */ uint32_t max_printed_matrix_elements = 100;
+
 /* --------------------------------------------------------------------- */
 /* Huffman Decode Macros                                                 */
 /* --------------------------------------------------------------------- */
@@ -617,6 +619,10 @@ static void print_matrix(FILE *f_out, camf_entry_t *entry)
     print_matrix_element(f_out, entry, i);
     if ((i+1)%linesize == 0) fprintf(f_out, "\n");
     if ((i+1)%blocksize == 0) fprintf(f_out, "\n");
+    if (i >= (max_printed_matrix_elements-1)) {
+      fprintf(f_out, "\n... (%d skipped) ...\n", totalsize-i-1);
+      break;
+    }
   }
 }
 
