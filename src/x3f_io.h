@@ -254,6 +254,7 @@ typedef struct camf_entry_s {
   camf_dim_entry_t *matrix_dim_entry;
   uint32_t matrix_element_size;
   uint32_t matrix_element_is_float;
+  uint32_t matrix_element_is_signed;
 
   /* Help data to try to estimate element size */
   uint32_t matrix_elements;

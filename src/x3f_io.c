@@ -582,7 +582,10 @@ static void print_matrix(FILE *f_out, camf_entry_t *entry)
   uint32_t totalsize = entry->matrix_elements;
   int i;
 
-  fprintf(f_out, "%s ", entry->matrix_element_is_float ? "float" : "integer");
+  fprintf(f_out, "%s ", entry->matrix_element_is_float ?
+	  "float" : entry->matrix_element_is_signed ?
+	  "integer" :
+	  "unsigned integer");
   switch (dim) {
   case 1:
     fprintf(f_out, "[%d]\n", entry->matrix_dim_entry[0].size);
@@ -2254,37 +2257,47 @@ static void x3f_setup_camf_property_entry(camf_entry_t *entry)
 
 /* TODO: should there not be a flag for is_unsigned? */
 
-static void set_matrix_element_info(uint32_t type, uint32_t *size, uint32_t *is_float)
+static void set_matrix_element_info(uint32_t type,
+				    uint32_t *size,
+				    uint32_t *is_float,
+				    uint32_t *is_signed)
 {
   switch (type) {
   case 0:
     *size = 2;
     *is_float = 0;
+    *is_signed = 1; /* known to be true */
     break;
   case 1:
     *size = 4;
     *is_float = 0;
+    *is_signed = 0; /* TODO: unknown ???? */
     break;
   case 2:
     *size = 4;
     *is_float = 0;
+    *is_signed = 0; /* TODO: unknown ???? */
     break;
   case 3:
     *size = 4;
     *is_float = 1;
+    *is_signed = 1; /* trivially true */
     break;
   case 5:
     *size = 1;
     *is_float = 0;
+    *is_signed = 0; /* TODO: unknown ???? */
     break;
   case 6:
     *size = 2;
     *is_float = 0;
+    *is_signed = 0; /* TODO: unknown ???? */
     break;
   default:
     fprintf(stderr, "Unknown matrix type (%ud)\n", type);
     *size = 4;
     *is_float = 0;
+    *is_signed = 0;
   }
 }
 
@@ -2294,6 +2307,7 @@ static void get_matrix_copy(camf_entry_t *entry)
 
   uint32_t element_size = entry->matrix_element_size;
   uint32_t is_float = entry->matrix_element_is_float;
+  uint32_t is_signed = entry->matrix_element_is_signed;
   uint32_t elements = entry->matrix_elements;
 
   entry->matrix.as_float = NULL;
@@ -2308,7 +2322,26 @@ static void get_matrix_copy(camf_entry_t *entry)
     } else {
       fprintf(stderr, "Float is size 4 and not %d\n", element_size);
     }
-  } else  /* ! is_float */ {
+  } else if (is_signed) {
+    uint32_t size = elements*sizeof(uint32_t);
+    entry->matrix.as_int = (int32_t *)malloc(size);
+    if (element_size == 4) {
+      bcopy(entry->matrix_data, entry->matrix.as_int, size);
+    } else if (element_size == 2) {
+      int16_t *p = entry->matrix_data;
+      for (i=0; i<elements; i++) {
+	entry->matrix.as_int[i] = (int32_t)p[i];
+      }
+    } else if (element_size == 1) {
+      int8_t *p = entry->matrix_data;
+      for (i=0; i<elements; i++) {
+	entry->matrix.as_int[i] = (int32_t)p[i];
+      }
+    } else {
+      fprintf(stderr, "Int is size 1,2 or 4 and not %d\n", element_size);
+      FREE(entry->matrix.as_uint);
+    }
+  } else /* unsigned */ {
     uint32_t size = elements*sizeof(uint32_t);
     entry->matrix.as_uint = (uint32_t *)malloc(size);
     if (element_size == 4) {
@@ -2364,7 +2397,8 @@ static void x3f_setup_camf_matrix_entry(camf_entry_t *entry)
 
   set_matrix_element_info(type,
 			  &entry->matrix_element_size,
-			  &entry->matrix_element_is_float);
+			  &entry->matrix_element_is_float,
+			  &entry->matrix_element_is_signed);
   entry->matrix_data = (void *)(e + off);
 
   entry->matrix_elements = totalsize;
