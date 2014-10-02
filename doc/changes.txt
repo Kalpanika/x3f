@@ -1,3 +1,6 @@
+x3f_047: Roland Karlsson 2014-10-02
+  Limiting size of matrix when extracting meta data
+
 x3f_046: Roland Karlsson 2014-10-02
   Prettyfying extracted meta data
   Handling of signed/unsigned matrix data
