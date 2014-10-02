@@ -4,7 +4,9 @@ X3F tools is a library for accessing Sigma X3F raw image files
 
 The code understands  the old format for SD9, SD10  and SD14. The code
 also understands the new format introduced with DP1. The latter format
-is associated with the TRUE engines TRUE I and TRUE II.
+is associated with the TRUE engines  TRUE I and TRUE II. Currently the
+code supports  up to the Quattro  version of the cameras,  but do only
+understand meta data up to Merrill.
 
 ----------------------------------------------------------------
 Included in the library are two tools
@@ -51,6 +53,7 @@ The tool can be used thus:
 (4) x3f_extract -jpeg file.x3f
 (5) x3f_extract -ppm file.x3f
 (6) x3f_extract -ppm -gamma 2.2 [-min 0] [-max 5000] file.x3f
+(7) x3f_extract -meta file.x3f
 
 (1) dumps the  data block of the RAW image  verbatim. The original RAW
     data is not parsed or  interpreted and is therefore for almost all
@@ -79,12 +82,13 @@ The tool can be used thus:
 
 (4) dumps the embedded JPEG thumbnail verbatim as file.x3f.jpg
 
+    NOTE - this is not a JPEG of the RAW data.
+
 (5) Same as (2) but output is binary 16 bit PPM
 
 (6) Same as (3) but output is binary 16 bit PPM
 
-    NOTE - this is not a JPEG of the RAW data.
-
+(7) dumps the meta data extracted from the file.
 
 ----------------------------------------------------------------
 Usage of the x3f_io_test tool
@@ -93,21 +97,20 @@ Usage of the x3f_io_test tool
 The tool can be used thus
 
 (1) x3f_io_test file.x3f
-(2) x3f_io_test file.x3f outfile1.x3f
-(3) x3f_io_test file.x3f outfile1.x3f outfile2.x3f
+(2) x3f_io_test file.x3f -unpack
+(3) x3f_io_test file.x3f -write
+(4) x3f_io_test file.x3f -unpack -write
 
 (1) reads the file and parses  the main data structure of the file and
     then prints some info about it.  NOTE - no parsing of data blocks,
     e.g. image blocks, is made.
 
-(2) same  as (1) but  also writes what  it reads to the  outfile.  The
-    outfile1 shall be identical if the code is correct.
+(2) same  as (1) but  also parses data blocks, and then prints info again.
 
-(3) Same  as (2) but  this code also  parses the data blocks  and then
-    assembles a new file from the  parsed data blocks and writes it to
-    oufile2.  The printouts  are written  twice -  before  parsing the
-    blocks  and after.  The outfile2  also shall  be identical  to the
-    original file if the code is correct.
+(3) Same  as (1), but also writes from the unparsed version.
+
+(4) Same as (2), but also writes both from the umparsed version and
+    the parsed.
 
     NOTE - detaled assembling of the blocks is not yet implemented, so
     the  assembling  is partly  phony.  Therefore  -  that oufile2  is
