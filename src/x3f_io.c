@@ -514,8 +514,10 @@ static char *display_utf16(utf16_t *str, char *buffer)
     char chr1 = *chr;
     char chr2 = *(chr+1);
 
-    *b++ = pretty_print_char(chr1);
-    *b++ = pretty_print_char(chr2);
+    if (chr1)
+      *b++ = pretty_print_char(chr1);
+    if (chr2)
+      *b++ = pretty_print_char(chr2);
 
     str++;
   }
@@ -665,21 +667,25 @@ static void print_camf_meta_data2(FILE *f_out, x3f_camf_t *CAMF)
     int i;
 
     for (i=0; i<CAMF->entry_table.size; i++) {
-      fprintf(f_out, "          element[%d].name = \"%s\"\n",
-	      i, entry[i].name_address);
-      fprintf(f_out, "            id = %x (%s)\n",
-	      entry[i].id, id_to_str(entry[i].id));
-      fprintf(f_out, "            entry_size = %d\n",
-	      entry[i].entry_size);
-      fprintf(f_out, "            name_size = %d\n",
-	      entry[i].name_size);
-      fprintf(f_out, "            value_size = %d\n",
-	      entry[i].value_size);
+      if (f_out != stdout) {
+	fprintf(f_out, "          element[%d].name = \"%s\"\n",
+		i, entry[i].name_address);
+	fprintf(f_out, "            id = %x (%s)\n",
+		entry[i].id, id_to_str(entry[i].id));
+	fprintf(f_out, "            entry_size = %d\n",
+		entry[i].entry_size);
+	fprintf(f_out, "            name_size = %d\n",
+		entry[i].name_size);
+	fprintf(f_out, "            value_size = %d\n",
+		entry[i].value_size);
+      }
 
       /* Text CAMF */
       if (entry[i].text_size != 0) {
-	fprintf(f_out, "            text_size = %d\n", entry[i].text_size);
-	fprintf(f_out, "            text = \"%s\"\n", entry[i].text);
+	fprintf(f_out, "BEGIN: CAMF text meta data (%s)\n",
+		entry[i].name_address);
+	fprintf(f_out, "\"%s\"\n", entry[i].text);
+	fprintf(f_out, "END: CAMF text meta data\n\n");
       }
 
       /* Property CAMF */
@@ -746,14 +752,11 @@ static void print_prop_meta_data2(FILE *f_out, x3f_property_list_t *PL)
     int i;
     x3f_property_t *P = PL->property_table.element;
 
-    fprintf(f_out, "        property_table.element\n");
     for (i=0; i<PL->num_properties; i++) {
       char buf1[100], buf2[100];
 
-      fprintf(f_out, "          [%d] = %8p %8p (%s = %s)\n",
+      fprintf(f_out, "          [%d] \"%s\" = \"%s\"\n",
 	      i,
-	      P[i].name,
-	      P[i].value,
 	      display_utf16(P[i].name, buf1),
 	      display_utf16(P[i].value, buf2));
     }
@@ -958,76 +961,9 @@ static void print_prop_meta_data(FILE *f_out, x3f_t *x3f)
 	     CAMF->entry_table.size, CAMF->entry_table.element);
 
       print_camf_meta_data2(stdout, CAMF);
-
-
-
-
-      if (CAMF->entry_table.size != 0) {
-	camf_entry_t *entry = CAMF->entry_table.element;
-	int i;
-
-	for (i=0; i<CAMF->entry_table.size; i++) {
-	  printf("          element[%d].name = \"%s\"\n",
-		 i, entry[i].name_address);
-	  printf("            id = %x (%s)\n",
-		 entry[i].id, id_to_str(entry[i].id));
-	  printf("            entry_size = %d\n",
-		 entry[i].entry_size);
-	  printf("            name_size = %d\n",
-		 entry[i].name_size);
-	  printf("            value_size = %d\n",
-		 entry[i].value_size);
-
-	  /* Text CAMF */
-          if (entry[i].text_size != 0) {
-            printf("            text_size = %d\n", entry[i].text_size);
-            printf("            text = \"%s\"\n", entry[i].text);
-          }
-
-	  /* Property CAMF */
-          if (entry[i].property_num != 0) {
-	    int j;
-            printf("            property_num = %d\n", entry[i].property_num);
-	    for (j=0; j<entry[i].property_num; j++) {
-	      printf("              \"%s\" = \"%s\"\n",
-		     entry[i].property_name[j],
-		     entry[i].property_value[j]);
-	    }
-          }
-
-	  /* Matrix CAMF */
-          if (entry[i].matrix_dim != 0) {
-	    int j;
-	    camf_dim_entry_t *dentry = entry[i].matrix_dim_entry;
-
-            printf("            matrix_type = %d\n", entry[i].matrix_type);
-            printf("            matrix_dim = %d\n", entry[i].matrix_dim);
-            printf("            matrix_data_off = %d\n", entry[i].matrix_data_off);
-
-	    for (j=0; j<entry[i].matrix_dim; j++) {
-	      printf("            %d\n", j);
-	      printf("              size = %d\n", dentry[j].size);
-	      printf("              name_offset = %d\n", dentry[j].name_offset);
-	      printf("              n = %d\n", dentry[j].n);
-	      printf("              name = \"%s\"\n", dentry[j].name);
-	    }
-
-            printf("            matrix_element_size = %d\n", entry[i].matrix_element_size);
-            printf("            matrix_element_is_float = %d\n", entry[i].matrix_element_is_float);
-            printf("            matrix_elements = %d\n", entry[i].matrix_elements);
-            printf("            matrix_estimated_element_size = %g\n", entry[i].matrix_estimated_element_size);
-
-	    print_matrix(stdout, &entry[i]);
-
-	    /* print_bytes(entry[i].value_address, entry[i].value_size); */
-	  }
-
-        }
-      }
     }
   }
 }
-
 
 /* --------------------------------------------------------------------- */
 /* Write the data to file                                                */
