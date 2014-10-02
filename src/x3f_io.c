@@ -667,7 +667,7 @@ static void print_camf_meta_data2(FILE *f_out, x3f_camf_t *CAMF)
     int i;
 
     for (i=0; i<CAMF->entry_table.size; i++) {
-      if (f_out != stdout) {
+      if (f_out == stdout) {
 	fprintf(f_out, "          element[%d].name = \"%s\"\n",
 		i, entry[i].name_address);
 	fprintf(f_out, "            id = %x (%s)\n",
@@ -691,12 +691,15 @@ static void print_camf_meta_data2(FILE *f_out, x3f_camf_t *CAMF)
       /* Property CAMF */
       if (entry[i].property_num != 0) {
 	int j;
-	fprintf(f_out, "            property_num = %d\n", entry[i].property_num);
+	fprintf(f_out, "BEGIN: CAMF property meta data (%s)\n",
+		entry[i].name_address);
+
 	for (j=0; j<entry[i].property_num; j++) {
 	  fprintf(f_out, "              \"%s\" = \"%s\"\n",
 		  entry[i].property_name[j],
 		  entry[i].property_value[j]);
 	}
+	fprintf(f_out, "END: CAMF property meta data\n\n");
       }
 
       /* Matrix CAMF */
