@@ -582,24 +582,31 @@ static void print_matrix(FILE *f_out, camf_entry_t *entry)
   uint32_t totalsize = entry->matrix_elements;
   int i;
 
-  fprintf(f_out, "\nMatrix BEGIN (%s) ---\n\n", entry->name_address);
-
+  fprintf(f_out, "%s ", entry->matrix_element_is_float ? "float" : "integer");
   switch (dim) {
   case 1:
+    fprintf(f_out, "[%d]\n", entry->matrix_dim_entry[0].size);
     fprintf(f_out, "x: %s\n", entry->matrix_dim_entry[0].name);
     break;
   case 2:
+    fprintf(f_out, "[%d][%d]\n",
+	    entry->matrix_dim_entry[0].size,
+	    entry->matrix_dim_entry[1].size);
     fprintf(f_out, "x: %s\n", entry->matrix_dim_entry[1].name);
     fprintf(f_out, "y: %s\n", entry->matrix_dim_entry[0].name);
     break;
   case 3:
+    fprintf(f_out, "[%d][%d][%d]\n",
+	    entry->matrix_dim_entry[0].size,
+	    entry->matrix_dim_entry[1].size,
+	    entry->matrix_dim_entry[2].size);
     fprintf(f_out, "x: %s\n", entry->matrix_dim_entry[2].name);
     fprintf(f_out, "y: %s\n", entry->matrix_dim_entry[1].name);
     fprintf(f_out, "z: %s (i.e. group)\n", entry->matrix_dim_entry[0].name);
     blocksize = linesize * entry->matrix_dim_entry[dim-2].size; 
     break;
   default:
-    fprintf(f_out, "Not support for higher than 3D in printout\n");
+    fprintf(f_out, "\nNot support for higher than 3D in printout\n");
     fprintf(stderr, "Not support for higher than 3D in printout\n");
   }
 
@@ -608,8 +615,6 @@ static void print_matrix(FILE *f_out, camf_entry_t *entry)
     if ((i+1)%linesize == 0) fprintf(f_out, "\n");
     if ((i+1)%blocksize == 0) fprintf(f_out, "\n");
   }
-
-  fprintf(f_out, "\nMatrix END --------------------------------------------------\n\n");
 }
 
 static void print_file_header_meta_data(FILE *f_out, x3f_t *x3f)
@@ -707,24 +712,31 @@ static void print_camf_meta_data2(FILE *f_out, x3f_camf_t *CAMF)
 	int j;
 	camf_dim_entry_t *dentry = entry[i].matrix_dim_entry;
 
-	fprintf(f_out, "            matrix_type = %d\n", entry[i].matrix_type);
-	fprintf(f_out, "            matrix_dim = %d\n", entry[i].matrix_dim);
-	fprintf(f_out, "            matrix_data_off = %d\n", entry[i].matrix_data_off);
+	fprintf(f_out, "BEGIN: CAMF matrix meta data (%s)\n",
+		entry[i].name_address);
 
-	for (j=0; j<entry[i].matrix_dim; j++) {
-	  fprintf(f_out, "            %d\n", j);
-	  fprintf(f_out, "              size = %d\n", dentry[j].size);
-	  fprintf(f_out, "              name_offset = %d\n", dentry[j].name_offset);
-	  fprintf(f_out, "              n = %d\n", dentry[j].n);
-	  fprintf(f_out, "              name = \"%s\"\n", dentry[j].name);
+	if (f_out == stdout) {
+	  fprintf(f_out, "            matrix_type = %d\n", entry[i].matrix_type);
+	  fprintf(f_out, "            matrix_dim = %d\n", entry[i].matrix_dim);
+	  fprintf(f_out, "            matrix_data_off = %d\n", entry[i].matrix_data_off);
+
+	  for (j=0; j<entry[i].matrix_dim; j++) {
+	    fprintf(f_out, "            %d\n", j);
+	    fprintf(f_out, "              size = %d\n", dentry[j].size);
+	    fprintf(f_out, "              name_offset = %d\n", dentry[j].name_offset);
+	    fprintf(f_out, "              n = %d\n", dentry[j].n);
+	    fprintf(f_out, "              name = \"%s\"\n", dentry[j].name);
+	  }
+
+	  fprintf(f_out, "            matrix_element_size = %d\n", entry[i].matrix_element_size);
+	  fprintf(f_out, "            matrix_element_is_float = %d\n", entry[i].matrix_element_is_float);
+	  fprintf(f_out, "            matrix_elements = %d\n", entry[i].matrix_elements);
+	  fprintf(f_out, "            matrix_estimated_element_size = %g\n", entry[i].matrix_estimated_element_size);
 	}
 
-	fprintf(f_out, "            matrix_element_size = %d\n", entry[i].matrix_element_size);
-	fprintf(f_out, "            matrix_element_is_float = %d\n", entry[i].matrix_element_is_float);
-	fprintf(f_out, "            matrix_elements = %d\n", entry[i].matrix_elements);
-	fprintf(f_out, "            matrix_estimated_element_size = %g\n", entry[i].matrix_estimated_element_size);
-
 	print_matrix(f_out, &entry[i]);
+
+	fprintf(f_out, "END: CAMF matrix meta data\n\n");
       }
     }
   }
