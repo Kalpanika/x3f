@@ -1,3 +1,7 @@
+x3f_049: Roland Karlsson 2014-10-03
+  Removing ppc from OS-X build
+  Remove deprecated bcopy()
+
 x3f_048: Roland Karlsson 2014-10-03
   Fixing small bug and also strange git history
 
