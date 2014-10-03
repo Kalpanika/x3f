@@ -30,7 +30,7 @@ static void usage(char *progname)
           "   -loghist        Dump histogram as csv file, with log exposure\n"
           "   -gamma <GAMMA>  Gamma for scaled PPM/TIFF (def=-1.0 (off))\n"
           "   -min <MIN>      Min for scaled PPM/TIFF (def=automatic)\n"
-          "   -max <MAX>      Max for scaled PPM/TIFF (def=automatic)\n",
+          "   -max <MAX>      Max for scaled PPM/TIFF (def=automatic)\n"
           "   -matrixmax      Max matrix when extracting metadata (def=100)\n",
           progname);
   exit(1);
