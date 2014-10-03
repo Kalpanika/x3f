@@ -1,5 +1,9 @@
+x3f_048: Roland Karlsson 2014-10-03
+  Fixing small bug and also strange git history
+
 x3f_047: Roland Karlsson 2014-10-02
   Limiting size of matrix when extracting meta data
+  (Amigous due to git mistake)
 
 x3f_046: Roland Karlsson 2014-10-02
   Prettyfying extracted meta data
