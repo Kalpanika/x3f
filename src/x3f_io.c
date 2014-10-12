@@ -965,6 +965,12 @@ static void print_prop_meta_data(FILE *f_out, x3f_t *x3f)
         printf("        block_size       = %x\n", CAMF->t4.block_size);
         printf("        block_count      = %x\n", CAMF->t4.block_count);
         break;
+      case 5:
+        printf("        unknown0         = %x\n", CAMF->t5.unknown0);
+        printf("        decode_bias      = %x\n", CAMF->t5.decode_bias);
+        printf("        unknown2         = %x\n", CAMF->t5.unknown2);
+        printf("        unknown3         = %x\n", CAMF->t5.unknown3);
+        break;
       default:
         printf("       (Unknown CAMF type)\n");
         printf("        val0             = %x\n", CAMF->tN.val0);
@@ -975,6 +981,8 @@ static void print_prop_meta_data(FILE *f_out, x3f_t *x3f)
 
       printf("        data             = %p\n", CAMF->data);
       printf("        data_size        = %x\n", CAMF->data_size);
+      printf("        decoding_start   = %p\n", CAMF->decoding_start);
+      printf("        decoding_size    = %x\n", CAMF->decoding_size);
       printf("        table            = %x %p\n",
 	     CAMF->table.size, CAMF->table.element);
       printf("          tree           = %d %p\n",
@@ -2217,7 +2225,9 @@ static void x3f_load_camf_decode_type4(x3f_camf_t *CAMF)
   CAMF->table.element = element;
 
   /* TODO: where does the value 32 come from? */
+#define CAMF_T4_DATA_SIZE_OFFSET 28
 #define CAMF_T4_DATA_OFFSET 32
+  CAMF->decoding_size = *(uint32_t *)(CAMF->data + CAMF_T4_DATA_SIZE_OFFSET);
   CAMF->decoding_start = (uint8_t *)CAMF->data + CAMF_T4_DATA_OFFSET;
 
   /* TODO: can it be fewer than 8 bits? Maybe taken from TRU->table? */
@@ -2230,6 +2240,68 @@ static void x3f_load_camf_decode_type4(x3f_camf_t *CAMF)
 #endif
 
   camf_decode_type4(CAMF);
+}
+
+static void camf_decode_type5(x3f_camf_t *CAMF)
+{
+  uint32_t acc = CAMF->t5.decode_bias;
+
+  uint8_t *dst;
+
+  x3f_hufftree_t *tree = &CAMF->tree;
+  bit_state_t BS;
+
+  int32_t i, decoded_size = 100;  /* TODO - fix this! */
+
+  CAMF->decoded_data_size = decoded_size;
+  CAMF->decoded_data = malloc(CAMF->decoded_data_size);
+
+  dst = (uint8_t *)CAMF->decoded_data;
+
+  set_bit_state(&BS, CAMF->decoding_start);
+
+  for (i = 0; i < decoded_size; i++) {
+    int32_t diff = get_true_diff(&BS, tree);
+
+    acc = acc + diff;
+    *dst++ = acc & 0xff;
+  }
+}
+
+static void x3f_load_camf_decode_type5(x3f_camf_t *CAMF)
+{
+  int i;
+  uint8_t *p;
+  x3f_true_huffman_element_t *element = NULL;
+
+  for (i=0, p = CAMF->data; *p != 0; i++) {
+    /* TODO: Is this too expensive ??*/
+    element =
+      (x3f_true_huffman_element_t *)realloc(element, (i+1)*sizeof(*element));
+
+    element[i].code_size = *p++;
+    element[i].code = *p++;
+  }
+
+  CAMF->table.size = i;
+  CAMF->table.element = element;
+
+  /* TODO: where does the value 32 come from? */
+#define CAMF_T5_DATA_SIZE_OFFSET 28
+#define CAMF_T5_DATA_OFFSET 32
+  CAMF->decoding_size = *(uint32_t *)(CAMF->data + CAMF_T5_DATA_SIZE_OFFSET);
+  CAMF->decoding_start = (uint8_t *)CAMF->data + CAMF_T5_DATA_OFFSET;
+
+  /* TODO: can it be fewer than 8 bits? Maybe taken from TRU->table? */
+  new_huffman_tree(&CAMF->tree, 8);
+
+  populate_true_huffman_tree(&CAMF->tree, &CAMF->table);
+
+#ifdef DBG_PRNT
+  print_huffman_tree(CAMF->tree.nodes, 0, 0);
+#endif
+
+  camf_decode_type5(CAMF);
 }
 
 static void x3f_setup_camf_text_entry(camf_entry_t *entry)
@@ -2506,9 +2578,12 @@ static void x3f_load_camf(x3f_info_t *I, x3f_directory_entry_t *DE)
   switch (CAMF->type) {
   case 2:			/* Older SD9-SD14 */
     x3f_load_camf_decode_type2(CAMF);
-    break;
-  case 4:			/* TRUE DP1-... */
+    break; 
+  case 4:			/* TRUE ... Merrill */
     x3f_load_camf_decode_type4(CAMF);
+    break;
+  case 5:			/* Quattro ... */
+    x3f_load_camf_decode_type5(CAMF);
     break;
   default:
     fprintf(stderr, "Unknown CAMF type\n");

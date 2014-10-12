@@ -289,6 +289,13 @@ typedef struct x3f_camf_type4_s {
   uint32_t block_count;
 } x3f_camf_type4_t;
 
+typedef struct x3f_camf_type5_s {
+  uint32_t unknown0;
+  uint32_t decode_bias;
+  uint32_t unknown2;
+  uint32_t unknown3;
+} x3f_camf_type5_t;
+
 typedef struct x3f_camf_s {
 
   /* Header info */
@@ -297,6 +304,7 @@ typedef struct x3f_camf_s {
     x3f_camf_typeN_t tN;
     x3f_camf_type2_t t2;
     x3f_camf_type4_t t4;
+    x3f_camf_type5_t t5;
   };
 
   /* The encrypted raw data */
@@ -307,6 +315,7 @@ typedef struct x3f_camf_s {
   x3f_true_huffman_t table;
   x3f_hufftree_t tree;
   uint8_t *decoding_start;
+  uint32_t decoding_size;
 
   /* The decrypted data */
   void *decoded_data;
