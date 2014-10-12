@@ -2396,7 +2396,7 @@ static void get_matrix_copy(camf_entry_t *entry)
     if (element_size == 4) {
       uint32_t size = elements*sizeof(float);
       entry->matrix.as_float = (float *)malloc(size);
-      bcopy(entry->matrix_data, entry->matrix.as_float, size);
+      memcpy(entry->matrix.as_float, entry->matrix_data, size);
     } else {
       fprintf(stderr, "Float is size 4 and not %d\n", element_size);
     }
@@ -2404,7 +2404,7 @@ static void get_matrix_copy(camf_entry_t *entry)
     uint32_t size = elements*sizeof(uint32_t);
     entry->matrix.as_int = (int32_t *)malloc(size);
     if (element_size == 4) {
-      bcopy(entry->matrix_data, entry->matrix.as_int, size);
+      memcpy(entry->matrix.as_int, entry->matrix_data, size);
     } else if (element_size == 2) {
       int16_t *p = entry->matrix_data;
       for (i=0; i<elements; i++) {
@@ -2423,7 +2423,7 @@ static void get_matrix_copy(camf_entry_t *entry)
     uint32_t size = elements*sizeof(uint32_t);
     entry->matrix.as_uint = (uint32_t *)malloc(size);
     if (element_size == 4) {
-      bcopy(entry->matrix_data, entry->matrix.as_uint, size);
+      memcpy(entry->matrix.as_uint, entry->matrix_data, size);
     } else if (element_size == 2) {
       uint16_t *p = entry->matrix_data;
       for (i=0; i<elements; i++) {
