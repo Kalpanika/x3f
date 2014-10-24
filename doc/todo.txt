@@ -10,6 +10,20 @@ REFACTORING
 
 
 --------------------------------------------------------------------
+CAMF ERRORS
+--------------------------------------------------------------------
+
+* Quattro is not yet functional
+
+* Decoding of CAMF might find an unknown CAMF entry type.
+  And then searching for the next CAMF entry fails. What is this?
+
+* The CAMF matrix data has the axis in the description out of order,
+  at least for older cameras. What does that mean for the stored
+  data? Does that follow the order or the index n in the info?
+
+
+--------------------------------------------------------------------
 SMALL THINGS
 --------------------------------------------------------------------
 
@@ -33,14 +47,8 @@ QUESTIONS
 
 * Encoding?
 
-  The current code tries to encode a new file from read data.
-  There are some problems with that
-  - sometimes the encoded file is invalid, i.e. wrong.
-  - data cannot be encided, e.g. image data and camf data? 
-  Some questions
-  - How about encoding of files? Shall that be removed? Or fixed?
-  - How about encoding of image data?
-  - How about encoding of meta/camf data?
+- The current encoding is incomplete and probably wrong.
+- Shall encoding be removed?
 
 
 --------------------------------------------------------------------
