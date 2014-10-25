@@ -481,7 +481,7 @@ static x3f_huffman_t *new_huffman(x3f_huffman_t **HUFP)
 /* Pretty print UTF 16                                        */
 /* --------------------------------------------------------------------- */
 
-static char pretty_print_char(char c)
+static char display_char(char c)
 {
   if (c == 0)
     return ',';
@@ -505,7 +505,59 @@ static char pretty_print_char(char c)
   return '?';
 }
 
-static char *display_utf16(utf16_t *str, char *buffer)
+static char *display_chars(char *str, char *buffer, int size)
+{
+  int i;
+  char *b = buffer;
+
+  for (i=0; i<size; i++) {
+    *b++ = display_char(*str++);
+  }
+
+  *b = 0;
+
+  return buffer;
+}
+
+static char *display_char_string(char *str, char *buffer)
+{
+  char *b = buffer;
+
+  while (*str != 0x0) {
+    *b++ = display_char(*str++);
+  }
+
+  *b = 0;
+
+  return buffer;
+}
+
+static char *display_utf16s(utf16_t *str, char *buffer, int size)
+{
+  int i;
+  char *b = buffer;
+
+  for (i=0; i<size; i += 2) { 
+
+    char *chr = (char *)str;
+
+    char chr1 = *chr;
+    char chr2 = *(chr+1);
+
+    if (chr1)
+      *b++ = display_char(chr1);
+    if (chr2)
+      *b++ = display_char(chr2);
+
+    str++;
+  }
+
+  *b = 0;
+
+  return buffer;
+}
+
+static char *display_utf16_string(utf16_t *str, char *buffer)
 {
   char *b = buffer;
 
@@ -517,9 +569,9 @@ static char *display_utf16(utf16_t *str, char *buffer)
     char chr2 = *(chr+1);
 
     if (chr1)
-      *b++ = pretty_print_char(chr1);
+      *b++ = display_char(chr1);
     if (chr2)
-      *b++ = pretty_print_char(chr2);
+      *b++ = display_char(chr2);
 
     str++;
   }
@@ -713,6 +765,7 @@ static void print_camf_meta_data2(FILE *f_out, x3f_camf_t *CAMF)
 		  entry[i].property_name[j],
 		  entry[i].property_value[j]);
 	}
+
 	fprintf(f_out, "END: CAMF property meta data\n\n");
       }
 
@@ -781,8 +834,8 @@ static void print_prop_meta_data2(FILE *f_out, x3f_property_list_t *PL)
 
       fprintf(f_out, "          [%d] \"%s\" = \"%s\"\n",
 	      i,
-	      display_utf16(P[i].name, buf1),
-	      display_utf16(P[i].value, buf2));
+	      display_utf16_string(P[i].name, buf1),
+	      display_utf16_string(P[i].value, buf2));
     }
   }
 
@@ -954,29 +1007,32 @@ static void print_prop_meta_data(FILE *f_out, x3f_t *x3f)
 
       switch (CAMF->type) {
       case 2:
-        printf("        reserved         = %x\n", CAMF->t2.reserved);
-        printf("        infotype         = %08x (%s)\n", CAMF->t2.infotype, x3f_id(CAMF->t2.infotype));
-        printf("        infotype_version = %08x\n", CAMF->t2.infotype_version);
-        printf("        crypt_key        = %08x\n", CAMF->t2.crypt_key);
+        printf("        type2\n");
+        printf("          reserved         = %x\n", CAMF->t2.reserved);
+        printf("          infotype         = %08x (%s)\n", CAMF->t2.infotype, x3f_id(CAMF->t2.infotype));
+        printf("          infotype_version = %08x\n", CAMF->t2.infotype_version);
+        printf("          crypt_key        = %08x\n", CAMF->t2.crypt_key);
         break;
       case 4:
-        printf("        reserved         = %x\n", CAMF->t4.reserved);
-        printf("        decode_bias      = %x\n", CAMF->t4.decode_bias);
-        printf("        block_size       = %x\n", CAMF->t4.block_size);
-        printf("        block_count      = %x\n", CAMF->t4.block_count);
+        printf("        type4\n");
+        printf("          decoded_data_size= %x\n", CAMF->t4.decoded_data_size);
+        printf("          decode_bias      = %x\n", CAMF->t4.decode_bias);
+        printf("          block_size       = %x\n", CAMF->t4.block_size);
+        printf("          block_count      = %x\n", CAMF->t4.block_count);
         break;
       case 5:
-        printf("        unknown0         = %x\n", CAMF->t5.unknown0);
-        printf("        decode_bias      = %x\n", CAMF->t5.decode_bias);
-        printf("        unknown2         = %x\n", CAMF->t5.unknown2);
-        printf("        unknown3         = %x\n", CAMF->t5.unknown3);
+        printf("        type5\n");
+        printf("          decoded_data_size= %x\n", CAMF->t5.decoded_data_size);
+        printf("          decode_bias      = %x\n", CAMF->t5.decode_bias);
+        printf("          unknown2         = %x\n", CAMF->t5.unknown2);
+        printf("          unknown3         = %x\n", CAMF->t5.unknown3);
         break;
       default:
         printf("       (Unknown CAMF type)\n");
-        printf("        val0             = %x\n", CAMF->tN.val0);
-        printf("        val1             = %x\n", CAMF->tN.val1);
-        printf("        val2             = %x\n", CAMF->tN.val2);
-        printf("        val3             = %x\n", CAMF->tN.val3);
+        printf("          val0             = %x\n", CAMF->tN.val0);
+        printf("          val1             = %x\n", CAMF->tN.val1);
+        printf("          val2             = %x\n", CAMF->tN.val2);
+        printf("          val3             = %x\n", CAMF->tN.val3);
       }
 
       printf("        data             = %p\n", CAMF->data);
@@ -2160,7 +2216,7 @@ static void camf_decode_type4(x3f_camf_t *CAMF)
   uint32_t rows = CAMF->t4.block_count;
   uint32_t cols = CAMF->t4.block_size;
 
-  CAMF->decoded_data_size = (cols * rows * 3) / 2;
+  CAMF->decoded_data_size = CAMF->t4.decoded_data_size;
   CAMF->decoded_data = malloc(CAMF->decoded_data_size);
 
   dst = (uint8_t *)CAMF->decoded_data;
@@ -2244,27 +2300,27 @@ static void x3f_load_camf_decode_type4(x3f_camf_t *CAMF)
 
 static void camf_decode_type5(x3f_camf_t *CAMF)
 {
-  uint32_t acc = CAMF->t5.decode_bias;
+  int32_t acc = CAMF->t5.decode_bias;
 
   uint8_t *dst;
 
   x3f_hufftree_t *tree = &CAMF->tree;
   bit_state_t BS;
 
-  int32_t i, decoded_size = 100;  /* TODO - fix this! */
+  int32_t i;
 
-  CAMF->decoded_data_size = decoded_size;
+  CAMF->decoded_data_size = CAMF->t5.decoded_data_size;
   CAMF->decoded_data = malloc(CAMF->decoded_data_size);
 
   dst = (uint8_t *)CAMF->decoded_data;
 
   set_bit_state(&BS, CAMF->decoding_start);
 
-  for (i = 0; i < decoded_size; i++) {
+  for (i = 0; i < CAMF->decoded_data_size; i++) {
     int32_t diff = get_true_diff(&BS, tree);
 
     acc = acc + diff;
-    *dst++ = acc & 0xff;
+    *dst++ = (uint8_t)(acc & 0xff);
   }
 }
 

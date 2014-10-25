@@ -283,14 +283,14 @@ typedef struct x3f_camf_type2_s {
 } x3f_camf_type2_t;
 
 typedef struct x3f_camf_type4_s {
-  uint32_t reserved;
+  uint32_t decoded_data_size;
   uint32_t decode_bias;
   uint32_t block_size;
   uint32_t block_count;
 } x3f_camf_type4_t;
 
 typedef struct x3f_camf_type5_s {
-  uint32_t unknown0;
+  uint32_t decoded_data_size;
   uint32_t decode_bias;
   uint32_t unknown2;
   uint32_t unknown3;
