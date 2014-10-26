@@ -1245,6 +1245,14 @@ static uint32_t row_offsets_size(x3f_huffman_t *HUF)
 
 static void free_camf_entry(camf_entry_t *entry)
 {
+#if 0
+  /* If this is made than cleanup_huffme(&ID->huffman) crashes */
+  /* TODO: why do it ceash ? */
+  FREE(entry->matrix.as_float);
+  FREE(entry->matrix.as_int);
+  FREE(entry->matrix.as_uint);
+  FREE(entry->matrix_dim_entry);
+#endif
   /* TODO: fill this with something */
 }
 
@@ -2196,6 +2204,9 @@ static void camf_decode_type4(x3f_camf_t *CAMF)
   int row;
 
   uint8_t *dst;
+  uint32_t dst_size = CAMF->t4.decoded_data_size;
+  uint8_t *dst_end;
+
   bool_t odd_dst = 0;
 
   x3f_hufftree_t *tree = &CAMF->tree;
@@ -2205,12 +2216,13 @@ static void camf_decode_type4(x3f_camf_t *CAMF)
   uint32_t rows = CAMF->t4.block_count;
   uint32_t cols = CAMF->t4.block_size;
 
-  /* Ugly fix for crashing Merrill, just adding more memory than
-     needed. TODO - fix that!!! */
-  CAMF->decoded_data_size = CAMF->t4.decoded_data_size + 10000;
+  CAMF->decoded_data_size = dst_size;
+
   CAMF->decoded_data = malloc(CAMF->decoded_data_size);
+  memset(CAMF->decoded_data, 0, CAMF->decoded_data_size);
 
   dst = (uint8_t *)CAMF->decoded_data;
+  dst_end = dst + dst_size;
 
   set_bit_state(&BS, CAMF->decoding_start);
 
@@ -2224,6 +2236,9 @@ static void camf_decode_type4(x3f_camf_t *CAMF)
     bool_t odd_row = row&1;
     int32_t acc[2];
 
+    /* We loop through all the columns and the rows. But the actual
+       data is smaller than that, so we break the loop when reaching
+       the end. */
     for (col = 0; col < cols; col++) {
       bool_t odd_col = col&1;
       int32_t diff = get_true_diff(&BS, tree);
@@ -2246,6 +2261,9 @@ static void camf_decode_type4(x3f_camf_t *CAMF)
 	*dst++  = (uint8_t)((value<<0)&0xff);
 	break;
       }
+
+      if (dst >= dst_end)
+	break;
 
       odd_dst = !odd_dst;
 
@@ -2434,10 +2452,6 @@ static void get_matrix_copy(camf_entry_t *entry)
   uint32_t is_float = entry->matrix_element_is_float;
   uint32_t is_signed = entry->matrix_element_is_signed;
   uint32_t elements = entry->matrix_elements;
-
-  entry->matrix.as_float = NULL;
-  entry->matrix.as_int = NULL;
-  entry->matrix.as_uint = NULL;
 
   if (is_float) {
     if (element_size == 4) {
@@ -2634,6 +2648,10 @@ static void x3f_setup_camf_entries(x3f_camf_t *CAMF)
     table[i].matrix_data_off = 0;
     table[i].matrix_data = NULL;
     table[i].matrix_dim_entry = NULL;
+
+    table[i].matrix.as_float = NULL;
+    table[i].matrix.as_int = NULL;
+    table[i].matrix.as_uint = NULL;
 
     switch (table[i].id) {
     case X3F_CMbP:
