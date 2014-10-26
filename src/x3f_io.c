@@ -2135,11 +2135,13 @@ static void x3f_load_huffman(x3f_info_t *I,
 
 static void x3f_load_pixmap(x3f_info_t *I, x3f_directory_entry_t *DE)
 {
+  printf("Load pixmap\n");
   x3f_load_image_verbatim(I, DE);
 }
 
 static void x3f_load_jpeg(x3f_info_t *I, x3f_directory_entry_t *DE)
 {
+  printf("Load JPEG\n");
   x3f_load_image_verbatim(I, DE);
 }
 
@@ -2216,7 +2218,7 @@ static void camf_decode_type4(x3f_camf_t *CAMF)
   uint32_t rows = CAMF->t4.block_count;
   uint32_t cols = CAMF->t4.block_size;
 
-  CAMF->decoded_data_size = CAMF->t4.decoded_data_size;
+  CAMF->decoded_data_size = CAMF->t4.decoded_data_size + 10000;
   CAMF->decoded_data = malloc(CAMF->decoded_data_size);
 
   dst = (uint8_t *)CAMF->decoded_data;
@@ -2664,13 +2666,15 @@ static void x3f_setup_camf_entries(x3f_camf_t *CAMF)
   CAMF->entry_table.size = i;
   CAMF->entry_table.element = table;
 
-  printf("SETUP CAMF ENTRIES (READY)\n");
+  printf("SETUP CAMF ENTRIES (READY) Found %d entries\n", i);
 }
 
 static void x3f_load_camf(x3f_info_t *I, x3f_directory_entry_t *DE)
 {
   x3f_directory_entry_header_t *DEH = &DE->header;
   x3f_camf_t *CAMF = &DEH->data_subsection.camf;
+
+  printf("Loading CAMF of type %d\n", CAMF->type);
 
   read_data_set_offset(I, DE, X3F_CAMF_HEADER_SIZE);
 
@@ -2727,6 +2731,8 @@ static void x3f_load_camf(x3f_info_t *I, x3f_directory_entry_t *DE)
 
   if (DE == NULL)
     return X3F_ARGUMENT_ERROR;
+
+  printf("Load image block\n");
 
   switch (DE->header.identifier) {
   case X3F_SECi:
