@@ -128,7 +128,8 @@ int main(int argc, char *argv[])
     if (extract_meta) {
       char outfilename[1024];
 
-      x3f_load_data(x3f, x3f_get_thumb_jpeg(x3f));
+      /* We assume we do not need JPEG meta data
+	 x3f_load_data(x3f, x3f_get_thumb_jpeg(x3f)); */
       x3f_load_data(x3f, x3f_get_prop(x3f));
       x3f_load_data(x3f, x3f_get_camf(x3f));
 

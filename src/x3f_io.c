@@ -711,19 +711,6 @@ static void print_file_header_meta_data(FILE *f_out, x3f_t *x3f)
   fprintf(f_out, "END: file header meta data\n\n");
 }
 
-static void print_jpeg_exif_meta_data(FILE *f_out, x3f_t *x3f)
-{
-  x3f_directory_entry_t *DE = x3f_get_thumb_jpeg(x3f);
-
-  if (DE == NULL) {
-    fprintf(f_out, "INFO: No JPEG thumbnail found\n\n");
-    return;
-  }
-
-  fprintf(f_out, "TODO: JPEG EXIF meta data not implemented\n\n");
-  fprintf(stderr, "TODO: JPEG EXIF meta data not implemented\n\n");
-}
-
 static void print_camf_meta_data2(FILE *f_out, x3f_camf_t *CAMF)
 {
   fprintf(f_out, "BEGIN: CAMF meta data\n\n");
@@ -2218,6 +2205,8 @@ static void camf_decode_type4(x3f_camf_t *CAMF)
   uint32_t rows = CAMF->t4.block_count;
   uint32_t cols = CAMF->t4.block_size;
 
+  /* Ugly fix for crashing Merrill, just adding more memory than
+     needed. TODO - fix that!!! */
   CAMF->decoded_data_size = CAMF->t4.decoded_data_size + 10000;
   CAMF->decoded_data = malloc(CAMF->decoded_data_size);
 
@@ -3308,11 +3297,13 @@ static int ilog_inv(int i, double base, int steps)
 
   print_file_header_meta_data(f_out, x3f);
 
-  print_jpeg_exif_meta_data(f_out, x3f);
-
   print_camf_meta_data(f_out, x3f);
 
   print_prop_meta_data(f_out, x3f);
+
+  /* We assume that the JPEG meta data is not needed. Therefore JPEG
+     is not loaded and no call to any EXIF extraction tool either
+     called. */
 
   fclose(f_out);
 
