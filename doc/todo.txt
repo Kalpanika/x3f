@@ -13,11 +13,6 @@ REFACTORING
 CAMF ERRORS
 --------------------------------------------------------------------
 
-* Quattro is not yet functional
-
-* Decoding of CAMF might find an unknown CAMF entry type.
-  And then searching for the next CAMF entry fails. What is this?
-
 * The CAMF matrix data has the axis in the description out of order,
   at least for older cameras. What does that mean for the stored
   data? Does that follow the order or the index n in the info?
@@ -28,8 +23,6 @@ SMALL THINGS
 --------------------------------------------------------------------
 
 * Signed vs unsigned for CAMF matrix data ?
-
-* Decoding Quattro CAMF data
 
 * More error handling x3f_io.c
 
