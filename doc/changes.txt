@@ -1,3 +1,6 @@
+x3f_051: Roland Karlsson 2014-11-02
+  Some cleaning up
+
 x3f_050: Roland Karlsson 2014-10-26
   CAMF type5 (i.e. Quattro) is now working
   Fixing a CAMF type4 bug

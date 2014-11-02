@@ -2571,7 +2571,7 @@ static void x3f_setup_camf_entries(x3f_camf_t *CAMF)
     default:
       fprintf(stderr, "Unknown CAMF entry %x @ %p\n", *p4, p4);
       fprintf(stderr, "  start = %p end = %p\n", CAMF->decoded_data, end);
-      fprintf(stderr, "  left = %ld\n", end - p);
+      fprintf(stderr, "  left = %ld\n", (long)(end - p));
       fprintf(stderr, "Stop parsing CAMF\n");
       goto stop;
     }
