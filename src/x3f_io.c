@@ -505,6 +505,7 @@ static char display_char(char c)
   return '?';
 }
 
+#if 0 /* Not used display functions */
 static char *display_chars(char *str, char *buffer, int size)
 {
   int i;
@@ -556,6 +557,7 @@ static char *display_utf16s(utf16_t *str, char *buffer, int size)
 
   return buffer;
 }
+#endif /* Not used display functions */
 
 static char *display_utf16_string(utf16_t *str, char *buffer)
 {
