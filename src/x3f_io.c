@@ -2551,33 +2551,6 @@ static void x3f_setup_camf_matrix_entry(camf_entry_t *entry)
   get_matrix_copy(entry);
 }
 
-static uint8_t *search_for_next_entry(uint8_t *p, uint8_t *end)
-{
-  for (; p < end; p += 4) {
-    uint32_t id = *(uint32_t *)p;
-    uint32_t size;
-    uint8_t *next;
-
-    switch (id) {
-    case X3F_CMbP:
-    case X3F_CMbT:
-    case X3F_CMbM:
-      size = *(((uint32_t*)p)+2);
-      next = p + size;
-      if (next <= end) {
-	fprintf(stderr, "Found good candidate for CAMF entry\n");
-	return p;
-      }
-      fprintf(stderr, "Found invalid candidate for CAMF entry\n");
-      break;
-    default:
-      ;
-    }
-  }
-
-  return NULL;
-}
-
 static void x3f_setup_camf_entries(x3f_camf_t *CAMF)
 {
   uint8_t *p = (uint8_t *)CAMF->decoded_data;
@@ -2596,29 +2569,11 @@ static void x3f_setup_camf_entries(x3f_camf_t *CAMF)
     case X3F_CMbM:
       break;
     default:
-      {
-	/* This is a try to restart the parasing when something fishy
-	   is found. So far, no restart have been possible. So
-	   ... maybe it is OK just to stop wjen finding something that
-	   does not match CAMF entriy ID */
-
-	uint8_t *restart_p;
-
-	fprintf(stderr, "Unknown CAMF entry %x @ %p\n", *p4, p4);
-	fprintf(stderr, "  start = %p end = %p\n", CAMF->decoded_data, end);
-	fprintf(stderr, "  left = %ld\n", end - p);
-
-	restart_p = search_for_next_entry(p, end);
-
-	if (restart_p == NULL) {
-	  fprintf(stderr, "  Failed to restart CAMF entry parsing\n");
-	  goto stop;
-	}
-
-	p = restart_p;
-	p4 = (uint32_t *)p;
-	fprintf(stderr, "  Found CAMF entry on restart (%x)\n", *p4);
-      }
+      fprintf(stderr, "Unknown CAMF entry %x @ %p\n", *p4, p4);
+      fprintf(stderr, "  start = %p end = %p\n", CAMF->decoded_data, end);
+      fprintf(stderr, "  left = %ld\n", end - p);
+      fprintf(stderr, "Stop parsing CAMF\n");
+      goto stop;
     }
 
     /* TODO: lots of realloc - may be inefficient */
