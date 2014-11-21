@@ -704,9 +704,8 @@ static void print_file_header_meta_data(FILE *f_out, x3f_t *x3f)
     for (i=0; i<NUM_EXT_DATA; i++) {
       uint8_t type = H->extended_types[i];
       float data = H->extended_data[i];
-      if (type != 0) {
-        fprintf(f_out, "    %2d: %3d = %9f\n", i, type, data);
-      }
+
+      fprintf(f_out, "    %2d: %3d = %9f\n", i, type, data);
     }
   }
 
