@@ -1254,6 +1254,8 @@ static uint32_t row_offsets_size(x3f_huffman_t *HUF)
 
 static void free_camf_entry(camf_entry_t *entry)
 {
+  FREE(entry->property_name);
+  FREE(entry->property_value);
   FREE(entry->matrix.as_float);
   FREE(entry->matrix.as_int);
   FREE(entry->matrix.as_uint);
