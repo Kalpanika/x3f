@@ -221,6 +221,8 @@ static void cleanup_true(x3f_true_t **TRUP)
 
   if (TRU == NULL) return;
 
+  printf("Cleanup TRUE data\n");
+
   FREE(TRU->table.element);
   FREE(TRU->plane_size.element);
   cleanup_huffman_tree(&TRU->tree);
@@ -254,7 +256,11 @@ static void cleanup_quattro(x3f_quattro_t **QP)
 {
   x3f_quattro_t *Q = *QP;
 
+  /* TODO: I cannot really explain this code. */
+
   if (Q == NULL) return;
+
+  printf("Cleanup/Free Quattro\n");
 
   FREE(Q);
 
@@ -289,6 +295,8 @@ static void cleanup_huffman(x3f_huffman_t **HUFP)
   x3f_huffman_t *HUF = *HUFP;
 
   if (HUF == NULL) return;
+
+  printf("Cleanup Huffman\n");
 
   FREE(HUF->mapping.element);
   FREE(HUF->table.element);
@@ -1246,15 +1254,12 @@ static uint32_t row_offsets_size(x3f_huffman_t *HUF)
 
 static void free_camf_entry(camf_entry_t *entry)
 {
-#if 0
-  /* If this is made than cleanup_huffme(&ID->huffman) crashes */
-  /* TODO: why do it ceash ? */
   FREE(entry->matrix.as_float);
   FREE(entry->matrix.as_int);
   FREE(entry->matrix.as_uint);
   FREE(entry->matrix_dim_entry);
-#endif
-  /* TODO: fill this with something */
+
+  /* TODO: is there more to clean up? */
 }
 
 /* extern */ x3f_return_t x3f_delete(x3f_t *x3f)
@@ -1264,6 +1269,8 @@ static void free_camf_entry(camf_entry_t *entry)
 
   if (x3f == NULL)
     return X3F_ARGUMENT_ERROR;
+
+  printf("X3F Delete\n");
 
   DS = &x3f->directory_section;
 
@@ -1294,7 +1301,6 @@ static void free_camf_entry(camf_entry_t *entry)
       FREE(CAMF->table.element);
       cleanup_huffman_tree(&CAMF->tree);
       FREE(CAMF->decoded_data);
-      FREE(CAMF->entry_table.element);
       for (i=0; i < CAMF->entry_table.size; i++) {
 	free_camf_entry(&CAMF->entry_table.element[i]);
       }
@@ -2252,24 +2258,39 @@ static void camf_decode_type4(x3f_camf_t *CAMF)
       if (col < 2)
 	row_start_acc[odd_row][odd_col] = value;
 
+      /* TODO: Are those termination tests really correct ? */
+
       switch(odd_dst) {
       case 0:
 	*dst++  = (uint8_t)((value>>4)&0xff);
+
+	if (dst >= dst_end) {
+	  goto ready;
+	}
+
 	*dst    = (uint8_t)((value<<4)&0xf0);
 	break;
       case 1:
 	*dst++ |= (uint8_t)((value>>8)&0x0f);
+
+	if (dst >= dst_end) {
+	  goto ready;
+	}
+
 	*dst++  = (uint8_t)((value<<0)&0xff);
+
+	if (dst >= dst_end) {
+	  goto ready;
+	}
+
 	break;
       }
 
-      if (dst >= dst_end)
-	break;
-
       odd_dst = !odd_dst;
-
     } /* end col */
   } /* end row */
+
+ ready:;
 }
 
 static void x3f_load_camf_decode_type4(x3f_camf_t *CAMF)
