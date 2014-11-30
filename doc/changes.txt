@@ -1,3 +1,8 @@
+x3f_052: Roland Karlsson 2014-11-30
+  Running valgrind and removing some leaks and a buffer
+  overrun bug. Now you can handle several files in the same
+  execution without losing memory and crashing.
+
 x3f_051: Roland Karlsson 2014-11-02
   Some cleaning up
 
