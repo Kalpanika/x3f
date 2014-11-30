@@ -1294,6 +1294,8 @@ static void free_camf_entry(camf_entry_t *entry)
 
       cleanup_true(&ID->tru);
 
+      cleanup_quattro(&ID->quattro);
+
       FREE(ID->data);
     }
 
