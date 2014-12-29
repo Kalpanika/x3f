@@ -17,10 +17,16 @@ int main(int argc, char *argv[])
   float c[9];
   float y[3];
   float diag[9];
+  float argb[9];
+  float srgb[9];
+  float pprgb[9];
 
   x3f_3x3_3x3_mul(a, b, c);
   x3f_3x3_1x3_mul(c, x, y);
   x3f_3x3_diag(x, diag);
+  x3f_XYZ_to_AdobeRGB(argb);
+  x3f_XYZ_to_sRGB(srgb);
+  x3f_XYZ_to_ProPhotoRGB(pprgb);
 
   printf("a\n");
   x3f_3x3_print(a);
@@ -36,6 +42,13 @@ int main(int argc, char *argv[])
 
   printf("diag\n");
   x3f_3x3_print(diag);
+
+  printf("Adobe RGB\n");
+  x3f_3x3_print(argb);
+  printf("sRGB\n");
+  x3f_3x3_print(srgb);
+  printf("Pro Photo RGB\n");
+  x3f_3x3_print(pprgb);
 
   return 0;
 }
