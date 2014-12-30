@@ -16,8 +16,8 @@
 #define M21(m) *(m+7)
 #define M22(m) *(m+8)
 
-/* Multiply a 3x3 matrix with a 1x3 matrix, giving a 1x3 matrix */
-void x3f_3x3_1x3_mul(float *a, float *b, float *c)
+/* Multiply a 3x3 matrix with a 3x1 matrix, giving a 3x1 matrix */
+void x3f_3x3_3x1_mul(float *a, float *b, float *c)
 {
   M0(c) = M00(a)*M0(b) + M01(a)*M1(b) + M02(a)*M2(b);
   M1(c) = M10(a)*M0(b) + M11(a)*M1(b) + M12(a)*M2(b);
@@ -40,7 +40,7 @@ void x3f_3x3_3x3_mul(float *a, float *b, float *c)
   M22(c) = M20(a)*M02(b) + M21(a)*M12(b) + M22(a)*M22(b);
 }
 
-/* Convert a 1x3 matrix to a 3x3 diagonal matrix */
+/* Convert a 3x1 matrix to a 3x3 diagonal matrix */
 void x3f_3x3_diag(float *a, float *b)
 {
   M00(b) = M0(a); M01(b) = 0.0;   M02(b) = 0.0;
@@ -48,8 +48,8 @@ void x3f_3x3_diag(float *a, float *b)
   M20(b) = 0.0;   M21(b) = 0.0;   M22(b) = M2(a);
 }
 
-/* Print a 1x3 matrix */
-void x3f_1x3_print(float *a)
+/* Print a 3x1 matrix */
+void x3f_3x1_print(float *a)
 {
   printf("%10g\n", M0(a));
   printf("%10g\n", M1(a));

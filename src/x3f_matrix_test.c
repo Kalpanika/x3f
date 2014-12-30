@@ -22,7 +22,7 @@ int main(int argc, char *argv[])
   float pprgb[9];
 
   x3f_3x3_3x3_mul(a, b, c);
-  x3f_3x3_1x3_mul(c, x, y);
+  x3f_3x3_3x1_mul(c, x, y);
   x3f_3x3_diag(x, diag);
   x3f_XYZ_to_AdobeRGB(argb);
   x3f_XYZ_to_sRGB(srgb);
@@ -36,9 +36,9 @@ int main(int argc, char *argv[])
   x3f_3x3_print(c);
 
   printf("x\n");
-  x3f_1x3_print(x);
+  x3f_3x1_print(x);
   printf("y\n");
-  x3f_1x3_print(y);
+  x3f_3x1_print(y);
 
   printf("diag\n");
   x3f_3x3_print(diag);
