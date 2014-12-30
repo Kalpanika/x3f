@@ -15,8 +15,8 @@ typedef enum {RAW, TIFF, PPMP3, PPMP6, HISTOGRAM} raw_file_type_t;
 static void usage(char *progname)
 {
   fprintf(stderr,
-          "usage: %s [-jpg] [-meta]"
-          " [{-raw|-tiff [-gamma <GAMMA> [-min <MIN>] [-max <MAX>]]}]"
+          "usage: %s [-jpg] [-meta [-matrixmax <MAX>]]"
+          " [{-raw|-tiff [-gamma <GAMMA> [-max <MAX> | -bits <BITS>]]}]"
           " <file1> ...\n"
           "   -jpg            Dump embedded JPG. Turn off RAW dumping\n"
           "   -raw            Dump RAW area undecoded\n"
@@ -29,7 +29,6 @@ static void usage(char *progname)
           "                   NOTE: If not given, then offset is automatic\n"
           "   -loghist        Dump histogram as csv file, with log exposure\n"
           "   -gamma <GAMMA>  Gamma for scaled PPM/TIFF (def=-1.0 (off))\n"
-          "   -min <MIN>      Min for scaled PPM/TIFF (def=automatic)\n"
           "   -max <MAX>      Max for scaled PPM/TIFF (def=automatic)\n"
           "   -matrixmax      Max matrix when extracting metadata (def=100)\n",
           progname);
@@ -41,7 +40,6 @@ int main(int argc, char *argv[])
   int extract_jpg = 0;
   int extract_meta = 0;
   int extract_raw = 1;
-  int min = -1;
   int max = -1;
   double gamma = -1.0;
   raw_file_type_t file_type = TIFF;
@@ -69,8 +67,8 @@ int main(int argc, char *argv[])
       extract_raw = 1, file_type = HISTOGRAM, log_hist = 1;
     else if ((!strcmp(argv[i], "-gamma")) && (i+1)<argc)
       gamma = atof(argv[++i]);
-    else if ((!strcmp(argv[i], "-min")) && (i+1)<argc)
-      min = atoi(argv[++i]);
+    else if ((!strcmp(argv[i], "-bits")) && (i+1)<argc)
+      max = (1<<atoi(argv[++i])) - 1;
     else if ((!strcmp(argv[i], "-max")) && (i+1)<argc)
       max = atoi(argv[++i]);
     else if ((!strcmp(argv[i], "-offset")) && (i+1)<argc)
@@ -82,8 +80,8 @@ int main(int argc, char *argv[])
     else
       break;			/* Here starts list of files */
 
-  /* If min or max is set but no gamma - ERROR */
-  if (min != -1 || max != -1)
+  /* If max is set but no gamma - ERROR */
+  if (max != -1)
     if (gamma <= 0.0)
       usage(argv[0]);
 
@@ -169,13 +167,13 @@ int main(int argc, char *argv[])
       case TIFF:
 	strcat(outfilename, ".tif");
 	printf("Dump RAW as TIFF to %s\n", outfilename);
-	ret_dump = x3f_dump_raw_data_as_tiff(x3f, outfilename, gamma, min, max);
+	ret_dump = x3f_dump_raw_data_as_tiff(x3f, outfilename, gamma, max);
 	break;
       case PPMP3:
       case PPMP6:
 	strcat(outfilename, ".ppm");
 	printf("Dump RAW as PPM to %s\n", outfilename);
-	ret_dump = x3f_dump_raw_data_as_ppm(x3f, outfilename, gamma, min, max,
+	ret_dump = x3f_dump_raw_data_as_ppm(x3f, outfilename, gamma, max,
                                             file_type == PPMP6);
       case HISTOGRAM:
 	strcat(outfilename, ".csv");

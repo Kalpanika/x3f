@@ -2743,10 +2743,8 @@ static void gamma_convert_data(int rows,
                                int columns,
                                uint16_t *data,
                                double gamma,
-			       int forced_min,
 			       int forced_max)
 {
-  uint16_t min = (uint16_t)(-1);
   uint16_t max = 0;
   int row, col, color, i;
   double *gammatab = NULL;      /* too speed up gamma lookup */
@@ -2756,18 +2754,11 @@ static void gamma_convert_data(int rows,
       for (color = 0; color < 3; color++) {
         uint16_t val = data[3 * (columns * row + col) + color];
 
-        if (val < min) min = val;
         if (val > max) max = val;
       }
 
-  printf("min = %d\n", min);
   printf("max = %d\n", max);
   printf("gamma = %e\n", gamma);
-
-  if (forced_min != -1) {
-    min = forced_min;
-    printf("forced min = %d\n", min);
-  }
 
   if (forced_max != -1) {
     max = forced_max;
@@ -2776,13 +2767,8 @@ static void gamma_convert_data(int rows,
 
   gammatab = (double *)malloc(65536*sizeof(double));
 
-  for (i = 0; i <= min; i++) {
-    gammatab[i] = 0.0;
-    /* printf("%d: %g / %d\n", i, gammatab[i], (uint16_t)gammatab[i]); */
-  }
-
-  for (; i <= max; i++) {
-    gammatab[i] = 65535.0 * pow((double)(i-min)/(max-min), 1/gamma);
+  for (i = 0; i <= max; i++) {
+    gammatab[i] = 65535.0 * pow((double)(i)/(max), 1/gamma);
     /* printf("%d: %g / %d\n", i, gammatab[i], (uint16_t)gammatab[i]); */
   }
 
@@ -2889,7 +2875,6 @@ static void write_16B(FILE *f_out, uint16_t val)
 /* extern */ x3f_return_t x3f_dump_raw_data_as_ppm(x3f_t *x3f,
                                                    char *outfilename,
                                                    double gamma,
-                                                   int min,
                                                    int max,
                                                    int binary)
 {
@@ -2924,7 +2909,7 @@ static void write_16B(FILE *f_out, uint16_t val)
           fprintf(f_out, "P3\n%d %d\n65535\n", ID->columns, ID->rows);
 
         if (gamma > 0.0)
-          gamma_convert_data(ID->rows, ID->columns, data, gamma, min, max);
+          gamma_convert_data(ID->rows, ID->columns, data, gamma, max);
 
         for (row=0; row < ID->rows; row++) {
           int col;
@@ -3013,7 +2998,6 @@ static void write_array_32(FILE *f_out, uint32_t num, uint32_t *vals)
 /* extern */ x3f_return_t x3f_dump_raw_data_as_tiff(x3f_t *x3f,
                                                     char *outfilename,
                                                     double gamma,
-                                                    int min,
                                                     int max)
 {
   x3f_directory_entry_t *DE = x3f_get_raw(x3f);
@@ -3062,7 +3046,7 @@ static void write_array_32(FILE *f_out, uint32_t num, uint32_t *vals)
         /* Scale and gamma code the image */
 
         if (gamma > 0.0)
-          gamma_convert_data(ID->rows, ID->columns, data, gamma, min, max);
+          gamma_convert_data(ID->rows, ID->columns, data, gamma, max);
 
         /* Write initial TIFF file header II-format, i.e. little endian */
 
