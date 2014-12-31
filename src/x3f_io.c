@@ -6,6 +6,7 @@
  */
 
 #include "x3f_io.h"
+#include "x3f_matrix.h"
 
 #include <string.h>
 #include <stdlib.h>
@@ -1260,8 +1261,6 @@ static void free_camf_entry(camf_entry_t *entry)
   FREE(entry->matrix.as_int);
   FREE(entry->matrix.as_uint);
   FREE(entry->matrix_dim_entry);
-
-  /* TODO: is there more to clean up? */
 }
 
 /* extern */ x3f_return_t x3f_delete(x3f_t *x3f)
@@ -2264,8 +2263,6 @@ static void camf_decode_type4(x3f_camf_t *CAMF)
       if (col < 2)
 	row_start_acc[odd_row][odd_col] = value;
 
-      /* TODO: Are those termination tests really correct ? */
-
       switch(odd_dst) {
       case 0:
 	*dst++  = (uint8_t)((value>>4)&0xff);
@@ -2414,14 +2411,14 @@ static void x3f_setup_camf_property_entry(camf_entry_t *entry)
     entry->property_num = *(uint32_t *)v;
   uint32_t off = *(uint32_t *)(v + 4);
 
-  entry->property_name = (uint8_t **)malloc(num*sizeof(uint8_t*));
+  entry->property_name = (char **)malloc(num*sizeof(uint8_t*));
   entry->property_value = (uint8_t **)malloc(num*sizeof(uint8_t*));
 
   for (i=0; i<num; i++) {
     uint32_t name_off = off + *(uint32_t *)(v + 8 + 8*i);
     uint32_t value_off = off + *(uint32_t *)(v + 8 + 8*i + 4);
 
-    entry->property_name[i] = e + name_off;
+    entry->property_name[i] = (char *)(e + name_off);
     entry->property_value[i] = e + value_off;
   }
 }
@@ -2557,7 +2554,7 @@ static void x3f_setup_camf_matrix_entry(camf_entry_t *entry)
     if (dentry[i].n != i) {
       fprintf(stderr, "WARNING: matrix entries out of order (%d != %d)\n", dentry[i].n, i);
     }
-    dentry[i].name = e + dentry[i].name_offset;
+    dentry[i].name = (char *)(e + dentry[i].name_offset);
 
     totalsize *= size;
   }
@@ -2616,7 +2613,7 @@ static void x3f_setup_camf_entries(x3f_camf_t *CAMF)
     entry[i].value_offset = *p4++;
 
     /* Compute adresses and sizes */
-    entry[i].name_address = p + entry[i].name_offset;
+    entry[i].name_address = (char *)(p + entry[i].name_offset);
     entry[i].value_address = p + entry[i].value_offset;
     entry[i].name_size = entry[i].value_offset - entry[i].name_offset;
     entry[i].value_size = entry[i].entry_size - entry[i].value_offset;
@@ -2737,61 +2734,138 @@ static void x3f_load_camf(x3f_info_t *I, x3f_directory_entry_t *DE)
   return X3F_OK;
 }
 
+/*
+  SaturationLevel: x530, SD9, SD10, SD14, SD15, DP1-DP2x
+  RawSaturationLevel:               SD14, SD15, DP1-DP2x
+  MaxOutputLevel:                   SD14, SD15, DP1-DP2x
+  DarkLevel:                        SD14, SD15, DP1-DP2x
+  ImageDepth: Merrill and Quattro
+*/
+
+static void get_max_raw(x3f_t *x3f, utf16_t *raw_max)
+{
+  /* TODO: fetch correct values */
+  raw_max[0] = 4095;
+  raw_max[1] = 4095;
+  raw_max[2] = 4095;
+}
+
+static void get_wb(x3f_t *x3f, char *name)
+{
+  strcpy(name, x3f->header.white_balance);
+}
+
+static int get_camf_float_matrix(x3f_t *x3f, char *name, float *matrix)
+{
+  x3f_directory_entry_t *DE = x3f_get_camf(x3f);
+  x3f_directory_entry_header_t *DEH = &DE->header;
+  x3f_camf_t *CAMF = &DEH->data_subsection.camf;
+  camf_entry_t *table = CAMF->entry_table.element;
+  int i;
+
+  for (i=0; i<CAMF->entry_table.size; i++) {
+    camf_entry_t *entry = &table[i];
+
+    if (!strcmp(name, entry->name_address)) {
+      if (entry->id != X3F_CMbM) {
+	fprintf(stderr, "CAMF entry is not a matrix: %s\n", name);
+	return 0;
+      } else {
+	int size = entry->matrix_elements*sizeof(float);
+
+	printf("Copying matrix for %s\n", name);
+	memcpy(matrix, entry->matrix.as_float, size);
+	return 1;
+      }
+    }
+  }
+
+  fprintf(stderr, "CAMF entry not found: %s\n", name);
+
+  return 0;
+}
+
+static void get_camf_float_matrix_for_wb(x3f_t *x3f, char *name, float *matrix)
+{
+  char name_with_wb[1024];
+
+  get_wb(x3f, name_with_wb);
+  strcat(name_with_wb, name);
+
+  get_camf_float_matrix(x3f, name_with_wb, matrix);
+}
+
 /* Converts the data in place */
 
-static void gamma_convert_data(int rows,
-                               int columns,
-                               uint16_t *data,
-                               double gamma,
-			       int forced_max)
+static void convert_data(x3f_t *x3f,
+			 int rows,
+			 int columns,
+			 uint16_t *data,
+			 x3f_color_encoding_t encoding,
+			 int max)
 {
-  uint16_t max = 0;
-  int row, col, color, i;
-  double *gammatab = NULL;      /* too speed up gamma lookup */
+  int row, col, color;
+  uint16_t raw_max[3] = {max, max, max};
+  uint16_t out_max = 65535; /* TODO: possible to adjust */
 
-  for (row = 0; row < rows; row++)
-    for (col = 0; col < columns; col++)
-      for (color = 0; color < 3; color++) {
-        uint16_t val = data[3 * (columns * row + col) + color];
+  float cc_matrix[9];
+  float wb_gain[3];
+  float wb_gain_matrix[9];
+  float cam_to_xyz_matrix[9];
+  float xyz_to_rgb_matrix[9];
+  float conv_matrix[9];
 
-        if (val > max) max = val;
-      }
+  if (max < 0.0)
+    get_max_raw(x3f, raw_max);
 
   printf("max = %d\n", max);
-  printf("gamma = %e\n", gamma);
+  printf("raw_max = {%d,%d,%d}\n", raw_max[0], raw_max[1], raw_max[2]);
+  printf("out_max = %d\n", out_max);
 
-  if (forced_max != -1) {
-    max = forced_max;
-    printf("forced max = %d\n", max);
+  get_camf_float_matrix_for_wb(x3f, "CCMatrix", cc_matrix);
+  get_camf_float_matrix_for_wb(x3f, "WBGain", wb_gain);
+  switch (encoding) {
+  case SRGB:
+    x3f_XYZ_to_sRGB(xyz_to_rgb_matrix);
+    break;
+  case ARGB:
+    x3f_XYZ_to_AdobeRGB(xyz_to_rgb_matrix);
+    break;
+  case PPRGB:
+    x3f_XYZ_to_ProPhotoRGB(xyz_to_rgb_matrix);
+    break;
+  default:
+    fprintf(stderr, "Unknown color space %d\n", encoding);
+    exit(42);
   }
+  x3f_3x3_diag(wb_gain, wb_gain_matrix);
+  x3f_3x3_3x3_mul(cc_matrix, wb_gain_matrix, cam_to_xyz_matrix);
+  x3f_3x3_3x3_mul(xyz_to_rgb_matrix, cam_to_xyz_matrix, conv_matrix);
 
-  gammatab = (double *)malloc(65536*sizeof(double));
+  /* TODO: the below results in a linear image, but most images shall
+     be gamma (or similar) coded */
 
-  for (i = 0; i <= max; i++) {
-    gammatab[i] = 65535.0 * pow((double)(i)/(max), 1/gamma);
-    /* printf("%d: %g / %d\n", i, gammatab[i], (uint16_t)gammatab[i]); */
-  }
-
-  for (; i <= 65535; i++) {
-    gammatab[i] = 65535.0;
-    /* printf("%d: %g / %d\n", i, gammatab[i], (uint16_t)gammatab[i]); */
-  }
-
-  for (row = 0; row < rows; row++)
-    for (col = 0; col < columns; col++)
+  for (row = 0; row < rows; row++) {
+    for (col = 0; col < columns; col++) {
+      uint16_t *valp[3];
+      float input[3], output[3];
       for (color = 0; color < 3; color++) {
-        uint16_t *valp = &data[3 * (columns * row + col) + color];
-	double val = gammatab[*valp];
+	valp[color] = &data[3 * (columns * row + col) + color];
+	input[color] = (float)(*valp[color])/raw_max[color];
+      }
+      x3f_3x3_3x1_mul(conv_matrix, input, output);
+      for (color = 0; color < 3; color++) {
+	double val = output[color]*out_max; 
 
 	if (val < 0.0)
-	  *valp = 0;
-	else if (val > 65535.0)
-	  *valp = 65535;
+	  *valp[color] = 0;
+	else if (val > out_max)
+	  *valp[color] = out_max;
 	else
-	  *valp = (uint16_t)val;
+	  *valp[color] = (uint16_t)val;
       }
-
-  free(gammatab);
+    }
+  }
 }
 
 /* extern */ x3f_return_t x3f_swap_images(x3f_t *x3f_1, x3f_t *x3f_2)
@@ -2816,7 +2890,7 @@ static void gamma_convert_data(int rows,
     return X3F_INTERNAL_ERROR;
   }
 
-  /* TODO - here shall we do some sanity tests whether thwe SWAP below
+  /* TODO - here shall we do some sanity tests whether the SWAP below
      is possible */
 
   /* As we dont care about the content of the images, we can load them
@@ -2872,11 +2946,12 @@ static void write_16B(FILE *f_out, uint16_t val)
   fputc((val>>0) & 0xff, f_out);
 }
 
-/* extern */ x3f_return_t x3f_dump_raw_data_as_ppm(x3f_t *x3f,
-                                                   char *outfilename,
-                                                   double gamma,
-                                                   int max,
-                                                   int binary)
+/* extern */
+x3f_return_t x3f_dump_raw_data_as_ppm(x3f_t *x3f,
+				      char *outfilename,
+				      x3f_color_encoding_t encoding,
+				      int max,
+				      int binary)
 {
   x3f_directory_entry_t *DE = x3f_get_raw(x3f);
 
@@ -2908,8 +2983,8 @@ static void write_16B(FILE *f_out, uint16_t val)
         else
           fprintf(f_out, "P3\n%d %d\n65535\n", ID->columns, ID->rows);
 
-        if (gamma > 0.0)
-          gamma_convert_data(ID->rows, ID->columns, data, gamma, max);
+        if (encoding != NONE)
+          convert_data(x3f, ID->rows, ID->columns, data, encoding, max);
 
         for (row=0; row < ID->rows; row++) {
           int col;
@@ -2995,10 +3070,11 @@ static void write_array_32(FILE *f_out, uint32_t num, uint32_t *vals)
     write_32L(f_out, vals[i]);
 }
 
-/* extern */ x3f_return_t x3f_dump_raw_data_as_tiff(x3f_t *x3f,
-                                                    char *outfilename,
-                                                    double gamma,
-                                                    int max)
+/* extern */
+x3f_return_t x3f_dump_raw_data_as_tiff(x3f_t *x3f,
+				       char *outfilename,
+				       x3f_color_encoding_t encoding,
+				       int max)
 {
   x3f_directory_entry_t *DE = x3f_get_raw(x3f);
 
@@ -3045,10 +3121,10 @@ static void write_array_32(FILE *f_out, uint32_t num, uint32_t *vals)
 
         /* Scale and gamma code the image */
 
-        if (gamma > 0.0)
-          gamma_convert_data(ID->rows, ID->columns, data, gamma, max);
+        if (encoding != NONE)
+          convert_data(x3f, ID->rows, ID->columns, data, encoding, max);
 
-        /* Write initial TIFF file header II-format, i.e. little endian */
+	/* Write initial TIFF file header II-format, i.e. little endian */
 
         write_16L(f_out, 0x4949); /* II */
         write_16L(f_out, 42);     /* A carefully choosen number */

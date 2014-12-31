@@ -214,7 +214,7 @@ typedef struct camf_dim_entry_s {
   uint32_t size;
   uint32_t name_offset;
   uint32_t n; /* 0,1,2,3... */
-  uint8_t *name;
+  char *name;
 } camf_dim_entry_t;
 
 typedef struct camf_entry_s {
@@ -229,17 +229,17 @@ typedef struct camf_entry_s {
   uint32_t value_offset;
 
   /* computed values */
-  uint8_t *name_address;
+  char *name_address;
   void *value_address;
   uint32_t name_size;
   uint32_t value_size;
 
   /* extracted values for explicit CAMF entry types*/
   uint32_t text_size;
-  uint8_t *text;
+  char *text;
 
   uint32_t property_num;
-  uint8_t **property_name;
+  char **property_name;
   uint8_t **property_value;
 
   uint32_t matrix_type;
@@ -366,7 +366,7 @@ typedef struct x3f_header_s {
   uint32_t rotation;            /* 0, 90, 180, 270 */
 
   /* Added for 2.1 and 2.2 */
-  uint8_t white_balance[SIZE_WHITE_BALANCE];
+  char white_balance[SIZE_WHITE_BALANCE];
   uint8_t extended_types[NUM_EXT_DATA]; /* x3f_extended_types_t */
   float extended_data[NUM_EXT_DATA]; /* 32 bits, but do type differ? */
 } x3f_header_t;
@@ -383,6 +383,13 @@ typedef struct x3f_s {
   x3f_header_t header;
   x3f_directory_section_t directory_section;
 } x3f_t;
+
+typedef enum x3f_color_encoding_e {
+  NONE=0,
+  SRGB=1,
+  ARGB=2,
+  PPRGB=3
+} x3f_color_encoding_t;
 
 typedef enum x3f_return_e {
   X3F_OK=0,
@@ -426,11 +433,13 @@ extern x3f_return_t x3f_swap_images(x3f_t *x3f_template, x3f_t *x3f_images);
 extern x3f_return_t x3f_dump_raw_data(x3f_t *x3f, char *outfilename);
 
 extern x3f_return_t x3f_dump_raw_data_as_ppm(x3f_t *x3f, char *outfilename,
-                                             double gamma, int max,
+                                             x3f_color_encoding_t encoding,
+					     int max,
                                              int binary);
 
 extern x3f_return_t x3f_dump_raw_data_as_tiff(x3f_t *x3f, char *outfilename,
-                                              double gamma, int max);
+					      x3f_color_encoding_t encoding,
+					      int max);
 
 extern x3f_return_t x3f_dump_raw_data_as_histogram(x3f_t *x3f,
                                                    char *outfilename,

@@ -16,21 +16,25 @@ static void usage(char *progname)
 {
   fprintf(stderr,
           "usage: %s [-jpg] [-meta [-matrixmax <MAX>]]"
-          " [{-raw|-tiff [-gamma <GAMMA> [-max <MAX> | -bits <BITS>]]}]"
+          " [{-raw|{{-tiff|-ppm|-ppm-ascii} [{-max <MAX>}|{-bits <BITS>}] [-color <COLOR>]}}]"
           " <file1> ...\n"
           "   -jpg            Dump embedded JPG. Turn off RAW dumping\n"
           "   -raw            Dump RAW area undecoded\n"
           "   -tiff           Dump RAW as 3x16 bit TIFF (default)\n"
-          "   -ppm-ascii      Dump RAW as 3x16 bit PPM of type P3 (ascii)\n"
+          "   -ppm-ascii      Dump RAW/color as 3x16 bit PPM/P3 (ascii)\n"
           "                   NOTE: 16 bit PPM/P3 is not generally supported\n"
-          "   -ppm            Dump RAW as 3x16 bit PPM of type P6 (binary)\n"
+          "   -ppm            Dump RAW/color as 3x16 bit PPM/P6 (binary)\n"
           "   -histogram      Dump histogram as csv file\n"
+          "   -loghist        Dump histogram as csv file, with log exposure\n"
+	  "   -color <COLOR>  Convert to RGB color"
+	  "                   (sRGB, AdobeRGB, ProPhotoRGB)\n"
+	  "\n"
+	  "STRANGE STUFF\n"
           "   -offset <OFF>   Offset for SD14 and older\n"
           "                   NOTE: If not given, then offset is automatic\n"
-          "   -loghist        Dump histogram as csv file, with log exposure\n"
-          "   -gamma <GAMMA>  Gamma for scaled PPM/TIFF (def=-1.0 (off))\n"
-          "   -max <MAX>      Max for scaled PPM/TIFF (def=automatic)\n"
-          "   -matrixmax      Max matrix when extracting metadata (def=100)\n",
+          "   -bits <BITS>    Bit depth for RAW data (hack for color)\n"
+          "   -max <MAX>      Max for RAW data (hack for color)\n"
+          "   -matrixmax <M>  Max num matrix elements in metadata (def=100)\n",
           progname);
   exit(1);
 }
@@ -40,9 +44,9 @@ int main(int argc, char *argv[])
   int extract_jpg = 0;
   int extract_meta = 0;
   int extract_raw = 1;
-  int max = -1;
-  double gamma = -1.0;
+  int max_raw = -1;
   raw_file_type_t file_type = TIFF;
+  x3f_color_encoding_t color_encoding = NONE;
   int files = 0;
   int log_hist = 0;
 
@@ -65,12 +69,25 @@ int main(int argc, char *argv[])
       extract_raw = 1, file_type = HISTOGRAM;
     else if (!strcmp(argv[i], "-loghist"))
       extract_raw = 1, file_type = HISTOGRAM, log_hist = 1;
-    else if ((!strcmp(argv[i], "-gamma")) && (i+1)<argc)
-      gamma = atof(argv[++i]);
+    else if (!strcmp(argv[i], "-color") && (i+1)<argc) {
+      char *encoding = argv[++i];
+      if (!strcmp(encoding, "sRGB"))
+	color_encoding = SRGB;
+      else if (!strcmp(encoding, "AdobeRGB"))
+	color_encoding = SRGB;
+      else if (!strcmp(encoding, "ProPhotoRGB"))
+	color_encoding = PPRGB;
+      else {
+	fprintf(stderr, "Unknown color encoding: %s\n", encoding);
+	usage(argv[0]);
+      }
+    }
+
+  /* Strange Stuff */
     else if ((!strcmp(argv[i], "-bits")) && (i+1)<argc)
-      max = (1<<atoi(argv[++i])) - 1;
+      max_raw = (1<<atoi(argv[++i])) - 1;
     else if ((!strcmp(argv[i], "-max")) && (i+1)<argc)
-      max = atoi(argv[++i]);
+      max_raw = atoi(argv[++i]);
     else if ((!strcmp(argv[i], "-offset")) && (i+1)<argc)
       legacy_offset = atoi(argv[++i]), auto_legacy_offset = 0;
     else if ((!strcmp(argv[i], "-matrixmax")) && (i+1)<argc)
@@ -80,15 +97,11 @@ int main(int argc, char *argv[])
     else
       break;			/* Here starts list of files */
 
-  /* If max is set but no gamma - ERROR */
-  if (max != -1)
-    if (gamma <= 0.0)
+  if (max_raw > 0.0 || color_encoding != NONE)
+    if (file_type != TIFF && file_type != PPMP3 && file_type != PPMP6) {
+      fprintf(stderr, "Max or Color is not applicable for file type\n");
       usage(argv[0]);
-
-  /* If gamma is set but no file type that can output gamma - ERROR */
-  if (gamma > 0.0)
-    if (file_type != TIFF && file_type != PPMP3 && file_type != PPMP6)
-      usage(argv[0]);
+    }
 
   for (; i<argc; i++) {
     char *infilename = argv[i];
@@ -123,13 +136,15 @@ int main(int argc, char *argv[])
         fprintf(stderr, "Could not dump JPEG to %s\n", outfilename);
     }
 
-    if (extract_meta) {
-      char outfilename[1024];
-
+    if (extract_meta || color_encoding != NONE) {
       /* We assume we do not need JPEG meta data
 	 x3f_load_data(x3f, x3f_get_thumb_jpeg(x3f)); */
       x3f_load_data(x3f, x3f_get_prop(x3f));
       x3f_load_data(x3f, x3f_get_camf(x3f));
+    }
+
+    if (extract_meta) {
+      char outfilename[1024];
 
       strcpy(outfilename, infilename);
       strcat(outfilename, ".meta");
@@ -167,13 +182,15 @@ int main(int argc, char *argv[])
       case TIFF:
 	strcat(outfilename, ".tif");
 	printf("Dump RAW as TIFF to %s\n", outfilename);
-	ret_dump = x3f_dump_raw_data_as_tiff(x3f, outfilename, gamma, max);
+	ret_dump = x3f_dump_raw_data_as_tiff(x3f, outfilename,
+					     color_encoding, max_raw);
 	break;
       case PPMP3:
       case PPMP6:
 	strcat(outfilename, ".ppm");
 	printf("Dump RAW as PPM to %s\n", outfilename);
-	ret_dump = x3f_dump_raw_data_as_ppm(x3f, outfilename, gamma, max,
+	ret_dump = x3f_dump_raw_data_as_ppm(x3f, outfilename,
+					    color_encoding, max_raw,
                                             file_type == PPMP6);
       case HISTOGRAM:
 	strcat(outfilename, ".csv");
