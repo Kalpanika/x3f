@@ -217,6 +217,8 @@ typedef struct camf_dim_entry_s {
   char *name;
 } camf_dim_entry_t;
 
+typedef enum {M_FLOAT, M_INT, M_UINT} matrix_type_t;
+
 typedef struct camf_entry_s {
   /* pointer into decoded data */
   void *entry;
@@ -242,19 +244,18 @@ typedef struct camf_entry_s {
   char **property_name;
   uint8_t **property_value;
 
-  uint32_t matrix_type;
   uint32_t matrix_dim;
+  camf_dim_entry_t *matrix_dim_entry;
+
+  /* Offset, pointer and size and type of raw data */
+  uint32_t matrix_type;
   uint32_t matrix_data_off;
   void *matrix_data;
-  struct {
-    float *as_float;
-    uint32_t *as_uint;
-    int32_t *as_int;
-  } matrix;
-  camf_dim_entry_t *matrix_dim_entry;
   uint32_t matrix_element_size;
-  uint32_t matrix_element_is_float;
-  uint32_t matrix_element_is_signed;
+
+  /* Pointer and type of copied data */
+  matrix_type_t matrix_decoded_type;
+  void *matrix_decoded;
 
   /* Help data to try to estimate element size */
   uint32_t matrix_elements;

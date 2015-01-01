@@ -624,18 +624,16 @@ static char *id_to_str(uint32_t id)
 
 static void print_matrix_element(FILE *f_out, camf_entry_t *entry, uint32_t i)
 {
-  float *as_float = entry->matrix.as_float;
-  uint32_t *as_uint = entry->matrix.as_uint;
-  int32_t *as_int = entry->matrix.as_int;
-
-  if (as_float != NULL) {
-    fprintf(f_out, "%12g ", as_float[i]);
-  } else if (as_uint != NULL) {
-    fprintf(f_out, "%12u ", as_uint[i]);
-  } else if (as_int != NULL) {
-    fprintf(f_out, "%12d ", as_int[i]);
-  } else {
-    fprintf(f_out, "%12s ", "-");
+  switch (entry->matrix_decoded_type) {
+  case M_FLOAT:
+    fprintf(f_out, "%12g ", ((float *)(entry->matrix_decoded))[i]);
+    break;
+  case M_INT:
+    fprintf(f_out, "%12d ", ((int32_t *)(entry->matrix_decoded))[i]);
+    break;
+  case M_UINT:
+    fprintf(f_out, "%12d ", ((uint32_t *)(entry->matrix_decoded))[i]);
+    break;
   }
 }
 
@@ -647,10 +645,18 @@ static void print_matrix(FILE *f_out, camf_entry_t *entry)
   uint32_t totalsize = entry->matrix_elements;
   int i;
 
-  fprintf(f_out, "%s ", entry->matrix_element_is_float ?
-	  "float" : entry->matrix_element_is_signed ?
-	  "integer" :
-	  "unsigned integer");
+  switch (entry->matrix_decoded_type) {
+  case M_FLOAT:
+    fprintf(f_out, "float ");
+    break;
+  case M_INT:
+    fprintf(f_out, "integer ");
+    break;
+  case M_UINT:
+    fprintf(f_out, "unsigned integer ");
+    break;
+  }
+
   switch (dim) {
   case 1:
     fprintf(f_out, "[%d]\n", entry->matrix_dim_entry[0].size);
@@ -788,7 +794,6 @@ static void print_camf_meta_data2(FILE *f_out, x3f_camf_t *CAMF)
 	  }
 
 	  fprintf(f_out, "            matrix_element_size = %d\n", entry[i].matrix_element_size);
-	  fprintf(f_out, "            matrix_element_is_float = %d\n", entry[i].matrix_element_is_float);
 	  fprintf(f_out, "            matrix_elements = %d\n", entry[i].matrix_elements);
 	  fprintf(f_out, "            matrix_estimated_element_size = %g\n", entry[i].matrix_estimated_element_size);
 	}
@@ -1257,9 +1262,7 @@ static void free_camf_entry(camf_entry_t *entry)
 {
   FREE(entry->property_name);
   FREE(entry->property_value);
-  FREE(entry->matrix.as_float);
-  FREE(entry->matrix.as_int);
-  FREE(entry->matrix.as_uint);
+  FREE(entry->matrix_decoded);
   FREE(entry->matrix_dim_entry);
 }
 
@@ -2427,103 +2430,84 @@ static void x3f_setup_camf_property_entry(camf_entry_t *entry)
 
 static void set_matrix_element_info(uint32_t type,
 				    uint32_t *size,
-				    uint32_t *is_float,
-				    uint32_t *is_signed)
+				    matrix_type_t *decoded_type)
 {
   switch (type) {
   case 0:
     *size = 2;
-    *is_float = 0;
-    *is_signed = 1; /* known to be true */
+    *decoded_type = M_INT; /* known to be true */
     break;
   case 1:
     *size = 4;
-    *is_float = 0;
-    *is_signed = 0; /* TODO: unknown ???? */
+    *decoded_type = M_UINT; /* TODO: unknown ???? */
     break;
   case 2:
     *size = 4;
-    *is_float = 0;
-    *is_signed = 0; /* TODO: unknown ???? */
+    *decoded_type = M_UINT; /* TODO: unknown ???? */
     break;
   case 3:
     *size = 4;
-    *is_float = 1;
-    *is_signed = 1; /* trivially true */
+    *decoded_type = M_FLOAT; /* known to be true */
     break;
   case 5:
     *size = 1;
-    *is_float = 0;
-    *is_signed = 0; /* TODO: unknown ???? */
+    *decoded_type = M_UINT; /* TODO: unknown ???? */
     break;
   case 6:
     *size = 2;
-    *is_float = 0;
-    *is_signed = 0; /* TODO: unknown ???? */
+    *decoded_type = M_UINT; /* TODO: unknown ???? */
     break;
   default:
     fprintf(stderr, "Unknown matrix type (%ud)\n", type);
-    *size = 4;
-    *is_float = 0;
-    *is_signed = 0;
+    abort();
   }
 }
 
 static void get_matrix_copy(camf_entry_t *entry)
 {
-  int i;
-
   uint32_t element_size = entry->matrix_element_size;
-  uint32_t is_float = entry->matrix_element_is_float;
-  uint32_t is_signed = entry->matrix_element_is_signed;
   uint32_t elements = entry->matrix_elements;
+  int i, size = elements*4;
 
-  if (is_float) {
-    if (element_size == 4) {
-      uint32_t size = elements*sizeof(float);
-      entry->matrix.as_float = (float *)malloc(size);
-      memcpy(entry->matrix.as_float, entry->matrix_data, size);
-    } else {
-      fprintf(stderr, "Float is size 4 and not %d\n", element_size);
+  entry->matrix_decoded = malloc(size);
+
+  switch (element_size) {
+  case 4:
+    memcpy(entry->matrix_decoded, entry->matrix_data, size);
+    break;
+  case 2:
+    switch (entry->matrix_decoded_type) {
+    case M_INT:
+      for (i=0; i<elements; i++)
+	((int32_t *)entry->matrix_decoded)[i] = (int32_t)((int16_t *)entry->matrix_data)[i];
+      break;
+    case M_UINT:
+      for (i=0; i<elements; i++)
+	((uint32_t *)entry->matrix_decoded)[i] = (uint32_t)((uint16_t *)entry->matrix_data)[i];
+      break;
+    default:
+      fprintf(stderr, "No 2 byte floats!!!\n");
+      abort();
     }
-  } else if (is_signed) {
-    uint32_t size = elements*sizeof(uint32_t);
-    entry->matrix.as_int = (int32_t *)malloc(size);
-    if (element_size == 4) {
-      memcpy(entry->matrix.as_int, entry->matrix_data, size);
-    } else if (element_size == 2) {
-      int16_t *p = entry->matrix_data;
-      for (i=0; i<elements; i++) {
-	entry->matrix.as_int[i] = (int32_t)p[i];
-      }
-    } else if (element_size == 1) {
-      int8_t *p = entry->matrix_data;
-      for (i=0; i<elements; i++) {
-	entry->matrix.as_int[i] = (int32_t)p[i];
-      }
-    } else {
-      fprintf(stderr, "Int is size 1,2 or 4 and not %d\n", element_size);
-      FREE(entry->matrix.as_uint);
+    break;
+  case 1:
+    switch (entry->matrix_decoded_type) {
+    case M_INT:
+      for (i=0; i<elements; i++)
+	((int32_t *)entry->matrix_decoded)[i] = (int32_t)((int8_t *)entry->matrix_data)[i];
+      break;
+    case M_UINT:
+      for (i=0; i<elements; i++)
+	((uint32_t *)entry->matrix_decoded)[i] = (uint32_t)((uint8_t *)entry->matrix_data)[i];
+      break;
+    default:
+      fprintf(stderr, "No 1 byte floats!!!\n");
+      abort();
     }
-  } else /* unsigned */ {
-    uint32_t size = elements*sizeof(uint32_t);
-    entry->matrix.as_uint = (uint32_t *)malloc(size);
-    if (element_size == 4) {
-      memcpy(entry->matrix.as_uint, entry->matrix_data, size);
-    } else if (element_size == 2) {
-      uint16_t *p = entry->matrix_data;
-      for (i=0; i<elements; i++) {
-	entry->matrix.as_uint[i] = (uint32_t)p[i];
-      }
-    } else if (element_size == 1) {
-      uint8_t *p = entry->matrix_data;
-      for (i=0; i<elements; i++) {
-	entry->matrix.as_uint[i] = (uint32_t)p[i];
-      }
-    } else {
-      fprintf(stderr, "Int is size 1,2 or 4 and not %d\n", element_size);
-      FREE(entry->matrix.as_uint);
-    }
+    break;
+  default:
+    fprintf(stderr, "Unknown size %d\n", element_size);
+    abort();
   }
 }
 
@@ -2561,8 +2545,7 @@ static void x3f_setup_camf_matrix_entry(camf_entry_t *entry)
 
   set_matrix_element_info(type,
 			  &entry->matrix_element_size,
-			  &entry->matrix_element_is_float,
-			  &entry->matrix_element_is_signed);
+			  &entry->matrix_decoded_type);
   entry->matrix_data = (void *)(e + off);
 
   entry->matrix_elements = totalsize;
@@ -2629,9 +2612,7 @@ static void x3f_setup_camf_entries(x3f_camf_t *CAMF)
     entry[i].matrix_data = NULL;
     entry[i].matrix_dim_entry = NULL;
 
-    entry[i].matrix.as_float = NULL;
-    entry[i].matrix.as_int = NULL;
-    entry[i].matrix.as_uint = NULL;
+    entry[i].matrix_decoded = NULL;
 
     switch (entry[i].id) {
     case X3F_CMbP:
@@ -2734,6 +2715,89 @@ static void x3f_load_camf(x3f_info_t *I, x3f_directory_entry_t *DE)
   return X3F_OK;
 }
 
+static void get_wb(x3f_t *x3f, char *name)
+{
+  strcpy(name, x3f->header.white_balance);
+}
+
+static int get_camf_matrix(x3f_t *x3f, char *name,
+			   int dim0, int dim1, int dim2, matrix_type_t type,
+			   void *matrix)
+{
+  x3f_directory_entry_t *DE = x3f_get_camf(x3f);
+  x3f_directory_entry_header_t *DEH = &DE->header;
+  x3f_camf_t *CAMF = &DEH->data_subsection.camf;
+  camf_entry_t *table = CAMF->entry_table.element;
+  int i;
+
+  for (i=0; i<CAMF->entry_table.size; i++) {
+    camf_entry_t *entry = &table[i];
+
+    if (!strcmp(name, entry->name_address)) {
+      int size;
+
+      if (entry->id != X3F_CMbM) {
+	fprintf(stderr, "CAMF entry is not a matrix: %s\n", name);
+	return 0;
+      }
+      if (entry->matrix_decoded_type != type) {
+	fprintf(stderr, "CAMF entry not required type: %s\n", name);
+	return 0;
+      }
+
+      switch (entry->matrix_dim) {
+      case 3:
+	if (dim2 != entry->matrix_dim_entry[2].size ||
+	    dim1 != entry->matrix_dim_entry[1].size ||
+	    dim0 != entry->matrix_dim_entry[0].size) {
+	  fprintf(stderr, "CAMF entry - wrong dimension size: %s\n", name);
+	  return 0;
+	}
+	break;
+      case 2:
+	if (dim2 != 0 ||
+	    dim1 != entry->matrix_dim_entry[1].size ||
+	    dim0 != entry->matrix_dim_entry[0].size) {
+	  fprintf(stderr, "CAMF entry - wrong dimension size: %s\n", name);
+	  return 0;
+	}
+	break;
+      case 1:
+	if (dim2 != 0 ||
+	    dim1 != 0 ||
+	    dim0 != entry->matrix_dim_entry[0].size) {
+	  fprintf(stderr, "CAMF entry - wrong dimension size: %s\n", name);
+	  return 0;
+	}
+	break;
+      default:
+	fprintf(stderr, "CAMF entry - wrong dimension size: %s\n", name);
+	return 0;
+      }
+
+      size = entry->matrix_elements*sizeof(float);
+      printf("Copying matrix for %s\n", name);
+      memcpy(matrix, entry->matrix_decoded, size);
+      return 1;
+    }
+  }
+
+  fprintf(stderr, "CAMF entry not found: %s\n", name);
+
+  return 0;
+}
+
+static void get_camf_float_matrix_for_wb(x3f_t *x3f, char *name, int dim0, int dim1, float *matrix)
+{
+  char name_with_wb[1024];
+
+  /* TODO - not generally correct way of calculating name */
+  get_wb(x3f, name_with_wb);
+  strcat(name_with_wb, name);
+
+  get_camf_matrix(x3f, name_with_wb, dim0, dim1, 0, M_FLOAT, matrix);
+}
+
 /*
   SaturationLevel: x530, SD9, SD10, SD14, SD15, DP1-DP2x
   RawSaturationLevel:               SD14, SD15, DP1-DP2x
@@ -2748,51 +2812,6 @@ static void get_max_raw(x3f_t *x3f, utf16_t *raw_max)
   raw_max[0] = 4095;
   raw_max[1] = 4095;
   raw_max[2] = 4095;
-}
-
-static void get_wb(x3f_t *x3f, char *name)
-{
-  strcpy(name, x3f->header.white_balance);
-}
-
-static int get_camf_float_matrix(x3f_t *x3f, char *name, float *matrix)
-{
-  x3f_directory_entry_t *DE = x3f_get_camf(x3f);
-  x3f_directory_entry_header_t *DEH = &DE->header;
-  x3f_camf_t *CAMF = &DEH->data_subsection.camf;
-  camf_entry_t *table = CAMF->entry_table.element;
-  int i;
-
-  for (i=0; i<CAMF->entry_table.size; i++) {
-    camf_entry_t *entry = &table[i];
-
-    if (!strcmp(name, entry->name_address)) {
-      if (entry->id != X3F_CMbM) {
-	fprintf(stderr, "CAMF entry is not a matrix: %s\n", name);
-	return 0;
-      } else {
-	int size = entry->matrix_elements*sizeof(float);
-
-	printf("Copying matrix for %s\n", name);
-	memcpy(matrix, entry->matrix.as_float, size);
-	return 1;
-      }
-    }
-  }
-
-  fprintf(stderr, "CAMF entry not found: %s\n", name);
-
-  return 0;
-}
-
-static void get_camf_float_matrix_for_wb(x3f_t *x3f, char *name, float *matrix)
-{
-  char name_with_wb[1024];
-
-  get_wb(x3f, name_with_wb);
-  strcat(name_with_wb, name);
-
-  get_camf_float_matrix(x3f, name_with_wb, matrix);
 }
 
 /* Converts the data in place */
@@ -2811,9 +2830,11 @@ static void convert_data(x3f_t *x3f,
   float cc_matrix[9];
   float wb_gain[3];
   float wb_gain_matrix[9];
+  float cam_to_ciergb_matrix[9];
+  float ciergb_to_xyz_matrix[9];
   float cam_to_xyz_matrix[9];
   float xyz_to_rgb_matrix[9];
-  float conv_matrix[9];
+  float cam_to_rgb_matrix[9];
 
   if (max < 0.0)
     get_max_raw(x3f, raw_max);
@@ -2822,8 +2843,11 @@ static void convert_data(x3f_t *x3f,
   printf("raw_max = {%d,%d,%d}\n", raw_max[0], raw_max[1], raw_max[2]);
   printf("out_max = %d\n", out_max);
 
-  get_camf_float_matrix_for_wb(x3f, "CCMatrix", cc_matrix);
-  get_camf_float_matrix_for_wb(x3f, "WBGain", wb_gain);
+  get_camf_float_matrix_for_wb(x3f, "CCMatrix", 3, 3, cc_matrix);
+  get_camf_float_matrix_for_wb(x3f, "WBGain", 3, 0, wb_gain);
+  x3f_3x3_diag(wb_gain, wb_gain_matrix);
+
+  x3f_CIERGB_to_XYZ(ciergb_to_xyz_matrix);
   switch (encoding) {
   case SRGB:
     x3f_XYZ_to_sRGB(xyz_to_rgb_matrix);
@@ -2836,11 +2860,28 @@ static void convert_data(x3f_t *x3f,
     break;
   default:
     fprintf(stderr, "Unknown color space %d\n", encoding);
-    exit(42);
+    abort();
   }
-  x3f_3x3_diag(wb_gain, wb_gain_matrix);
-  x3f_3x3_3x3_mul(cc_matrix, wb_gain_matrix, cam_to_xyz_matrix);
-  x3f_3x3_3x3_mul(xyz_to_rgb_matrix, cam_to_xyz_matrix, conv_matrix);
+
+  x3f_3x3_3x3_mul(cc_matrix, wb_gain_matrix, cam_to_ciergb_matrix);
+  x3f_3x3_3x3_mul(ciergb_to_xyz_matrix, cam_to_ciergb_matrix, cam_to_xyz_matrix);
+  x3f_3x3_3x3_mul(xyz_to_rgb_matrix, cam_to_xyz_matrix, cam_to_rgb_matrix);
+
+  printf("cc_matrix\n");
+  x3f_3x3_print(cc_matrix);
+  printf("wb_gain\n");
+  x3f_3x1_print(wb_gain);
+
+  printf("ciergb_to_xyz_matrix\n");
+  x3f_3x3_print(ciergb_to_xyz_matrix);
+  printf("xyz_to_rgb_matrix\n");
+  x3f_3x3_print(xyz_to_rgb_matrix);
+  printf("cam_to_ciergb_matrix\n");
+  x3f_3x3_print(cam_to_ciergb_matrix);
+  printf("cam_to_xyz_matrix\n");
+  x3f_3x3_print(cam_to_xyz_matrix);
+  printf("cam_to_rgb_matrix\n");
+  x3f_3x3_print(cam_to_rgb_matrix);
 
   /* TODO: the below results in a linear image, but most images shall
      be gamma (or similar) coded */
@@ -2853,7 +2894,7 @@ static void convert_data(x3f_t *x3f,
 	valp[color] = &data[3 * (columns * row + col) + color];
 	input[color] = (float)(*valp[color])/raw_max[color];
       }
-      x3f_3x3_3x1_mul(conv_matrix, input, output);
+      x3f_3x3_3x1_mul(cam_to_rgb_matrix, input, output);
       for (color = 0; color < 3; color++) {
 	double val = output[color]*out_max; 
 
