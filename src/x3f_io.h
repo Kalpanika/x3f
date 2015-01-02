@@ -429,8 +429,6 @@ extern x3f_return_t x3f_load_data(x3f_t *x3f, x3f_directory_entry_t *DE);
 
 extern x3f_return_t x3f_load_image_block(x3f_t *x3f, x3f_directory_entry_t *DE);
 
-extern x3f_return_t x3f_swap_images(x3f_t *x3f_template, x3f_t *x3f_images);
-
 extern x3f_return_t x3f_dump_raw_data(x3f_t *x3f, char *outfilename);
 
 extern x3f_return_t x3f_dump_raw_data_as_ppm(x3f_t *x3f, char *outfilename,

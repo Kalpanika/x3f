@@ -2923,49 +2923,6 @@ static void convert_data(x3f_t *x3f,
   }
 }
 
-/* TODO: swap should be removed */
-
-/* extern */ x3f_return_t x3f_swap_images(x3f_t *x3f_1, x3f_t *x3f_2)
-{
-  x3f_directory_entry_t *DE_1 = NULL;
-  x3f_directory_entry_t *DE_2 = NULL;
-  x3f_directory_entry_t tmp;
-
-  if (x3f_1 == NULL)
-    return X3F_ARGUMENT_ERROR;
-
-  if (x3f_2 == NULL)
-    return X3F_ARGUMENT_ERROR;
-
-  if (NULL == (DE_1 = x3f_get_raw(x3f_1))) {
-    fprintf(stderr, "Cannot find RAW 1 data\n");
-    return X3F_INTERNAL_ERROR;
-  }
-
-  if (NULL == (DE_2 = x3f_get_raw(x3f_2))) {
-    fprintf(stderr, "Cannot find RAW 2 data\n");
-    return X3F_INTERNAL_ERROR;
-  }
-
-  /* TODO - here shall we do some sanity tests whether the SWAP below
-     is possible */
-
-  /* As we dont care about the content of the images, we can load them
-     as a RAW blocks, including huffman tables, headers and/or
-     whatever. */
-  x3f_load_image_block(x3f_1, DE_1);
-  x3f_load_image_block(x3f_2, DE_2);
-
-  /* SWAP the internal image areas, including all headers. NOTE: this
-     will result in wrong input.offset - but it does not matter as it
-     is not used when writing loaded images */
-  memcpy((void *)&tmp, (void *)DE_1, sizeof(x3f_directory_entry_t));
-  memcpy((void *)DE_1, (void *)DE_2, sizeof(x3f_directory_entry_t));
-  memcpy((void *)DE_2, (void *)&tmp, sizeof(x3f_directory_entry_t));
-
-  return X3F_OK;
-}
-
 /* extern */ x3f_return_t x3f_dump_raw_data(x3f_t *x3f,
                                             char *outfilename)
 {
