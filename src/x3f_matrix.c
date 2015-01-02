@@ -85,6 +85,13 @@ void x3f_XYZ_to_AdobeRGB(float *a)
   M20(a) = +0.02829; M21(a) = -0.14067; M22(a) = +1.34926;
 }
 
+void x3f_AdobeRGB_to_XYZ(float *a)
+{
+  M00(a) = 0.60974; M01(a) = 0.20528; M02(a) = 0.14919;
+  M10(a) = 0.31111; M11(a) = 0.62567; M12(a) = 0.06322;
+  M20(a) = 0.01947; M21(a) = 0.06087; M22(a) = 0.74457;
+}
+
 /* http://en.wikipedia.org/wiki/SRGB */
 void x3f_XYZ_to_sRGB(float *a)
 {
