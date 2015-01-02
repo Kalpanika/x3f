@@ -76,6 +76,11 @@ COLOR AND CONVERSION
 
 * ColorModeCompensations etc
 
+* Quattro ColorTemp is computed otherwise than other wb
+
+* There are also more matrices for color for Quattro
+
+* Contrast/(Sharpness)/Saturation
 
 --------------------------------------------------------------------
 COLOR AND CONVERSION (ADVANCED)
