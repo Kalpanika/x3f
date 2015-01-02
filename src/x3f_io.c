@@ -235,11 +235,11 @@ static void cleanup_quattro(x3f_quattro_t **QP)
 {
   x3f_quattro_t *Q = *QP;
 
-  /* TODO: I cannot really explain this code. */
-
   if (Q == NULL) return;
 
   printf("Cleanup/Free Quattro\n");
+
+  /* Here is a place where you can clean up stuff */
 
   FREE(Q);
 
