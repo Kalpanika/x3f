@@ -2846,7 +2846,7 @@ static void convert_data(x3f_t *x3f,
   float xyz_to_rgb_matrix[9];
   float cam_to_rgb_matrix[9];
 
-  if (max < 0.0)
+  if (max < 0)
     get_max_raw(x3f, max_raw);
 
   printf("max = %d\n", max);
@@ -2910,9 +2910,9 @@ static void convert_data(x3f_t *x3f,
       }
       x3f_3x3_3x1_mul(cam_to_rgb_matrix, input, output);
       for (color = 0; color < 3; color++) {
-	double val = output[color]*max_out; 
+	int32_t val = (int32_t)(output[color]*max_out); 
 
-	if (val < 0.0)
+	if (val < 0)
 	  *valp[color] = 0;
 	else if (val > max_out)
 	  *valp[color] = max_out;
