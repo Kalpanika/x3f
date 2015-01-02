@@ -1096,6 +1096,8 @@ static uint32_t row_offsets_size(x3f_huffman_t *HUF)
   return HUF->row_offsets.size * sizeof(HUF->row_offsets.element[0]);
 }
 
+/* TODO: write to file should be removed. */
+
 /* extern */ x3f_return_t x3f_write_to_file(x3f_t *x3f, FILE *outfile)
 {
   x3f_info_t *I = NULL;
@@ -2317,7 +2319,7 @@ static void x3f_load_camf_decode_type4(x3f_camf_t *CAMF)
   CAMF->table.size = i;
   CAMF->table.element = element;
 
-  /* TODO: where does the value 32 come from? */
+  /* TODO: where does the values 28 and 32 come from? */
 #define CAMF_T4_DATA_SIZE_OFFSET 28
 #define CAMF_T4_DATA_OFFSET 32
   CAMF->decoding_size = *(uint32_t *)(CAMF->data + CAMF_T4_DATA_SIZE_OFFSET);
@@ -2379,7 +2381,7 @@ static void x3f_load_camf_decode_type5(x3f_camf_t *CAMF)
   CAMF->table.size = i;
   CAMF->table.element = element;
 
-  /* TODO: where does the value 32 come from? */
+  /* TODO: where does the values 28 and 32 come from? */
 #define CAMF_T5_DATA_SIZE_OFFSET 28
 #define CAMF_T5_DATA_OFFSET 32
   CAMF->decoding_size = *(uint32_t *)(CAMF->data + CAMF_T5_DATA_SIZE_OFFSET);
@@ -2425,8 +2427,6 @@ static void x3f_setup_camf_property_entry(camf_entry_t *entry)
     entry->property_value[i] = e + value_off;
   }
 }
-
-/* TODO: should there not be a flag for is_unsigned? */
 
 static void set_matrix_element_info(uint32_t type,
 				    uint32_t *size,
@@ -2717,6 +2717,10 @@ static void x3f_load_camf(x3f_info_t *I, x3f_directory_entry_t *DE)
 
 static void get_wb(x3f_t *x3f, char *name)
 {
+
+  /* TODO: this does not work for Quattro. The WB string is stored
+     elsewhere. */
+
   strcpy(name, x3f->header.white_balance);
 }
 
@@ -2771,7 +2775,7 @@ static int get_camf_matrix(x3f_t *x3f, char *name,
 	}
 	break;
       default:
-	fprintf(stderr, "CAMF entry - wrong dimension size: %s\n", name);
+	fprintf(stderr, "CAMF entry - more than 3 dimensions: %s\n", name);
 	return 0;
       }
 
@@ -2787,13 +2791,17 @@ static int get_camf_matrix(x3f_t *x3f, char *name,
   return 0;
 }
 
-static void get_camf_float_matrix_for_wb(x3f_t *x3f, char *name, int dim0, int dim1, float *matrix)
+static void get_camf_matrix_for_wb(x3f_t *x3f,
+				   char *name, int dim0, int dim1,
+				   float *matrix)
 {
   char name_with_wb[1024];
 
-  /* TODO - not generally correct way of calculating name */
-  get_wb(x3f, name_with_wb);
-  strcat(name_with_wb, name);
+  /* TODO - not correct way of calculating the name. Input to this
+     function should be a name of a table containing the names. As key
+     to that table, current wb should be used. This works for Merrill
+     and most (all?) older TRUE engine cameras though */
+  get_wb(x3f, name_with_wb); strcat(name_with_wb, name);
 
   get_camf_matrix(x3f, name_with_wb, dim0, dim1, 0, M_FLOAT, matrix);
 }
@@ -2806,12 +2814,14 @@ static void get_camf_float_matrix_for_wb(x3f_t *x3f, char *name, int dim0, int d
   ImageDepth: Merrill and Quattro
 */
 
-static void get_max_raw(x3f_t *x3f, utf16_t *raw_max)
+/* TODO: it seems like Quattro also needs to get min RAW value */
+
+static void get_max_raw(x3f_t *x3f, utf16_t *max_raw)
 {
-  /* TODO: fetch correct values */
-  raw_max[0] = 4095;
-  raw_max[1] = 4095;
-  raw_max[2] = 4095;
+  /* TODO: fetch correct values, this is for Merrill only. */
+  max_raw[0] = 4095;
+  max_raw[1] = 4095;
+  max_raw[2] = 4095;
 }
 
 /* Converts the data in place */
@@ -2824,8 +2834,8 @@ static void convert_data(x3f_t *x3f,
 			 int max)
 {
   int row, col, color;
-  uint16_t raw_max[3] = {max, max, max};
-  uint16_t out_max = 65535; /* TODO: possible to adjust */
+  uint16_t max_raw[3] = {max, max, max};
+  uint16_t max_out = 65535; /* TODO: should be possible to adjust */
 
   float cc_matrix[9];
   float wb_gain[3];
@@ -2837,14 +2847,18 @@ static void convert_data(x3f_t *x3f,
   float cam_to_rgb_matrix[9];
 
   if (max < 0.0)
-    get_max_raw(x3f, raw_max);
+    get_max_raw(x3f, max_raw);
 
   printf("max = %d\n", max);
-  printf("raw_max = {%d,%d,%d}\n", raw_max[0], raw_max[1], raw_max[2]);
-  printf("out_max = %d\n", out_max);
+  printf("max_raw = {%d,%d,%d}\n", max_raw[0], max_raw[1], max_raw[2]);
+  printf("max_out = %d\n", max_out);
 
-  get_camf_float_matrix_for_wb(x3f, "CCMatrix", 3, 3, cc_matrix);
-  get_camf_float_matrix_for_wb(x3f, "WBGain", 3, 0, wb_gain);
+  /* TODO: this way of calculating is only correct for TRUE
+     engine. Older cameras convert to XYZ instead, and use other
+     matrices.  */
+
+  get_camf_matrix_for_wb(x3f, "CCMatrix", 3, 3, cc_matrix);
+  get_camf_matrix_for_wb(x3f, "WBGain", 3, 0, wb_gain);
   x3f_3x3_diag(wb_gain, wb_gain_matrix);
 
   x3f_CIERGB_to_XYZ(ciergb_to_xyz_matrix);
@@ -2892,22 +2906,24 @@ static void convert_data(x3f_t *x3f,
       float input[3], output[3];
       for (color = 0; color < 3; color++) {
 	valp[color] = &data[3 * (columns * row + col) + color];
-	input[color] = (float)(*valp[color])/raw_max[color];
+	input[color] = (float)(*valp[color])/max_raw[color];
       }
       x3f_3x3_3x1_mul(cam_to_rgb_matrix, input, output);
       for (color = 0; color < 3; color++) {
-	double val = output[color]*out_max; 
+	double val = output[color]*max_out; 
 
 	if (val < 0.0)
 	  *valp[color] = 0;
-	else if (val > out_max)
-	  *valp[color] = out_max;
+	else if (val > max_out)
+	  *valp[color] = max_out;
 	else
 	  *valp[color] = (uint16_t)val;
       }
     }
   }
 }
+
+/* TODO: swap should be removed */
 
 /* extern */ x3f_return_t x3f_swap_images(x3f_t *x3f_1, x3f_t *x3f_2)
 {
