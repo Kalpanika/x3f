@@ -16,6 +16,20 @@
 #define M21(m) *(m+7)
 #define M22(m) *(m+8)
 
+/* Multiply a scalar with a 3x1 matrix, giving a 3x1 matrix */
+void x3f_scalar_3x1_mul(float a, float *b, float *c)
+{
+  M0(c) = a*M0(b); M1(c) = a*M1(b); M2(c) = a*M2(b);
+}
+
+/* Multiply a scalar with a 3x3 matrix, giving a 3x3 matrix */
+void x3f_scalar_3x3_mul(float a, float *b, float *c)
+{
+  M00(c) = a*M00(b); M01(c) = a*M01(b); M02(c) = a*M02(b);
+  M10(c) = a*M10(b); M11(c) = a*M11(b); M12(c) = a*M12(b);
+  M20(c) = a*M20(b); M21(c) = a*M21(b); M22(c) = a*M22(b);
+}
+
 /* Multiply a 3x3 matrix with a 3x1 matrix, giving a 3x1 matrix */
 void x3f_3x3_3x1_mul(float *a, float *b, float *c)
 {

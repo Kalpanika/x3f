@@ -1,3 +1,6 @@
+extern void x3f_scalar_3x1_mul(float a, float *b, float *c);
+extern void x3f_scalar_3x3_mul(float a, float *b, float *c);
+
 extern void x3f_3x3_3x1_mul(float *a, float *b, float *c);
 extern void x3f_3x3_3x3_mul(float *a, float *b, float *c);
 

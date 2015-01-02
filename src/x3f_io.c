@@ -2584,6 +2584,16 @@ static void get_camf_matrix_for_wb(x3f_t *x3f,
   get_camf_matrix(x3f, name_with_wb, dim0, dim1, 0, M_FLOAT, matrix);
 }
 
+static float get_camf_float(x3f_t *x3f, char *name)
+{
+  float val[1];
+
+  get_camf_matrix(x3f, name, 1, 0, 0, M_FLOAT, val);
+
+  return val[0];
+}
+
+
 /*
   SaturationLevel: x530, SD9, SD10, SD14, SD15, DP1-DP2x
   RawSaturationLevel:               SD14, SD15, DP1-DP2x
@@ -2623,6 +2633,8 @@ static void convert_data(x3f_t *x3f,
   float cam_to_xyz_matrix[9];
   float xyz_to_rgb_matrix[9];
   float cam_to_rgb_matrix[9];
+  float conv_matrix[9];
+  float sensor_iso, capture_iso, iso_scaling;
 
   if (max < 0)
     get_max_raw(x3f, max_raw);
@@ -2630,6 +2642,13 @@ static void convert_data(x3f_t *x3f,
   printf("max = %d\n", max);
   printf("max_raw = {%d,%d,%d}\n", max_raw[0], max_raw[1], max_raw[2]);
   printf("max_out = %d\n", max_out);
+
+  sensor_iso = get_camf_float(x3f, "SensorISO");
+  capture_iso = get_camf_float(x3f, "CaptureISO");
+  iso_scaling = capture_iso/sensor_iso;
+
+  printf("SensorISO = %g\n", sensor_iso);
+  printf("CaptureISO = %g\n", capture_iso);
 
   /* TODO: this way of calculating is only correct for TRUE
      engine. Older cameras convert to XYZ instead, and use other
@@ -2658,6 +2677,7 @@ static void convert_data(x3f_t *x3f,
   x3f_3x3_3x3_mul(cc_matrix, wb_gain_matrix, cam_to_ciergb_matrix);
   x3f_3x3_3x3_mul(ciergb_to_xyz_matrix, cam_to_ciergb_matrix, cam_to_xyz_matrix);
   x3f_3x3_3x3_mul(xyz_to_rgb_matrix, cam_to_xyz_matrix, cam_to_rgb_matrix);
+  x3f_scalar_3x3_mul(iso_scaling, cam_to_rgb_matrix, conv_matrix);
 
   printf("cc_matrix\n");
   x3f_3x3_print(cc_matrix);
@@ -2674,6 +2694,8 @@ static void convert_data(x3f_t *x3f,
   x3f_3x3_print(cam_to_xyz_matrix);
   printf("cam_to_rgb_matrix\n");
   x3f_3x3_print(cam_to_rgb_matrix);
+  printf("conv_matrix\n");
+  x3f_3x3_print(conv_matrix);
 
   /* TODO: the below results in a linear image, but most images shall
      be gamma (or similar) coded */
@@ -2686,7 +2708,7 @@ static void convert_data(x3f_t *x3f,
 	valp[color] = &data[3 * (columns * row + col) + color];
 	input[color] = (float)(*valp[color])/max_raw[color];
       }
-      x3f_3x3_3x1_mul(cam_to_rgb_matrix, input, output);
+      x3f_3x3_3x1_mul(conv_matrix, input, output);
       for (color = 0; color < 3; color++) {
 	int32_t val = (int32_t)(output[color]*max_out); 
 
