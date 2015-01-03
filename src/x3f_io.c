@@ -3089,11 +3089,11 @@ static int ilog_inv(int i, double base, int steps)
       FILE *f_out = fopen(outfilename, "wb");
 
       /* Create a cleared histogram */
-      uint16_t *histogram[3];
+      uint32_t *histogram[3];
       int color, i;
 
       for (color=0; color < 3; color++)
-        histogram[color] = (uint16_t *)calloc(1<<16, sizeof(uint16_t));
+        histogram[color] = (uint32_t *)calloc(1<<16, sizeof(uint32_t));
 
       if (f_out != NULL) {
         int row;
@@ -3115,17 +3115,17 @@ static int ilog_inv(int i, double base, int steps)
       }
 
       for (i=0; i <= max; i++) {
-        uint16_t val[3];
+        uint32_t val[3];
 
         for (color=0; color < 3; color++)
           val[color] = histogram[color][i];
 
         if (val[0] || val[1] || val[2]) {
           if (log_hist) {
-            fprintf(f_out, "%5d, %5d , %5d , %5d , %5d\n",
+            fprintf(f_out, "%5d, %5d , %6d , %6d , %6d\n",
                     i, ilog_inv(i, BASE, STEPS), val[0], val[1], val[2]);
           } else {
-            fprintf(f_out, "%5d , %5d , %5d , %5d\n",
+            fprintf(f_out, "%5d , %6d , %6d , %6d\n",
                     i, val[0], val[1], val[2]);
           }
         }
