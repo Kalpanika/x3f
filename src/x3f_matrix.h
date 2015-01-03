@@ -17,3 +17,5 @@ extern void x3f_AdobeRGB_to_XYZ(float *a);
 extern void x3f_XYZ_to_sRGB(float *a);
 
 extern void x3f_CIERGB_to_XYZ(float *a);
+
+extern void x3f_Bradford_D50_to_D65(float *a);

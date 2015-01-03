@@ -62,7 +62,7 @@ COLOR AND CONVERSION
 
 * What connection space is used in TRUE engine? Older is
   CIE XYZ and TRUE uses some kind of RGB. We are using CIE
-  RGB now.
+  RGB now. That seems to be right!
 
 * Nonlinear coding of output.
 
@@ -72,8 +72,6 @@ COLOR AND CONVERSION
 
 * Auto exposure correction?
 
-* ISO scaling
-
 * ColorModeCompensations etc
 
 * Quattro ColorTemp is computed otherwise than other wb
@@ -81,6 +79,8 @@ COLOR AND CONVERSION
 * There are also more matrices for color for Quattro
 
 * Contrast/(Sharpness)/Saturation
+
+* Crop to image rectangle
 
 --------------------------------------------------------------------
 COLOR AND CONVERSION (ADVANCED)

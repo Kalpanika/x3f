@@ -129,3 +129,11 @@ void x3f_CIERGB_to_XYZ_strange(float *a)
   M10(a) = 0.17697 /B21; M11(a) = 0.81240 /B21; M12(a) = 0.01063 /B21;
   M20(a) = 0.00    /B21; M21(a) = 0.01    /B21; M22(a) = 0.99    /B21;
 }
+
+/* http://www.brucelindbloom.com/index.html?Eqn_ChromAdapt.html */
+void x3f_Bradford_D50_to_D65(float *a)
+{
+  M00(a) = +0.9555766 ; M01(a) = -0.0094156; M02(a) = +0.0631636;
+  M10(a) = -0.0282895 ; M11(a) = +1.0099416; M12(a) = +0.0210077;
+  M20(a) = +0.0122982 ; M21(a) = -0.0204830; M22(a) = +1.3299098;
+}

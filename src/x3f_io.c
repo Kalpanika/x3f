@@ -2630,7 +2630,9 @@ static void convert_data(x3f_t *x3f,
   float wb_gain_matrix[9];
   float cam_to_ciergb_matrix[9];
   float ciergb_to_xyz_matrix[9];
-  float cam_to_xyz_matrix[9];
+  float bradford_d50_to_d65_matrix[9];
+  float cam_to_xyz_d50_matrix[9];
+  float cam_to_xyz_d65_matrix[9];
   float xyz_to_rgb_matrix[9];
   float cam_to_rgb_matrix[9];
   float conv_matrix[9];
@@ -2659,6 +2661,7 @@ static void convert_data(x3f_t *x3f,
   x3f_3x3_diag(wb_gain, wb_gain_matrix);
 
   x3f_CIERGB_to_XYZ(ciergb_to_xyz_matrix);
+  x3f_Bradford_D50_to_D65(bradford_d50_to_d65_matrix);
   switch (encoding) {
   case SRGB:
     x3f_XYZ_to_sRGB(xyz_to_rgb_matrix);
@@ -2675,8 +2678,9 @@ static void convert_data(x3f_t *x3f,
   }
 
   x3f_3x3_3x3_mul(cc_matrix, wb_gain_matrix, cam_to_ciergb_matrix);
-  x3f_3x3_3x3_mul(ciergb_to_xyz_matrix, cam_to_ciergb_matrix, cam_to_xyz_matrix);
-  x3f_3x3_3x3_mul(xyz_to_rgb_matrix, cam_to_xyz_matrix, cam_to_rgb_matrix);
+  x3f_3x3_3x3_mul(ciergb_to_xyz_matrix, cam_to_ciergb_matrix, cam_to_xyz_d50_matrix);
+  x3f_3x3_3x3_mul(bradford_d50_to_d65_matrix, cam_to_xyz_d50_matrix, cam_to_xyz_d65_matrix);
+  x3f_3x3_3x3_mul(xyz_to_rgb_matrix, cam_to_xyz_d65_matrix, cam_to_rgb_matrix);
   x3f_scalar_3x3_mul(iso_scaling, cam_to_rgb_matrix, conv_matrix);
 
   printf("cc_matrix\n");
@@ -2690,8 +2694,12 @@ static void convert_data(x3f_t *x3f,
   x3f_3x3_print(xyz_to_rgb_matrix);
   printf("cam_to_ciergb_matrix\n");
   x3f_3x3_print(cam_to_ciergb_matrix);
-  printf("cam_to_xyz_matrix\n");
-  x3f_3x3_print(cam_to_xyz_matrix);
+  printf("bradford_d50_to_d65_matrix\n");
+  x3f_3x3_print(bradford_d50_to_d65_matrix);
+  printf("cam_to_xyz_d50_matrix\n");
+  x3f_3x3_print(cam_to_xyz_d50_matrix);
+  printf("cam_to_xyz_d65_matrix\n");
+  x3f_3x3_print(cam_to_xyz_d65_matrix);
   printf("cam_to_rgb_matrix\n");
   x3f_3x3_print(cam_to_rgb_matrix);
   printf("conv_matrix\n");
