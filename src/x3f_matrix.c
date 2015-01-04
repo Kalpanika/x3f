@@ -137,3 +137,63 @@ void x3f_Bradford_D50_to_D65(double *a)
   M10(a) = -0.0282895 ; M11(a) = +1.0099416; M12(a) = +0.0210077;
   M20(a) = +0.0122982 ; M21(a) = -0.0204830; M22(a) = +1.3299098;
 }
+
+void x3f_sRGB_LUT(double *lut, int size, uint16_t max)
+{
+  double a = 0.055;
+  double thres = 0.0031308;
+  int i;
+
+  for (i=0; i<size; i++) {
+    double lin = (double)i/(size - 1);
+    double srgb;
+
+    if (lin <= thres)
+      srgb = 12.92 * lin;
+    else
+      srgb = (1 + a)*pow(lin, 1/2.4) - a;
+
+    srgb = round (srgb * max);
+
+    if (srgb < 0)
+      lut[i] = 0;
+    else if (srgb > max)
+      lut[i] = max;
+    else
+      lut[i] = srgb;
+  }
+}
+
+void x3f_gamma_LUT(double *lut, int size, uint16_t max, double gamma)
+{
+  int i;
+
+  for (i=0; i<size; i++) {
+    double lin = (double)i/(size - 1);
+    double gam;
+
+    gam = pow(lin, 1/gamma);
+    gam = round (gam * max);
+
+    if (gam < 0)
+      lut[i] = 0;
+    else if (gam > max)
+      lut[i] = max;
+    else
+      lut[i] = gam;
+  }
+}
+
+uint16_t x3f_LUT_lookup(double *lut, int size, double val)
+{
+  double index = val*(size - 1);
+  int i = (int)floor(index);
+  double frac = index - i;
+
+  if (i<0)
+    return (uint16_t)lut[0];
+  else if (i>=(size - 1))
+    return (uint16_t)lut[size-1];
+  else
+    return (uint16_t)(lut[i] + frac*(lut[i+1] - lut[i]));
+}

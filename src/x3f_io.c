@@ -2688,6 +2688,8 @@ static void crop_area_camf(x3f_t *x3f, char *name, area_t *image, area_t *crop)
 
 /* Converts the data in place */
 
+#define LUTSIZE 1024
+
 static void convert_data(x3f_t *x3f,
 			 area_t *image,
 			 area_t *shield,
@@ -2712,6 +2714,7 @@ static void convert_data(x3f_t *x3f,
   uint64_t black_sum[3] = {0,0,0};
   uint32_t black_pixels = shield->columns*shield->rows;
   double black_level[3];
+  double lut[LUTSIZE];
 
   get_max_raw(x3f, max_raw);
 
@@ -2745,14 +2748,18 @@ static void convert_data(x3f_t *x3f,
 
   x3f_CIERGB_to_XYZ(ciergb_to_xyz_matrix);
   x3f_Bradford_D50_to_D65(bradford_d50_to_d65_matrix);
+
   switch (encoding) {
   case SRGB:
+    x3f_sRGB_LUT(lut, LUTSIZE, max_out);
     x3f_XYZ_to_sRGB(xyz_to_rgb_matrix);
     break;
   case ARGB:
+    x3f_gamma_LUT(lut, LUTSIZE, max_out, 2.2);
     x3f_XYZ_to_AdobeRGB(xyz_to_rgb_matrix);
     break;
   case PPRGB:
+    x3f_gamma_LUT(lut, LUTSIZE, max_out, 2.2);
     x3f_XYZ_to_ProPhotoRGB(xyz_to_rgb_matrix);
     break;
   default:
@@ -2800,16 +2807,8 @@ static void convert_data(x3f_t *x3f,
 	input[color] = (*valp[color] - black_level[color])/max_raw[color];
       }
       x3f_3x3_3x1_mul(conv_matrix, input, output);
-      for (color = 0; color < 3; color++) {
-	int32_t val = (int32_t)(output[color]*max_out); 
-
-	if (val < 0)
-	  *valp[color] = 0;
-	else if (val > max_out)
-	  *valp[color] = max_out;
-	else
-	  *valp[color] = (uint16_t)val;
-      }
+      for (color = 0; color < 3; color++)
+	*valp[color] = x3f_LUT_lookup(lut, LUTSIZE, output[color]);
     }
   }
 }

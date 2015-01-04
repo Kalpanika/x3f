@@ -1,3 +1,5 @@
+#include <inttypes.h>
+
 extern void x3f_scalar_3x1_mul(double a, double *b, double *c);
 extern void x3f_scalar_3x3_mul(double a, double *b, double *c);
 
@@ -19,3 +21,8 @@ extern void x3f_XYZ_to_sRGB(double *a);
 extern void x3f_CIERGB_to_XYZ(double *a);
 
 extern void x3f_Bradford_D50_to_D65(double *a);
+
+extern void x3f_sRGB_LUT(double *lut, int size, uint16_t max);
+extern void x3f_gamma_LUT(double *lut, int size, uint16_t max, double gamma);
+extern uint16_t x3f_LUT_lookup(double *lut, int size, double val);
+
