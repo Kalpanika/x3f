@@ -12,6 +12,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include <stdio.h>
+#include <assert.h>
 
 /* --------------------------------------------------------------------- */
 /* Hacky external flags                                                 */
@@ -2612,12 +2613,65 @@ static void get_max_raw(x3f_t *x3f, utf16_t *max_raw)
   max_raw[2] = 4095;
 }
 
+typedef struct
+{
+  uint16_t *data;
+  uint32_t rows;
+  uint32_t columns;
+  uint32_t channels; /* TODO: in practice not used. Has to be >= 3. */
+  uint32_t row_stride;
+} area_t;
+
+
+static void image_area(x3f_t *x3f, area_t *image)
+{
+  x3f_directory_entry_t *DE = x3f_get_raw(x3f);
+
+  assert (DE != NULL);
+
+  x3f_directory_entry_header_t *DEH = &DE->header;
+  x3f_image_data_t *ID = &DEH->data_subsection.image_data;
+  x3f_huffman_t *HUF = ID->huffman;
+  x3f_true_t *TRU = ID->tru;
+  uint16_t *data = NULL;
+
+  if (HUF != NULL)
+    data = HUF->x3rgb16.element;
+
+  if (TRU != NULL)
+    data = TRU->x3rgb16.element;
+
+  assert(data != NULL);
+
+  image->data = data;
+  image->columns = ID->columns;
+  image->rows = ID->rows;
+  image->channels = 3;
+  image->row_stride = ID->columns * image->channels;
+}
+
+static void crop_area(uint32_t *coord, area_t *image, area_t *crop)
+{
+  crop->data = image->data + image->channels*coord[0] + image->row_stride * coord[1];
+  crop->columns = coord[2] - coord[0] + 1;
+  crop->rows = coord[3] - coord[1] + 1;
+  crop->channels = image->channels;
+  crop->row_stride = image->row_stride;
+}
+
+static void crop_area_camf(x3f_t *x3f, char *name, area_t *image, area_t *crop)
+{
+  uint32_t coord[4];
+
+  get_camf_matrix(x3f, name, 4, 0, 0, M_UINT, coord);
+  crop_area(coord, image, crop);
+}
+
 /* Converts the data in place */
 
 static void convert_data(x3f_t *x3f,
-			 int rows,
-			 int columns,
-			 uint16_t *data,
+			 area_t *image,
+			 area_t *shield,
 			 x3f_color_encoding_t encoding,
 			 int max)
 {
@@ -2708,12 +2762,12 @@ static void convert_data(x3f_t *x3f,
   /* TODO: the below results in a linear image, but most images shall
      be gamma (or similar) coded */
 
-  for (row = 0; row < rows; row++) {
-    for (col = 0; col < columns; col++) {
+  for (row = 0; row < image->rows; row++) {
+    for (col = 0; col < image->columns; col++) {
       uint16_t *valp[3];
       float input[3], output[3];
       for (color = 0; color < 3; color++) {
-	valp[color] = &data[3 * (columns * row + col) + color];
+	valp[color] = &image->data[image->row_stride*row + image->channels*col + color];
 	input[color] = (float)(*valp[color])/max_raw[color];
       }
       x3f_3x3_3x1_mul(conv_matrix, input, output);
@@ -2775,61 +2829,43 @@ x3f_return_t x3f_dump_raw_data_as_ppm(x3f_t *x3f,
 				      int max,
 				      int binary)
 {
-  x3f_directory_entry_t *DE = x3f_get_raw(x3f);
+  area_t image;
+  area_t shield;
+  FILE *f_out = fopen(outfilename, "wb");
+  int row;
 
-  if (DE == NULL) {
-    return X3F_ARGUMENT_ERROR;
-  } else {
-    x3f_directory_entry_header_t *DEH = &DE->header;
-    x3f_image_data_t *ID = &DEH->data_subsection.image_data;
-    x3f_huffman_t *HUF = ID->huffman;
-    x3f_true_t *TRU = ID->tru;
-    uint16_t *data = NULL;
+  assert(f_out != NULL);
 
-    if (HUF != NULL)
-      data = HUF->x3rgb16.element;
+  image_area(x3f, &image);
+  crop_area_camf(x3f, "DarkShieldTop", &image, &shield);
 
-    if (TRU != NULL)
-      data = TRU->x3rgb16.element;
+  if (binary)
+    fprintf(f_out, "P6\n%d %d\n65535\n", image.columns, image.rows);
+  else
+    fprintf(f_out, "P3\n%d %d\n65535\n", image.columns, image.rows);
 
-    if (data == NULL) {
-      return X3F_INTERNAL_ERROR;
-    } else {
-      FILE *f_out = fopen(outfilename, "wb");
+  if (encoding != NONE)
+    convert_data(x3f, &image, &shield, encoding, max);
 
-      if (f_out != NULL) {
-        int row;
+  for (row=0; row < image.rows; row++) {
+    int col;
 
-        if (binary)
-          fprintf(f_out, "P6\n%d %d\n65535\n", ID->columns, ID->rows);
-        else
-          fprintf(f_out, "P3\n%d %d\n65535\n", ID->columns, ID->rows);
+    for (col=0; col < image.columns; col++) {
+      int color;
 
-        if (encoding != NONE)
-          convert_data(x3f, ID->rows, ID->columns, data, encoding, max);
-
-        for (row=0; row < ID->rows; row++) {
-          int col;
-
-          for (col=0; col < ID->columns; col++) {
-            int color;
-
-            if (binary) {
-              for (color=0; color < 3; color++)
-                write_16B(f_out, data[3 * (ID->columns * row + col) + color]);
-            } else {
-              for (color=0; color < 3; color++)
-                fprintf(f_out, "%d ",
-                        data[3 * (ID->columns * row + col) + color]);
-              fprintf(f_out, "\n");
-            }
-          }
-        }
-
-        fclose(f_out);
+      for (color=0; color < 3; color++) {
+	uint16_t val = image.data[image.row_stride*row + image.channels*col + color];
+	if (binary)
+	  write_16B(f_out, val);
+	else
+	  fprintf(f_out, "%d ", val);
       }
+      if (!binary)
+	fprintf(f_out, "\n");
     }
   }
+
+  fclose(f_out);
 
   return X3F_OK;
 }
@@ -2898,145 +2934,133 @@ x3f_return_t x3f_dump_raw_data_as_tiff(x3f_t *x3f,
 				       x3f_color_encoding_t encoding,
 				       int max)
 {
-  x3f_directory_entry_t *DE = x3f_get_raw(x3f);
+  area_t image;
+  area_t shield;
+  FILE *f_out = fopen(outfilename, "wb");
 
-  if (DE == NULL) {
-    return X3F_ARGUMENT_ERROR;
-  } else {
-    x3f_directory_entry_header_t *DEH = &DE->header;
-    x3f_image_data_t *ID = &DEH->data_subsection.image_data;
-    x3f_huffman_t *HUF = ID->huffman;
-    x3f_true_t *TRU = ID->tru;
-    uint16_t *data = NULL;
+  int row;
+  int bits = 16;
+  int planes = 3;
+  int rowsperstrip = 32;
 
-    if (HUF != NULL)
-      data = HUF->x3rgb16.element;
+  /* double rps = rowsperstrip;
+     int strips = (int)floor((image.rows + rps - 1)/rps);
+     WHY? */
 
-    if (TRU != NULL)
-      data = TRU->x3rgb16.element;
+  int strips;
+  int strip;
 
-    if (data == NULL) {
-      return X3F_INTERNAL_ERROR;
-    } else {
-      FILE *f_out = fopen(outfilename, "wb");
+  uint32_t ifd_offset;
+  uint32_t ifd_offset_offset;
+  uint32_t resolution_offset;
+  uint32_t bitspersample_offset;
+  uint32_t offsets_offset;
+  uint32_t bytes_offset;
 
-      if (f_out == NULL) {
-        return X3F_OUTFILE_ERROR;
-      } else {
-        int row;
-        int bits = 16;
-        int planes = 3;
-        int rowsperstrip = 32;
-        double rps = rowsperstrip;
-        int strips = (int)floor((ID->rows + rps - 1)/rps);
-        int strip = 0;
+  uint32_t *stripoffsets;
+  uint32_t *stripbytes;
 
-        uint32_t ifd_offset;
-        uint32_t ifd_offset_offset;
-        uint32_t resolution_offset;
-        uint32_t bitspersample_offset;
-        uint32_t offsets_offset;
-        uint32_t bytes_offset;
+  assert(f_out != NULL);
 
-        uint32_t *stripoffsets = (uint32_t *)malloc(sizeof(uint32_t)*strips);
-        uint32_t *stripbytes = (uint32_t *)malloc(sizeof(uint32_t)*strips);
+  image_area(x3f, &image);
+  crop_area_camf(x3f, "DarkShieldTop", &image, &shield);
 
-        /* Scale and gamma code the image */
+  if (encoding != NONE)
+    convert_data(x3f, &image, &shield, encoding, max);
 
-        if (encoding != NONE)
-          convert_data(x3f, ID->rows, ID->columns, data, encoding, max);
+  strips = (image.rows + (rowsperstrip - 1))/rowsperstrip;
 
-	/* Write initial TIFF file header II-format, i.e. little endian */
+  stripoffsets = (uint32_t *)malloc(sizeof(uint32_t)*strips);
+  stripbytes = (uint32_t *)malloc(sizeof(uint32_t)*strips);
 
-        write_16L(f_out, 0x4949); /* II */
-        write_16L(f_out, 42);     /* A carefully choosen number */
+  /* Write initial TIFF file header II-format, i.e. little endian */
 
-        /* (Placeholder for) offset of the first (and only) IFD */
+  write_16L(f_out, 0x4949); /* II */
+  write_16L(f_out, 42);     /* A carefully choosen number */
 
-        ifd_offset_offset = ftell(f_out);
-        write_32L(f_out, 0);
+  /* (Placeholder for) offset of the first (and only) IFD */
 
-        /* Write resolution */
+  ifd_offset_offset = ftell(f_out);
+  write_32L(f_out, 0);
 
-        resolution_offset = ftell(f_out);
-        write_ra(f_out, 72, 1);
+  /* Write resolution */
 
-        /* Write bits per sample */
+  resolution_offset = ftell(f_out);
+  write_ra(f_out, 72, 1);
 
-        bitspersample_offset = ftell(f_out);
-        write_16L(f_out, bits);
-        write_16L(f_out, bits);
-        write_16L(f_out, bits);
+  /* Write bits per sample */
 
-        /* Write image */
+  bitspersample_offset = ftell(f_out);
+  write_16L(f_out, bits);
+  write_16L(f_out, bits);
+  write_16L(f_out, bits);
 
-        for (strip=0; strip < strips; strip++) {
-          stripoffsets[strip] = ftell(f_out);
+  /* Write image */
 
-          for (row=strip*rowsperstrip;
-               row < ID->rows && row < (strip + 1)*rowsperstrip;
-               row++) {
-            int col;
+  for (strip=0; strip < strips; strip++) {
+    stripoffsets[strip] = ftell(f_out);
 
-            for (col=0; col < ID->columns; col++) {
-              int color;
+    for (row=strip*rowsperstrip;
+	 row < image.rows && row < (strip + 1)*rowsperstrip;
+	 row++) {
+      int col;
 
-              for (color=0; color < 3; color++)
-                write_16L(f_out, data[3 * (ID->columns * row + col) + color]);
-            }
-          }
+      for (col=0; col < image.columns; col++) {
+	int color;
 
-          stripbytes[strip] = ftell(f_out) - stripoffsets[strip];
-        }
-
-        /* Write offset/size arrays */
-
-        offsets_offset = ftell(f_out);
-        write_array_32(f_out, strips, stripoffsets);
-
-        bytes_offset = ftell(f_out);
-        write_array_32(f_out, strips, stripbytes);
-
-        /* The first (and only) IFD */
-
-        ifd_offset = ftell(f_out);
-        write_16L(f_out, 12);      /* Number of directory entries */
-
-        /* Required directory entries */
-        write_entry_32(f_out, TIFFTAG_IMAGEWIDTH, (uint32)ID->columns);
-        write_entry_32(f_out, TIFFTAG_IMAGELENGTH, (uint32)ID->rows);
-        write_entry_of(f_out, TIFFTAG_BITSPERSAMPLE, TIFF_SHORT,
-                       3, bitspersample_offset);
-        write_entry_16(f_out, TIFFTAG_COMPRESSION, COMPRESSION_NONE);
-        write_entry_16(f_out, TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_RGB);
-        write_entry_of(f_out, TIFFTAG_STRIPOFFSETS, TIFF_LONG,
-                       strips, offsets_offset);
-        write_entry_16(f_out, TIFFTAG_SAMPLESPERPIXEL, (uint16)planes);
-        write_entry_32(f_out, TIFFTAG_ROWSPERSTRIP, rowsperstrip);
-        write_entry_of(f_out, TIFFTAG_STRIPBYTECOUNTS, TIFF_LONG,
-                       strips, bytes_offset);
-        write_entry_of(f_out, TIFFTAG_XRESOLUTION, TIFF_RATIONAL,
-                       1, resolution_offset);
-        write_entry_of(f_out, TIFFTAG_YRESOLUTION, TIFF_RATIONAL,
-                       1, resolution_offset);
-        write_entry_16(f_out, TIFFTAG_RESOLUTIONUNIT, RESUNIT_INCH);
-
-        /* Offset of the next IFD = 0 => no more IFDs */
-
-        write_32L(f_out, 0);
-
-        /* Offset of the first (and only) IFD */
-
-        fseek(f_out, ifd_offset_offset, SEEK_SET);
-        write_32L(f_out, ifd_offset);
-
-        free(stripoffsets);
-        free(stripbytes);
-
-        fclose(f_out);
+	for (color=0; color < 3; color++)
+	  write_16L(f_out, image.data[image.row_stride*row + image.channels*col + color]);
       }
     }
+
+    stripbytes[strip] = ftell(f_out) - stripoffsets[strip];
   }
+
+  /* Write offset/size arrays */
+
+  offsets_offset = ftell(f_out);
+  write_array_32(f_out, strips, stripoffsets);
+
+  bytes_offset = ftell(f_out);
+  write_array_32(f_out, strips, stripbytes);
+
+  /* The first (and only) IFD */
+
+  ifd_offset = ftell(f_out);
+  write_16L(f_out, 12);      /* Number of directory entries */
+
+  /* Required directory entries */
+  write_entry_32(f_out, TIFFTAG_IMAGEWIDTH, (uint32)image.columns);
+  write_entry_32(f_out, TIFFTAG_IMAGELENGTH, (uint32)image.rows);
+  write_entry_of(f_out, TIFFTAG_BITSPERSAMPLE, TIFF_SHORT,
+		 3, bitspersample_offset);
+  write_entry_16(f_out, TIFFTAG_COMPRESSION, COMPRESSION_NONE);
+  write_entry_16(f_out, TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_RGB);
+  write_entry_of(f_out, TIFFTAG_STRIPOFFSETS, TIFF_LONG,
+		 strips, offsets_offset);
+  write_entry_16(f_out, TIFFTAG_SAMPLESPERPIXEL, (uint16)planes);
+  write_entry_32(f_out, TIFFTAG_ROWSPERSTRIP, rowsperstrip);
+  write_entry_of(f_out, TIFFTAG_STRIPBYTECOUNTS, TIFF_LONG,
+		 strips, bytes_offset);
+  write_entry_of(f_out, TIFFTAG_XRESOLUTION, TIFF_RATIONAL,
+		 1, resolution_offset);
+  write_entry_of(f_out, TIFFTAG_YRESOLUTION, TIFF_RATIONAL,
+		 1, resolution_offset);
+  write_entry_16(f_out, TIFFTAG_RESOLUTIONUNIT, RESUNIT_INCH);
+
+  /* Offset of the next IFD = 0 => no more IFDs */
+
+  write_32L(f_out, 0);
+
+  /* Offset of the first (and only) IFD */
+
+  fseek(f_out, ifd_offset_offset, SEEK_SET);
+  write_32L(f_out, ifd_offset);
+
+  free(stripoffsets);
+  free(stripbytes);
+
+  fclose(f_out);
 
   return X3F_OK;
 }
