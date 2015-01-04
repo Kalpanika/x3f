@@ -2691,6 +2691,9 @@ static void convert_data(x3f_t *x3f,
   float cam_to_rgb_matrix[9];
   float conv_matrix[9];
   float sensor_iso, capture_iso, iso_scaling;
+  uint64_t black_sum[3] = {0,0,0};
+  uint32_t black_pixels = shield->columns*shield->rows;
+  double black_level[3];
 
   if (max < 0)
     get_max_raw(x3f, max_raw);
@@ -2698,6 +2701,16 @@ static void convert_data(x3f_t *x3f,
   printf("max = %d\n", max);
   printf("max_raw = {%d,%d,%d}\n", max_raw[0], max_raw[1], max_raw[2]);
   printf("max_out = %d\n", max_out);
+
+  for (row = 0; row < shield->rows; row++)
+    for (col = 0; col < shield->columns; col++)
+      for (color = 0; color < 3; color++)
+	black_sum[color] += shield->data[shield->row_stride*row + shield->channels*col + color];
+
+  for (color = 0; color < 3; color++)
+    black_level[color] = (double)black_sum[color]/black_pixels;
+
+  printf("black_level = {%g,%g,%g}\n", black_level[0], black_level[1], black_level[2]);
 
   sensor_iso = get_camf_float(x3f, "SensorISO");
   capture_iso = get_camf_float(x3f, "CaptureISO");
@@ -2768,7 +2781,7 @@ static void convert_data(x3f_t *x3f,
       float input[3], output[3];
       for (color = 0; color < 3; color++) {
 	valp[color] = &image->data[image->row_stride*row + image->channels*col + color];
-	input[color] = (float)(*valp[color])/max_raw[color];
+	input[color] = (float)(*valp[color] - black_level[color])/max_raw[color];
       }
       x3f_3x3_3x1_mul(conv_matrix, input, output);
       for (color = 0; color < 3; color++) {
