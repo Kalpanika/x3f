@@ -3104,83 +3104,64 @@ static int ilog_inv(int i, double base, int steps)
 #define BASE 2.0
 #define STEPS 10
 
-/* extern */ x3f_return_t x3f_dump_raw_data_as_histogram(x3f_t *x3f,
-                                                         char *outfilename,
-                                                         int log_hist)
+/* extern */
+x3f_return_t x3f_dump_raw_data_as_histogram(x3f_t *x3f,
+					    char *outfilename,
+					    x3f_color_encoding_t encoding,
+					    int crop,
+					    int log_hist)
 {
-  x3f_directory_entry_t *DE = x3f_get_raw(x3f);
+  area_t image;
+  FILE *f_out = fopen(outfilename, "wb");
+  uint32_t *histogram[3];
+  int color, i;
+  int row;
+  uint16_t max = 0;
 
-  if (DE == NULL) {
-    return X3F_ARGUMENT_ERROR;
-  } else {
-    x3f_directory_entry_header_t *DEH = &DE->header;
-    x3f_image_data_t *ID = &DEH->data_subsection.image_data;
-    x3f_huffman_t *HUF = ID->huffman;
-    x3f_true_t *TRU = ID->tru;
-    uint16_t *data = NULL;
-    uint16_t max = 0;
+  assert(f_out != NULL);
 
-    if (HUF != NULL)
-      data = HUF->x3rgb16.element;
+  get_image(x3f, &image, encoding, crop);
 
-    if (TRU != NULL)
-      data = TRU->x3rgb16.element;
+  for (color=0; color < 3; color++)
+    histogram[color] = (uint32_t *)calloc(1<<16, sizeof(uint32_t));
 
-    if (data == NULL) {
-      return X3F_INTERNAL_ERROR;
-    } else {
-      FILE *f_out = fopen(outfilename, "wb");
+  for (row=0; row < image.rows; row++) {
+    int col;
 
-      /* Create a cleared histogram */
-      uint32_t *histogram[3];
-      int color, i;
+    for (col=0; col < image.columns; col++)
+      for (color=0; color < 3; color++) {
+	uint16_t val =
+	  image.data[image.row_stride*row + image.channels*col + color];
 
-      for (color=0; color < 3; color++)
-        histogram[color] = (uint32_t *)calloc(1<<16, sizeof(uint32_t));
+	if (log_hist)
+	  val = ilog(val, BASE, STEPS);
 
-      if (f_out != NULL) {
-        int row;
-
-        for (row=0; row < ID->rows; row++) {
-          int col;
-
-          for (col=0; col < ID->columns; col++)
-            for (color=0; color < 3; color++) {
-              uint16_t val = data[3 * (ID->columns * row + col) + color];
-
-              if (log_hist)
-                val = ilog(val, BASE, STEPS);
-
-              histogram[color][val]++;
-              if (val > max) max = val;
-            }
-        }
+	histogram[color][val]++;
+	if (val > max) max = val;
       }
+  }
 
-      for (i=0; i <= max; i++) {
-        uint32_t val[3];
+  for (i=0; i <= max; i++) {
+    uint32_t val[3];
 
-        for (color=0; color < 3; color++)
-          val[color] = histogram[color][i];
+    for (color=0; color < 3; color++)
+      val[color] = histogram[color][i];
 
-        if (val[0] || val[1] || val[2]) {
-          if (log_hist) {
-            fprintf(f_out, "%5d, %5d , %6d , %6d , %6d\n",
-                    i, ilog_inv(i, BASE, STEPS), val[0], val[1], val[2]);
-          } else {
-            fprintf(f_out, "%5d , %6d , %6d , %6d\n",
-                    i, val[0], val[1], val[2]);
-          }
-        }
+    if (val[0] || val[1] || val[2]) {
+      if (log_hist) {
+	fprintf(f_out, "%5d, %5d , %6d , %6d , %6d\n",
+		i, ilog_inv(i, BASE, STEPS), val[0], val[1], val[2]);
+      } else {
+	fprintf(f_out, "%5d , %6d , %6d , %6d\n",
+		i, val[0], val[1], val[2]);
       }
-
-      for (color=0; color < 3; color++)
-        free(histogram[color]);
-
-      fclose(f_out);
-
     }
   }
+
+  for (color=0; color < 3; color++)
+    free(histogram[color]);
+
+  fclose(f_out);
 
   return X3F_OK;
 }

@@ -440,6 +440,8 @@ extern x3f_return_t x3f_dump_raw_data_as_tiff(x3f_t *x3f, char *outfilename,
 
 extern x3f_return_t x3f_dump_raw_data_as_histogram(x3f_t *x3f,
                                                    char *outfilename,
+						   x3f_color_encoding_t encoding,
+						   int crop,
                                                    int log_hist);
 
 extern x3f_return_t x3f_dump_jpeg(x3f_t *x3f, char *outfilename);

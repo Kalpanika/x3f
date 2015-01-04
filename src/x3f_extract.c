@@ -185,7 +185,9 @@ int main(int argc, char *argv[])
       case HISTOGRAM:
 	strcat(outfilename, ".csv");
 	printf("Dump RAW as CSV histogram to %s\n", outfilename);
-	ret_dump = x3f_dump_raw_data_as_histogram(x3f, outfilename, log_hist);
+	ret_dump = x3f_dump_raw_data_as_histogram(x3f, outfilename,
+						  color_encoding, crop,
+						  log_hist);
 	break;
       }
 
