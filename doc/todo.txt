@@ -15,9 +15,9 @@ REFACTORING
 CAMF AND OTHER FILE FORMAT ISSUES
 --------------------------------------------------------------------
 
-* The CAMF matrix data has the axis in the description out of order,
-  at least for older cameras. What does that mean for the stored
-  data? Does that follow the order or the index n in the info?
+* The CAMF matrix data has the dimensions in the description out of
+  order, at least for older cameras. What does that mean for the
+  stored data? Does that follow the order or the index n in the info?
 
 * Signed vs unsigned for CAMF matrix data ?
 
@@ -34,16 +34,17 @@ CAMF AND OTHER FILE FORMAT ISSUES
 
 * Extended types ?
 
+* Double instead of float ?
+
 --------------------------------------------------------------------
 SMALL THINGS
 --------------------------------------------------------------------
 
-* Possible to use stdout for output files in extract
-  (and maybe stdin for x3f file)
-
-* Defualt write in curent directory.
+* Default write in curent directory.
 
 * Define output directory.
+
+* Define output file name.
 
 * Write to foo.tiff.parts and then rename to foo.tiff. 
 
@@ -62,7 +63,8 @@ COLOR AND CONVERSION
 
 * What connection space is used in TRUE engine? Older is
   CIE XYZ and TRUE uses some kind of RGB. We are using CIE
-  RGB now. That seems to be right!
+  RGB now. We also convert D50 to D65. Are those right
+  choices?
 
 * Nonlinear coding of output.
 
@@ -81,6 +83,8 @@ COLOR AND CONVERSION
 * Contrast/(Sharpness)/Saturation
 
 * Crop to image rectangle
+
+* Noise!!
 
 --------------------------------------------------------------------
 COLOR AND CONVERSION (ADVANCED)

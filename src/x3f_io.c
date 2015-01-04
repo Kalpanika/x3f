@@ -2603,8 +2603,6 @@ static float get_camf_float(x3f_t *x3f, char *name)
   ImageDepth: Merrill and Quattro
 */
 
-/* TODO: it seems like Quattro also needs to get min RAW value */
-
 static void get_max_raw(x3f_t *x3f, utf16_t *max_raw)
 {
   /* TODO: fetch correct values, this is for Merrill only. */
