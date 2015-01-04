@@ -136,7 +136,7 @@ int main(int argc, char *argv[])
         fprintf(stderr, "Could not dump JPEG to %s\n", outfilename);
     }
 
-    if (extract_meta || color_encoding != NONE) {
+    if (extract_meta || extract_raw) {
       /* We assume we do not need JPEG meta data
 	 x3f_load_data(x3f, x3f_get_thumb_jpeg(x3f)); */
       x3f_load_data(x3f, x3f_get_prop(x3f));
@@ -192,6 +192,7 @@ int main(int argc, char *argv[])
 	ret_dump = x3f_dump_raw_data_as_ppm(x3f, outfilename,
 					    color_encoding, max_raw,
                                             file_type == PPMP6);
+	break;
       case HISTOGRAM:
 	strcat(outfilename, ".csv");
 	printf("Dump RAW as CSV histogram to %s\n", outfilename);
