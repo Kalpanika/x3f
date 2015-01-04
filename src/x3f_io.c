@@ -605,7 +605,7 @@ static void print_matrix_element(FILE *f_out, camf_entry_t *entry, uint32_t i)
 {
   switch (entry->matrix_decoded_type) {
   case M_FLOAT:
-    fprintf(f_out, "%12g ", ((float *)(entry->matrix_decoded))[i]);
+    fprintf(f_out, "%12g ", ((double *)(entry->matrix_decoded))[i]);
     break;
   case M_INT:
     fprintf(f_out, "%12d ", ((int32_t *)(entry->matrix_decoded))[i]);
@@ -2246,23 +2246,40 @@ static void get_matrix_copy(camf_entry_t *entry)
 {
   uint32_t element_size = entry->matrix_element_size;
   uint32_t elements = entry->matrix_elements;
-  int i, size = elements*4;
+  int i, size = (entry->matrix_decoded_type==M_FLOAT ?
+		 sizeof(double) :
+		 sizeof(uint32_t)) * elements;
 
   entry->matrix_decoded = malloc(size);
 
   switch (element_size) {
   case 4:
-    memcpy(entry->matrix_decoded, entry->matrix_data, size);
+    switch (entry->matrix_decoded_type) {
+    case M_INT:
+    case M_UINT:
+      memcpy(entry->matrix_decoded, entry->matrix_data, size);
+      break;
+    case M_FLOAT:
+      for (i=0; i<elements; i++)
+	((double *)entry->matrix_decoded)[i] =
+	  (double)((float *)entry->matrix_data)[i];
+      break;
+    default:
+      fprintf(stderr, "No 2 byte floats!!!\n");
+      abort();
+    }
     break;
   case 2:
     switch (entry->matrix_decoded_type) {
     case M_INT:
       for (i=0; i<elements; i++)
-	((int32_t *)entry->matrix_decoded)[i] = (int32_t)((int16_t *)entry->matrix_data)[i];
+	((int32_t *)entry->matrix_decoded)[i] =
+	  (int32_t)((int16_t *)entry->matrix_data)[i];
       break;
     case M_UINT:
       for (i=0; i<elements; i++)
-	((uint32_t *)entry->matrix_decoded)[i] = (uint32_t)((uint16_t *)entry->matrix_data)[i];
+	((uint32_t *)entry->matrix_decoded)[i] =
+	  (uint32_t)((uint16_t *)entry->matrix_data)[i];
       break;
     default:
       fprintf(stderr, "No 2 byte floats!!!\n");
@@ -2273,11 +2290,13 @@ static void get_matrix_copy(camf_entry_t *entry)
     switch (entry->matrix_decoded_type) {
     case M_INT:
       for (i=0; i<elements; i++)
-	((int32_t *)entry->matrix_decoded)[i] = (int32_t)((int8_t *)entry->matrix_data)[i];
+	((int32_t *)entry->matrix_decoded)[i] =
+	  (int32_t)((int8_t *)entry->matrix_data)[i];
       break;
     case M_UINT:
       for (i=0; i<elements; i++)
-	((uint32_t *)entry->matrix_decoded)[i] = (uint32_t)((uint8_t *)entry->matrix_data)[i];
+	((uint32_t *)entry->matrix_decoded)[i] =
+	  (uint32_t)((uint8_t *)entry->matrix_data)[i];
       break;
     default:
       fprintf(stderr, "No 1 byte floats!!!\n");
@@ -2558,7 +2577,9 @@ static int get_camf_matrix(x3f_t *x3f, char *name,
 	return 0;
       }
 
-      size = entry->matrix_elements*sizeof(float);
+      size = (entry->matrix_decoded_type==M_FLOAT ?
+	      sizeof(double) :
+	      sizeof(uint32_t)) * entry->matrix_elements;
       printf("Copying matrix for %s\n", name);
       memcpy(matrix, entry->matrix_decoded, size);
       return 1;
@@ -2572,7 +2593,7 @@ static int get_camf_matrix(x3f_t *x3f, char *name,
 
 static void get_camf_matrix_for_wb(x3f_t *x3f,
 				   char *name, int dim0, int dim1,
-				   float *matrix)
+				   double *matrix)
 {
   char name_with_wb[1024];
 
@@ -2585,9 +2606,9 @@ static void get_camf_matrix_for_wb(x3f_t *x3f,
   get_camf_matrix(x3f, name_with_wb, dim0, dim1, 0, M_FLOAT, matrix);
 }
 
-static float get_camf_float(x3f_t *x3f, char *name)
+static double get_camf_float(x3f_t *x3f, char *name)
 {
-  float val[1];
+  double val[1];
 
   get_camf_matrix(x3f, name, 1, 0, 0, M_FLOAT, val);
 
@@ -2676,18 +2697,18 @@ static void convert_data(x3f_t *x3f,
   uint16_t max_raw[3];
   uint16_t max_out = 65535; /* TODO: should be possible to adjust */
 
-  float cc_matrix[9];
-  float wb_gain[3];
-  float wb_gain_matrix[9];
-  float cam_to_ciergb_matrix[9];
-  float ciergb_to_xyz_matrix[9];
-  float bradford_d50_to_d65_matrix[9];
-  float cam_to_xyz_d50_matrix[9];
-  float cam_to_xyz_d65_matrix[9];
-  float xyz_to_rgb_matrix[9];
-  float cam_to_rgb_matrix[9];
-  float conv_matrix[9];
-  float sensor_iso, capture_iso, iso_scaling;
+  double cc_matrix[9];
+  double wb_gain[3];
+  double wb_gain_matrix[9];
+  double cam_to_ciergb_matrix[9];
+  double ciergb_to_xyz_matrix[9];
+  double bradford_d50_to_d65_matrix[9];
+  double cam_to_xyz_d50_matrix[9];
+  double cam_to_xyz_d65_matrix[9];
+  double xyz_to_rgb_matrix[9];
+  double cam_to_rgb_matrix[9];
+  double conv_matrix[9];
+  double sensor_iso, capture_iso, iso_scaling;
   uint64_t black_sum[3] = {0,0,0};
   uint32_t black_pixels = shield->columns*shield->rows;
   double black_level[3];
@@ -2773,10 +2794,10 @@ static void convert_data(x3f_t *x3f,
   for (row = 0; row < image->rows; row++) {
     for (col = 0; col < image->columns; col++) {
       uint16_t *valp[3];
-      float input[3], output[3];
+      double input[3], output[3];
       for (color = 0; color < 3; color++) {
 	valp[color] = &image->data[image->row_stride*row + image->channels*col + color];
-	input[color] = (float)(*valp[color] - black_level[color])/max_raw[color];
+	input[color] = (*valp[color] - black_level[color])/max_raw[color];
       }
       x3f_3x3_3x1_mul(conv_matrix, input, output);
       for (color = 0; color < 3; color++) {

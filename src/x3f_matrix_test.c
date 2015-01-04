@@ -1,25 +1,25 @@
 #include <stdio.h>
 #include "x3f_matrix.h"
 
-float a[9] = {11.0, 12.0, 13.0,
-	      21.0, 22.0, 23.0,
-	      31.0, 32.0, 33.0};
-float b[9] = {0.0, 0.0, 1.0,
-	      0.0, 1.0, 0.0,
-	      1.0, 0.0, 0.0};
-float x[3] = {1.0,
-	      2.0,
-	      3.0};
+double a[9] = {11.0, 12.0, 13.0,
+	       21.0, 22.0, 23.0,
+	       31.0, 32.0, 33.0};
+double b[9] = {0.0, 0.0, 1.0,
+	       0.0, 1.0, 0.0,
+	       1.0, 0.0, 0.0};
+double x[3] = {1.0,
+	       2.0,
+	       3.0};
 
 
 int main(int argc, char *argv[])
 {
-  float c[9];
-  float y[3];
-  float diag[9];
-  float argb[9];
-  float srgb[9];
-  float pprgb[9];
+  double c[9];
+  double y[3];
+  double diag[9];
+  double argb[9];
+  double srgb[9];
+  double pprgb[9];
 
   x3f_3x3_3x3_mul(a, b, c);
   x3f_3x3_3x1_mul(c, x, y);

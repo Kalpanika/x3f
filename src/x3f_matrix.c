@@ -17,13 +17,13 @@
 #define M22(m) *(m+8)
 
 /* Multiply a scalar with a 3x1 matrix, giving a 3x1 matrix */
-void x3f_scalar_3x1_mul(float a, float *b, float *c)
+void x3f_scalar_3x1_mul(double a, double *b, double *c)
 {
   M0(c) = a*M0(b); M1(c) = a*M1(b); M2(c) = a*M2(b);
 }
 
 /* Multiply a scalar with a 3x3 matrix, giving a 3x3 matrix */
-void x3f_scalar_3x3_mul(float a, float *b, float *c)
+void x3f_scalar_3x3_mul(double a, double *b, double *c)
 {
   M00(c) = a*M00(b); M01(c) = a*M01(b); M02(c) = a*M02(b);
   M10(c) = a*M10(b); M11(c) = a*M11(b); M12(c) = a*M12(b);
@@ -31,7 +31,7 @@ void x3f_scalar_3x3_mul(float a, float *b, float *c)
 }
 
 /* Multiply a 3x3 matrix with a 3x1 matrix, giving a 3x1 matrix */
-void x3f_3x3_3x1_mul(float *a, float *b, float *c)
+void x3f_3x3_3x1_mul(double *a, double *b, double *c)
 {
   M0(c) = M00(a)*M0(b) + M01(a)*M1(b) + M02(a)*M2(b);
   M1(c) = M10(a)*M0(b) + M11(a)*M1(b) + M12(a)*M2(b);
@@ -39,7 +39,7 @@ void x3f_3x3_3x1_mul(float *a, float *b, float *c)
 }
 
 /* Multiply a 3x3 matrix with a 3x3 matrix, giving a 3x3 matrix */
-void x3f_3x3_3x3_mul(float *a, float *b, float *c)
+void x3f_3x3_3x3_mul(double *a, double *b, double *c)
 {
   M00(c) = M00(a)*M00(b) + M01(a)*M10(b) + M02(a)*M20(b);
   M01(c) = M00(a)*M01(b) + M01(a)*M11(b) + M02(a)*M21(b);
@@ -55,7 +55,7 @@ void x3f_3x3_3x3_mul(float *a, float *b, float *c)
 }
 
 /* Convert a 3x1 matrix to a 3x3 diagonal matrix */
-void x3f_3x3_diag(float *a, float *b)
+void x3f_3x3_diag(double *a, double *b)
 {
   M00(b) = M0(a); M01(b) = 0.0;   M02(b) = 0.0;
   M10(b) = 0.0;   M11(b) = M1(a); M12(b) = 0.0;
@@ -63,7 +63,7 @@ void x3f_3x3_diag(float *a, float *b)
 }
 
 /* Print a 3x1 matrix */
-void x3f_3x1_print(float *a)
+void x3f_3x1_print(double *a)
 {
   printf("%10g\n", M0(a));
   printf("%10g\n", M1(a));
@@ -71,7 +71,7 @@ void x3f_3x1_print(float *a)
 }
 
 /* Print a 3x3 matrix */
-void x3f_3x3_print(float *a)
+void x3f_3x3_print(double *a)
 {
   printf("%10g %10g %10g\n", M00(a), M01(a), M02(a));
   printf("%10g %10g %10g\n", M10(a), M11(a), M12(a));
@@ -83,7 +83,7 @@ void x3f_3x3_print(float *a)
 
 /* http://www.color.org/ROMMRGB.pdf */
 /* http://en.wikipedia.org/wiki/ProPhoto_RGB_color_space */
-void x3f_XYZ_to_ProPhotoRGB(float *a)
+void x3f_XYZ_to_ProPhotoRGB(double *a)
 {
   M00(a) = +1.3460; M01(a) = -0.2556; M02(a) = -0.0511;
   M10(a) = -0.5446; M11(a) = +1.5082; M12(a) = +0.0205;
@@ -92,14 +92,14 @@ void x3f_XYZ_to_ProPhotoRGB(float *a)
 
 /* http://en.wikipedia.org/wiki/Adobe_RGB_color_space */
 /* http://www.adobe.com/digitalimag/pdfs/AdobeRGB1998.pdf */
-void x3f_XYZ_to_AdobeRGB(float *a)
+void x3f_XYZ_to_AdobeRGB(double *a)
 {
   M00(a) = +1.96253; M01(a) = -0.61068; M02(a) = -0.34137;
   M10(a) = -0.97876; M11(a) = +1.91615; M12(a) = +0.03342;
   M20(a) = +0.02829; M21(a) = -0.14067; M22(a) = +1.34926;
 }
 
-void x3f_AdobeRGB_to_XYZ(float *a)
+void x3f_AdobeRGB_to_XYZ(double *a)
 {
   M00(a) = 0.60974; M01(a) = 0.20528; M02(a) = 0.14919;
   M10(a) = 0.31111; M11(a) = 0.62567; M12(a) = 0.06322;
@@ -107,7 +107,7 @@ void x3f_AdobeRGB_to_XYZ(float *a)
 }
 
 /* http://en.wikipedia.org/wiki/SRGB */
-void x3f_XYZ_to_sRGB(float *a)
+void x3f_XYZ_to_sRGB(double *a)
 {
   M00(a) = +3.2406; M01(a) = -1.5372; M02(a) = -0.4986;
   M10(a) = -0.9689; M11(a) = +1.8758; M12(a) = +0.0415;
@@ -115,7 +115,7 @@ void x3f_XYZ_to_sRGB(float *a)
 }
 
 /* http://en.wikipedia.org/wiki/CIE_1931_color_space */
-void x3f_CIERGB_to_XYZ(float *a)
+void x3f_CIERGB_to_XYZ(double *a)
 {
   M00(a) = 0.49    ; M01(a) = 0.31    ; M02(a) = 0.20    ;
   M10(a) = 0.17697 ; M11(a) = 0.81240 ; M12(a) = 0.01063 ;
@@ -123,7 +123,7 @@ void x3f_CIERGB_to_XYZ(float *a)
 }
 
 #define B21 0.17697
-void x3f_CIERGB_to_XYZ_strange(float *a)
+void x3f_CIERGB_to_XYZ_strange(double *a)
 {
   M00(a) = 0.49    /B21; M01(a) = 0.31    /B21; M02(a) = 0.20    /B21;
   M10(a) = 0.17697 /B21; M11(a) = 0.81240 /B21; M12(a) = 0.01063 /B21;
@@ -131,7 +131,7 @@ void x3f_CIERGB_to_XYZ_strange(float *a)
 }
 
 /* http://www.brucelindbloom.com/index.html?Eqn_ChromAdapt.html */
-void x3f_Bradford_D50_to_D65(float *a)
+void x3f_Bradford_D50_to_D65(double *a)
 {
   M00(a) = +0.9555766 ; M01(a) = -0.0094156; M02(a) = +0.0631636;
   M10(a) = -0.0282895 ; M11(a) = +1.0099416; M12(a) = +0.0210077;
