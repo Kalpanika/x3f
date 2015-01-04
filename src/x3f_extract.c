@@ -15,9 +15,7 @@ typedef enum {RAW, TIFF, PPMP3, PPMP6, HISTOGRAM} raw_file_type_t;
 static void usage(char *progname)
 {
   fprintf(stderr,
-          "usage: %s [-jpg] [-meta [-matrixmax <MAX>]]"
-          " [{-raw|{{-tiff|-ppm|-ppm-ascii} [{-max <MAX>}|{-bits <BITS>}] [-color <COLOR>]}}]"
-          " <file1> ...\n"
+          "usage: %s <SWITCHES> <file1> ...\n"
           "   -jpg            Dump embedded JPG. Turn off RAW dumping\n"
           "   -raw            Dump RAW area undecoded\n"
           "   -tiff           Dump RAW as 3x16 bit TIFF (default)\n"
@@ -28,12 +26,11 @@ static void usage(char *progname)
           "   -loghist        Dump histogram as csv file, with log exposure\n"
 	  "   -color <COLOR>  Convert to RGB color"
 	  "                   (sRGB, AdobeRGB, ProPhotoRGB)\n"
+          "   -crop           Crop to active image\n"
 	  "\n"
 	  "STRANGE STUFF\n"
           "   -offset <OFF>   Offset for SD14 and older\n"
           "                   NOTE: If not given, then offset is automatic\n"
-          "   -bits <BITS>    Bit depth for RAW data (hack for color)\n"
-          "   -max <MAX>      Max for RAW data (hack for color)\n"
           "   -matrixmax <M>  Max num matrix elements in metadata (def=100)\n",
           progname);
   exit(1);
@@ -44,7 +41,7 @@ int main(int argc, char *argv[])
   int extract_jpg = 0;
   int extract_meta = 0;
   int extract_raw = 1;
-  int max_raw = -1;
+  int crop = 0;
   raw_file_type_t file_type = TIFF;
   x3f_color_encoding_t color_encoding = NONE;
   int files = 0;
@@ -84,10 +81,8 @@ int main(int argc, char *argv[])
     }
 
   /* Strange Stuff */
-    else if ((!strcmp(argv[i], "-bits")) && (i+1)<argc)
-      max_raw = (1<<atoi(argv[++i])) - 1;
-    else if ((!strcmp(argv[i], "-max")) && (i+1)<argc)
-      max_raw = atoi(argv[++i]);
+    else if (!strcmp(argv[i], "-crop"))
+      crop = 1;
     else if ((!strcmp(argv[i], "-offset")) && (i+1)<argc)
       legacy_offset = atoi(argv[++i]), auto_legacy_offset = 0;
     else if ((!strcmp(argv[i], "-matrixmax")) && (i+1)<argc)
@@ -96,12 +91,6 @@ int main(int argc, char *argv[])
       usage(argv[0]);
     else
       break;			/* Here starts list of files */
-
-  if (max_raw > 0.0 || color_encoding != NONE)
-    if (file_type != TIFF && file_type != PPMP3 && file_type != PPMP6) {
-      fprintf(stderr, "Max or Color is not applicable for file type\n");
-      usage(argv[0]);
-    }
 
   for (; i<argc; i++) {
     char *infilename = argv[i];
@@ -183,14 +172,14 @@ int main(int argc, char *argv[])
 	strcat(outfilename, ".tif");
 	printf("Dump RAW as TIFF to %s\n", outfilename);
 	ret_dump = x3f_dump_raw_data_as_tiff(x3f, outfilename,
-					     color_encoding, max_raw);
+					     color_encoding, crop);
 	break;
       case PPMP3:
       case PPMP6:
 	strcat(outfilename, ".ppm");
 	printf("Dump RAW as PPM to %s\n", outfilename);
 	ret_dump = x3f_dump_raw_data_as_ppm(x3f, outfilename,
-					    color_encoding, max_raw,
+					    color_encoding, crop,
                                             file_type == PPMP6);
 	break;
       case HISTOGRAM:

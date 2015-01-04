@@ -431,12 +431,12 @@ extern x3f_return_t x3f_dump_raw_data(x3f_t *x3f, char *outfilename);
 
 extern x3f_return_t x3f_dump_raw_data_as_ppm(x3f_t *x3f, char *outfilename,
                                              x3f_color_encoding_t encoding,
-					     int max,
+					     int crop,
                                              int binary);
 
 extern x3f_return_t x3f_dump_raw_data_as_tiff(x3f_t *x3f, char *outfilename,
 					      x3f_color_encoding_t encoding,
-					      int max);
+					      int crop);
 
 extern x3f_return_t x3f_dump_raw_data_as_histogram(x3f_t *x3f,
                                                    char *outfilename,

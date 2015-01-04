@@ -2670,11 +2670,10 @@ static void crop_area_camf(x3f_t *x3f, char *name, area_t *image, area_t *crop)
 static void convert_data(x3f_t *x3f,
 			 area_t *image,
 			 area_t *shield,
-			 x3f_color_encoding_t encoding,
-			 int max)
+			 x3f_color_encoding_t encoding)
 {
   int row, col, color;
-  uint16_t max_raw[3] = {max, max, max};
+  uint16_t max_raw[3];
   uint16_t max_out = 65535; /* TODO: should be possible to adjust */
 
   float cc_matrix[9];
@@ -2693,10 +2692,8 @@ static void convert_data(x3f_t *x3f,
   uint32_t black_pixels = shield->columns*shield->rows;
   double black_level[3];
 
-  if (max < 0)
-    get_max_raw(x3f, max_raw);
+  get_max_raw(x3f, max_raw);
 
-  printf("max = %d\n", max);
   printf("max_raw = {%d,%d,%d}\n", max_raw[0], max_raw[1], max_raw[2]);
   printf("max_out = %d\n", max_out);
 
@@ -2796,6 +2793,27 @@ static void convert_data(x3f_t *x3f,
   }
 }
 
+static void get_image(x3f_t *x3f,
+		      area_t *image,
+		      x3f_color_encoding_t encoding,
+		      int crop)
+{
+  area_t original_image;
+
+  image_area(x3f, &original_image);
+  if (crop)
+    crop_area_camf(x3f, "ActiveImageArea", &original_image, image);
+  else
+    *image = original_image;
+
+  if (encoding != NONE) {
+    area_t shield;
+
+    crop_area_camf(x3f, "DarkShieldTop", &original_image, &shield);
+    convert_data(x3f, image, &shield, encoding);
+  }
+}
+
 /* extern */ x3f_return_t x3f_dump_raw_data(x3f_t *x3f,
                                             char *outfilename)
 {
@@ -2837,26 +2855,21 @@ static void write_16B(FILE *f_out, uint16_t val)
 x3f_return_t x3f_dump_raw_data_as_ppm(x3f_t *x3f,
 				      char *outfilename,
 				      x3f_color_encoding_t encoding,
-				      int max,
+				      int crop,
 				      int binary)
 {
   area_t image;
-  area_t shield;
   FILE *f_out = fopen(outfilename, "wb");
   int row;
 
   assert(f_out != NULL);
 
-  image_area(x3f, &image);
-  crop_area_camf(x3f, "DarkShieldTop", &image, &shield);
+  get_image(x3f, &image, encoding, crop);
 
   if (binary)
     fprintf(f_out, "P6\n%d %d\n65535\n", image.columns, image.rows);
   else
     fprintf(f_out, "P3\n%d %d\n65535\n", image.columns, image.rows);
-
-  if (encoding != NONE)
-    convert_data(x3f, &image, &shield, encoding, max);
 
   for (row=0; row < image.rows; row++) {
     int col;
@@ -2943,10 +2956,9 @@ static void write_array_32(FILE *f_out, uint32_t num, uint32_t *vals)
 x3f_return_t x3f_dump_raw_data_as_tiff(x3f_t *x3f,
 				       char *outfilename,
 				       x3f_color_encoding_t encoding,
-				       int max)
+				       int crop)
 {
   area_t image;
-  area_t shield;
   FILE *f_out = fopen(outfilename, "wb");
 
   int row;
@@ -2973,11 +2985,7 @@ x3f_return_t x3f_dump_raw_data_as_tiff(x3f_t *x3f,
 
   assert(f_out != NULL);
 
-  image_area(x3f, &image);
-  crop_area_camf(x3f, "DarkShieldTop", &image, &shield);
-
-  if (encoding != NONE)
-    convert_data(x3f, &image, &shield, encoding, max);
+  get_image(x3f, &image, encoding, crop);
 
   strips = (image.rows + (rowsperstrip - 1))/rowsperstrip;
 
