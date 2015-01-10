@@ -2612,36 +2612,40 @@ static int get_camf_float(x3f_t *x3f, char *name,  double *val)
 }
 
 
-static int get_camf_unsigned(x3f_t *x3f, char *name,  uint16_t *val)
+static int get_camf_unsigned(x3f_t *x3f, char *name,  uint32_t *val)
 {
   return get_camf_matrix(x3f, name, 1, 0, 0, M_UINT, val);
 }
 
-static int get_camf_signed(x3f_t *x3f, char *name,  int16_t *val)
+static int get_camf_signed_vector(x3f_t *x3f, char *name,  int32_t *val)
 {
-  return get_camf_matrix(x3f, name, 1, 0, 0, M_INT, val);
+  return get_camf_matrix(x3f, name, 3, 0, 0, M_INT, val);
 }
 
 /*
-  SaturationLevel: x530, SD9, SD10, SD14, SD15, DP1-DP2x
-  RawSaturationLevel:               SD14, SD15, DP1-DP2x
-  MaxOutputLevel:                   SD14, SD15, DP1-DP2x
-  DarkLevel:                        SD14, SD15, DP1-DP2x
-  ImageDepth: Merrill and Quattro
+  Candidates for getting Max RAW level:
+  - SaturationLevel: x530, SD9, SD10, SD14, SD15, DP1-DP2x
+  - RawSaturationLevel:               SD14, SD15, DP1-DP2x
+  - MaxOutputLevel:                   SD14, SD15, DP1-DP2x
+  - ImageDepth: Merrill and Quattro
 */
 
 static void get_max_raw(x3f_t *x3f, uint16_t *max_raw)
 {
-  uint16_t image_depth;
+  uint32_t image_depth;
+  int32_t raw_level[3];
 
   if (get_camf_unsigned(x3f, "ImageDepth", &image_depth)) {
-    uint16_t max = (1<<image_depth) -1;
-
+    uint16_t max = (1<<image_depth) - 1;
     max_raw[0] = max;
     max_raw[1] = max;
     max_raw[2] = max;
+  } else if (get_camf_signed_vector(x3f, "RawSaturationLevel", raw_level)) {
+    max_raw[0] = (uint32_t)raw_level[0];
+    max_raw[1] = (uint32_t)raw_level[1];
+    max_raw[2] = (uint32_t)raw_level[2];
   } else {
-    /* TODO: fetch correct values, this is for Merrill only. */
+    /* TODO: x530, SD9 and SD10 */
     max_raw[0] = 4095;
     max_raw[1] = 4095;
     max_raw[2] = 4095;
