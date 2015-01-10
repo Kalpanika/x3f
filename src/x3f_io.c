@@ -2591,9 +2591,9 @@ static int get_camf_matrix(x3f_t *x3f, char *name,
   return 0;
 }
 
-static void get_camf_matrix_for_wb(x3f_t *x3f,
-				   char *name, int dim0, int dim1,
-				   double *matrix)
+static int get_camf_matrix_for_wb(x3f_t *x3f,
+				  char *name, int dim0, int dim1,
+				  double *matrix)
 {
   char name_with_wb[1024];
 
@@ -2603,18 +2603,24 @@ static void get_camf_matrix_for_wb(x3f_t *x3f,
      and most (all?) older TRUE engine cameras though */
   get_wb(x3f, name_with_wb); strcat(name_with_wb, name);
 
-  get_camf_matrix(x3f, name_with_wb, dim0, dim1, 0, M_FLOAT, matrix);
+  return get_camf_matrix(x3f, name_with_wb, dim0, dim1, 0, M_FLOAT, matrix);
 }
 
-static double get_camf_float(x3f_t *x3f, char *name)
+static int get_camf_float(x3f_t *x3f, char *name,  double *val)
 {
-  double val[1];
-
-  get_camf_matrix(x3f, name, 1, 0, 0, M_FLOAT, val);
-
-  return val[0];
+  return get_camf_matrix(x3f, name, 1, 0, 0, M_FLOAT, val);
 }
 
+
+static int get_camf_unsigned(x3f_t *x3f, char *name,  uint16_t *val)
+{
+  return get_camf_matrix(x3f, name, 1, 0, 0, M_UINT, val);
+}
+
+static int get_camf_signed(x3f_t *x3f, char *name,  int16_t *val)
+{
+  return get_camf_matrix(x3f, name, 1, 0, 0, M_INT, val);
+}
 
 /*
   SaturationLevel: x530, SD9, SD10, SD14, SD15, DP1-DP2x
@@ -2624,12 +2630,22 @@ static double get_camf_float(x3f_t *x3f, char *name)
   ImageDepth: Merrill and Quattro
 */
 
-static void get_max_raw(x3f_t *x3f, utf16_t *max_raw)
+static void get_max_raw(x3f_t *x3f, uint16_t *max_raw)
 {
-  /* TODO: fetch correct values, this is for Merrill only. */
-  max_raw[0] = 4095;
-  max_raw[1] = 4095;
-  max_raw[2] = 4095;
+  uint16_t image_depth;
+
+  if (get_camf_unsigned(x3f, "ImageDepth", &image_depth)) {
+    uint16_t max = (1<<image_depth) -1;
+
+    max_raw[0] = max;
+    max_raw[1] = max;
+    max_raw[2] = max;
+  } else {
+    /* TODO: fetch correct values, this is for Merrill only. */
+    max_raw[0] = 4095;
+    max_raw[1] = 4095;
+    max_raw[2] = 4095;
+  }
 }
 
 typedef struct
@@ -2731,8 +2747,8 @@ static void convert_data(x3f_t *x3f,
 
   printf("black_level = {%g,%g,%g}\n", black_level[0], black_level[1], black_level[2]);
 
-  sensor_iso = get_camf_float(x3f, "SensorISO");
-  capture_iso = get_camf_float(x3f, "CaptureISO");
+  get_camf_float(x3f, "SensorISO", &sensor_iso);
+  get_camf_float(x3f, "CaptureISO", &capture_iso);
   iso_scaling = capture_iso/sensor_iso;
 
   printf("SensorISO = %g\n", sensor_iso);
