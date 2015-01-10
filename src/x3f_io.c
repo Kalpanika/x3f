@@ -2638,8 +2638,8 @@ static int get_camf_matrix_for_wb(x3f_t *x3f,
 
   /* TODO - not correct way of calculating the name. Input to this
      function should be a name of a table containing the names. As key
-     to that table, current wb should be used. This works for Merrill
-     and most (all?) older TRUE engine cameras though */
+     to that table, current wb should be used. This works for Merrill,
+     Quattro and most (all?) older TRUE engine cameras though */
   get_wb(x3f, name_with_wb); strcat(name_with_wb, name);
 
   return get_camf_matrix(x3f, name_with_wb, dim0, dim1, 0, M_FLOAT, matrix);
@@ -2837,9 +2837,6 @@ static void convert_data(x3f_t *x3f,
   x3f_3x3_print(cam_to_rgb_matrix);
   printf("conv_matrix\n");
   x3f_3x3_print(conv_matrix);
-
-  /* TODO: the below results in a linear image, but most images shall
-     be gamma (or similar) coded */
 
   for (row = 0; row < image->rows; row++) {
     for (col = 0; col < image->columns; col++) {
