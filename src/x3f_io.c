@@ -2333,10 +2333,15 @@ static void x3f_setup_camf_matrix_entry(camf_entry_t *entry)
       dentry[i].size = *(uint32_t *)(v + 12 + 12*i + 0);
     dentry[i].name_offset = *(uint32_t *)(v + 12 + 12*i + 4);
     dentry[i].n = *(uint32_t *)(v + 12 + 12*i + 8);
-    if (dentry[i].n != i) {
-      fprintf(stderr, "WARNING: matrix entries out of order (%d != %d)\n", dentry[i].n, i);
-    }
     dentry[i].name = (char *)(e + dentry[i].name_offset);
+
+    if (dentry[i].n != i) {
+      /* TODO: is something needed to be made in this case */
+      fprintf(stderr,
+	      "WARNING: matrix entry for %s/%s is out of order "
+	      "(index/%d != order/%d)\n",
+	      entry->name_address, dentry[i].name, dentry[i].n, i);
+    }
 
     totalsize *= size;
   }
@@ -2513,15 +2518,6 @@ static void x3f_load_camf(x3f_info_t *I, x3f_directory_entry_t *DE)
   return X3F_OK;
 }
 
-static void get_wb(x3f_t *x3f, char *name)
-{
-
-  /* TODO: this does not work for Quattro. The WB string is stored
-     elsewhere. */
-
-  strcpy(name, x3f->header.white_balance);
-}
-
 static int get_camf_matrix(x3f_t *x3f, char *name,
 			   int dim0, int dim1, int dim2, matrix_type_t type,
 			   void *matrix)
@@ -2591,21 +2587,6 @@ static int get_camf_matrix(x3f_t *x3f, char *name,
   return 0;
 }
 
-static int get_camf_matrix_for_wb(x3f_t *x3f,
-				  char *name, int dim0, int dim1,
-				  double *matrix)
-{
-  char name_with_wb[1024];
-
-  /* TODO - not correct way of calculating the name. Input to this
-     function should be a name of a table containing the names. As key
-     to that table, current wb should be used. This works for Merrill
-     and most (all?) older TRUE engine cameras though */
-  get_wb(x3f, name_with_wb); strcat(name_with_wb, name);
-
-  return get_camf_matrix(x3f, name_with_wb, dim0, dim1, 0, M_FLOAT, matrix);
-}
-
 static int get_camf_float(x3f_t *x3f, char *name,  double *val)
 {
   return get_camf_matrix(x3f, name, 1, 0, 0, M_FLOAT, val);
@@ -2620,6 +2601,48 @@ static int get_camf_unsigned(x3f_t *x3f, char *name,  uint32_t *val)
 static int get_camf_signed_vector(x3f_t *x3f, char *name,  int32_t *val)
 {
   return get_camf_matrix(x3f, name, 3, 0, 0, M_INT, val);
+}
+
+static void get_wb(x3f_t *x3f, char *name)
+{
+  uint32_t wb;
+
+  if (get_camf_unsigned(x3f, "WhiteBalance", &wb)) {
+    char *wbs = "Auto";
+    /* Quattro. TODO: any better way to do this? Maybe get the info
+       from the EXIF in the JPEG? */
+    switch (wb) {
+    case 1:  wbs = "Auto";          break;
+    case 2:  wbs = "Sunlight";      break;
+    case 3:  wbs = "Shadow";        break;
+    case 4:  wbs = "Overcast";      break;
+    case 5:  wbs = "Incandenscent"; break;
+    case 6:  wbs = "Florescent";    break;
+    case 7:  wbs = "Flash";         break;
+    case 8:  wbs = "Custom";        break;
+    case 11: wbs = "ColorTemp";     break;
+    case 12: wbs = "AutoLSP";       break;
+    default: wbs = "Auto";          break;
+    }
+    strcpy(name, wbs);
+  } else {
+    strcpy(name, x3f->header.white_balance);
+  }
+}
+
+static int get_camf_matrix_for_wb(x3f_t *x3f,
+				  char *name, int dim0, int dim1,
+				  double *matrix)
+{
+  char name_with_wb[1024];
+
+  /* TODO - not correct way of calculating the name. Input to this
+     function should be a name of a table containing the names. As key
+     to that table, current wb should be used. This works for Merrill
+     and most (all?) older TRUE engine cameras though */
+  get_wb(x3f, name_with_wb); strcat(name_with_wb, name);
+
+  return get_camf_matrix(x3f, name_with_wb, dim0, dim1, 0, M_FLOAT, matrix);
 }
 
 /*
