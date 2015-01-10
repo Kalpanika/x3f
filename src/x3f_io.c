@@ -2842,11 +2842,17 @@ static void convert_data(x3f_t *x3f,
     for (col = 0; col < image->columns; col++) {
       uint16_t *valp[3];
       double input[3], output[3];
+
+      /* Get the data */
       for (color = 0; color < 3; color++) {
 	valp[color] = &image->data[image->row_stride*row + image->channels*col + color];
 	input[color] = (*valp[color] - black_level[color])/max_raw[color];
       }
+
+      /* Do color conversion */
       x3f_3x3_3x1_mul(conv_matrix, input, output);
+
+      /* Write back the data, doing non linear coding*/
       for (color = 0; color < 3; color++)
 	*valp[color] = x3f_LUT_lookup(lut, LUTSIZE, output[color]);
     }
