@@ -13,6 +13,7 @@
 #include <math.h>
 #include <stdio.h>
 #include <assert.h>
+#include <tiffio.h>
 
 /* --------------------------------------------------------------------- */
 /* Hacky external flags                                                 */
@@ -2960,64 +2961,6 @@ x3f_return_t x3f_dump_raw_data_as_ppm(x3f_t *x3f,
   return X3F_OK;
 }
 
-#include "tiff.h"
-
-/* Routines for writing little endian tiff data */
-
-static void write_16L(FILE *f_out, uint16_t val)
-{
-  fputc((val>>0) & 0xff, f_out);
-  fputc((val>>8) & 0xff, f_out);
-}
-
-static void write_32L(FILE *f_out, uint32_t val)
-{
-  fputc((val>> 0) & 0xff, f_out);
-  fputc((val>> 8) & 0xff, f_out);
-  fputc((val>>16) & 0xff, f_out);
-  fputc((val>>24) & 0xff, f_out);
-}
-
-static void write_ra(FILE *f_out, uint32_t val1, uint32_t val2)
-{
-  write_32L(f_out, val1);
-  write_32L(f_out, val2);
-}
-
-static void write_entry_16(FILE *f_out, uint16_t tag, uint16_t val)
-{
-  write_16L(f_out, tag);
-  write_16L(f_out, TIFF_SHORT);
-  write_32L(f_out, 1);
-  write_16L(f_out, val);
-  write_16L(f_out, 0);
-}
-
-static void write_entry_32(FILE *f_out, uint16_t tag, uint32_t val)
-{
-  write_16L(f_out, tag);
-  write_16L(f_out, TIFF_LONG);
-  write_32L(f_out, 1);
-  write_32L(f_out, val);
-}
-
-static void write_entry_of(FILE *f_out, uint16_t tag, uint16_t type,
-                           uint32_t num, uint32_t offset)
-{
-  write_16L(f_out, tag);
-  write_16L(f_out, type);
-  write_32L(f_out, num);
-  write_32L(f_out, offset);
-}
-
-static void write_array_32(FILE *f_out, uint32_t num, uint32_t *vals)
-{
-  uint32_t i;
-
-  for (i=0; i<num; i++)
-    write_32L(f_out, vals[i]);
-}
-
 /* extern */
 x3f_return_t x3f_dump_raw_data_as_tiff(x3f_t *x3f,
 				       char *outfilename,
@@ -3025,127 +2968,30 @@ x3f_return_t x3f_dump_raw_data_as_tiff(x3f_t *x3f,
 				       int crop)
 {
   area_t image;
-  FILE *f_out = fopen(outfilename, "wb");
-
+  TIFF *f_out = TIFFOpen(outfilename, "wb");
   int row;
-  int bits = 16;
-  int planes = 3;
-  int rowsperstrip = 32;
-
-  /* double rps = rowsperstrip;
-     int strips = (int)floor((image.rows + rps - 1)/rps);
-     WHY? */
-
-  int strips;
-  int strip;
-
-  uint32_t ifd_offset;
-  uint32_t ifd_offset_offset;
-  uint32_t resolution_offset;
-  uint32_t bitspersample_offset;
-  uint32_t offsets_offset;
-  uint32_t bytes_offset;
-
-  uint32_t *stripoffsets;
-  uint32_t *stripbytes;
 
   assert(f_out != NULL);
 
   get_image(x3f, &image, encoding, crop);
 
-  strips = (image.rows + (rowsperstrip - 1))/rowsperstrip;
+  TIFFSetField(f_out, TIFFTAG_IMAGEWIDTH, image.columns);
+  TIFFSetField(f_out, TIFFTAG_IMAGELENGTH, image.rows);
+  TIFFSetField(f_out, TIFFTAG_ROWSPERSTRIP, 32);
+  TIFFSetField(f_out, TIFFTAG_SAMPLESPERPIXEL, image.channels);
+  TIFFSetField(f_out, TIFFTAG_BITSPERSAMPLE, 16);
+  TIFFSetField(f_out, TIFFTAG_PLANARCONFIG, PLANARCONFIG_CONTIG);
+  TIFFSetField(f_out, TIFFTAG_COMPRESSION, COMPRESSION_NONE);
+  TIFFSetField(f_out, TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_RGB);
+  TIFFSetField(f_out, TIFFTAG_XRESOLUTION, 72.0);
+  TIFFSetField(f_out, TIFFTAG_YRESOLUTION, 72.0);
+  TIFFSetField(f_out, TIFFTAG_RESOLUTIONUNIT, RESUNIT_INCH);
 
-  stripoffsets = (uint32_t *)malloc(sizeof(uint32_t)*strips);
-  stripbytes = (uint32_t *)malloc(sizeof(uint32_t)*strips);
+  for (row=0; row < image.rows; row++)
+    TIFFWriteScanline(f_out, image.data + image.row_stride*row, row, 0);
 
-  /* Write initial TIFF file header II-format, i.e. little endian */
-
-  write_16L(f_out, 0x4949); /* II */
-  write_16L(f_out, 42);     /* A carefully choosen number */
-
-  /* (Placeholder for) offset of the first (and only) IFD */
-
-  ifd_offset_offset = ftell(f_out);
-  write_32L(f_out, 0);
-
-  /* Write resolution */
-
-  resolution_offset = ftell(f_out);
-  write_ra(f_out, 72, 1);
-
-  /* Write bits per sample */
-
-  bitspersample_offset = ftell(f_out);
-  write_16L(f_out, bits);
-  write_16L(f_out, bits);
-  write_16L(f_out, bits);
-
-  /* Write image */
-
-  for (strip=0; strip < strips; strip++) {
-    stripoffsets[strip] = ftell(f_out);
-
-    for (row=strip*rowsperstrip;
-	 row < image.rows && row < (strip + 1)*rowsperstrip;
-	 row++) {
-      int col;
-
-      for (col=0; col < image.columns; col++) {
-	int color;
-
-	for (color=0; color < 3; color++)
-	  write_16L(f_out, image.data[image.row_stride*row + image.channels*col + color]);
-      }
-    }
-
-    stripbytes[strip] = ftell(f_out) - stripoffsets[strip];
-  }
-
-  /* Write offset/size arrays */
-
-  offsets_offset = ftell(f_out);
-  write_array_32(f_out, strips, stripoffsets);
-
-  bytes_offset = ftell(f_out);
-  write_array_32(f_out, strips, stripbytes);
-
-  /* The first (and only) IFD */
-
-  ifd_offset = ftell(f_out);
-  write_16L(f_out, 12);      /* Number of directory entries */
-
-  /* Required directory entries */
-  write_entry_32(f_out, TIFFTAG_IMAGEWIDTH, (uint32)image.columns);
-  write_entry_32(f_out, TIFFTAG_IMAGELENGTH, (uint32)image.rows);
-  write_entry_of(f_out, TIFFTAG_BITSPERSAMPLE, TIFF_SHORT,
-		 3, bitspersample_offset);
-  write_entry_16(f_out, TIFFTAG_COMPRESSION, COMPRESSION_NONE);
-  write_entry_16(f_out, TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_RGB);
-  write_entry_of(f_out, TIFFTAG_STRIPOFFSETS, TIFF_LONG,
-		 strips, offsets_offset);
-  write_entry_16(f_out, TIFFTAG_SAMPLESPERPIXEL, (uint16)planes);
-  write_entry_32(f_out, TIFFTAG_ROWSPERSTRIP, rowsperstrip);
-  write_entry_of(f_out, TIFFTAG_STRIPBYTECOUNTS, TIFF_LONG,
-		 strips, bytes_offset);
-  write_entry_of(f_out, TIFFTAG_XRESOLUTION, TIFF_RATIONAL,
-		 1, resolution_offset);
-  write_entry_of(f_out, TIFFTAG_YRESOLUTION, TIFF_RATIONAL,
-		 1, resolution_offset);
-  write_entry_16(f_out, TIFFTAG_RESOLUTIONUNIT, RESUNIT_INCH);
-
-  /* Offset of the next IFD = 0 => no more IFDs */
-
-  write_32L(f_out, 0);
-
-  /* Offset of the first (and only) IFD */
-
-  fseek(f_out, ifd_offset_offset, SEEK_SET);
-  write_32L(f_out, ifd_offset);
-
-  free(stripoffsets);
-  free(stripbytes);
-
-  fclose(f_out);
+  TIFFWriteDirectory(f_out);
+  TIFFClose(f_out);
 
   return X3F_OK;
 }
