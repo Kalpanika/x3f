@@ -6,6 +6,8 @@ extern void x3f_scalar_3x3_mul(double a, double *b, double *c);
 extern void x3f_3x3_3x1_mul(double *a, double *b, double *c);
 extern void x3f_3x3_3x3_mul(double *a, double *b, double *c);
 
+extern void x3f_3x3_inverse(double *a, double *ainv);
+
 extern void x3f_3x3_diag(double *a, double *b);
 
 extern void x3f_3x1_print(double *a);

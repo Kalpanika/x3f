@@ -54,6 +54,32 @@ void x3f_3x3_3x3_mul(double *a, double *b, double *c)
   M22(c) = M20(a)*M02(b) + M21(a)*M12(b) + M22(a)*M22(b);
 }
 
+/* Calculate the inverse of a 3x3 matrix 
+   http://en.wikipedia.org/wiki/Invertible_matrix */
+void x3f_3x3_inverse(double *a, double *ainv)
+{
+  double A, B, C, D, E, F, G, H, I;
+  double det;
+
+  A = +(M11(a)*M22(a)-M12(a)*M21(a));
+  B = -(M10(a)*M22(a)-M12(a)*M20(a));
+  C = +(M10(a)*M21(a)-M11(a)*M20(a));
+
+  D = -(M01(a)*M22(a)-M02(a)*M21(a));
+  E = +(M00(a)*M22(a)-M02(a)*M20(a));
+  F = -(M00(a)*M21(a)-M01(a)*M20(a));
+
+  G = +(M01(a)*M12(a)-M02(a)*M11(a));
+  H = -(M00(a)*M12(a)-M02(a)*M10(a));
+  I = +(M00(a)*M11(a)-M01(a)*M10(a));
+
+  det = M00(a)*A + M01(a)*B + M02(a)*C;
+    
+  M00(ainv) = A/det; M01(ainv) = D/det; M02(ainv) = G/det;
+  M10(ainv) = B/det; M11(ainv) = E/det; M12(ainv) = H/det;
+  M20(ainv) = C/det; M21(ainv) = F/det; M22(ainv) = I/det;
+}
+
 /* Convert a 3x1 matrix to a 3x3 diagonal matrix */
 void x3f_3x3_diag(double *a, double *b)
 {

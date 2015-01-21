@@ -17,7 +17,7 @@ int main(int argc, char *argv[])
   double c[9];
   double y[3];
   double diag[9];
-  double argb[9];
+  double argb[9], argb_inv[9], identity[9];
   double srgb[9];
   double pprgb[9];
 
@@ -25,6 +25,8 @@ int main(int argc, char *argv[])
   x3f_3x3_3x1_mul(c, x, y);
   x3f_3x3_diag(x, diag);
   x3f_XYZ_to_AdobeRGB(argb);
+  x3f_3x3_inverse(argb, argb_inv);
+  x3f_3x3_3x3_mul(argb_inv, argb, identity);
   x3f_XYZ_to_sRGB(srgb);
   x3f_XYZ_to_ProPhotoRGB(pprgb);
 
@@ -45,6 +47,10 @@ int main(int argc, char *argv[])
 
   printf("Adobe RGB\n");
   x3f_3x3_print(argb);
+  printf("Adobe RGB inverse\n");
+  x3f_3x3_print(argb_inv);
+  printf("Identity\n");
+  x3f_3x3_print(identity);
   printf("sRGB\n");
   x3f_3x3_print(srgb);
   printf("Pro Photo RGB\n");
