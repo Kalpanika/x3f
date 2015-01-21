@@ -25,7 +25,7 @@ static void usage(char *progname)
           "   -ppm            Dump RAW/color as 3x16 bit PPM/P6 (binary)\n"
           "   -histogram      Dump histogram as csv file\n"
           "   -loghist        Dump histogram as csv file, with log exposure\n"
-	  "   -color <COLOR>  Convert to RGB color"
+	  "   -color <COLOR>  Convert to RGB color\n"
 	  "                   (sRGB, AdobeRGB, ProPhotoRGB)\n"
           "   -crop           Crop to active image\n"
 	  "\n"
@@ -74,7 +74,7 @@ int main(int argc, char *argv[])
       if (!strcmp(encoding, "sRGB"))
 	color_encoding = SRGB;
       else if (!strcmp(encoding, "AdobeRGB"))
-	color_encoding = SRGB;
+	color_encoding = ARGB;
       else if (!strcmp(encoding, "ProPhotoRGB"))
 	color_encoding = PPRGB;
       else {
