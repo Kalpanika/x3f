@@ -10,7 +10,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-typedef enum {RAW, TIFF, PPMP3, PPMP6, HISTOGRAM} raw_file_type_t;
+typedef enum {RAW, TIFF, DNG, PPMP3, PPMP6, HISTOGRAM} raw_file_type_t;
 
 static void usage(char *progname)
 {
@@ -19,6 +19,7 @@ static void usage(char *progname)
           "   -jpg            Dump embedded JPG. Turn off RAW dumping\n"
           "   -raw            Dump RAW area undecoded\n"
           "   -tiff           Dump RAW as 3x16 bit TIFF (default)\n"
+          "   -dng            Dump RAW as DNG LinearRaw\n"
           "   -ppm-ascii      Dump RAW/color as 3x16 bit PPM/P3 (ascii)\n"
           "                   NOTE: 16 bit PPM/P3 is not generally supported\n"
           "   -ppm            Dump RAW/color as 3x16 bit PPM/P6 (binary)\n"
@@ -58,6 +59,8 @@ int main(int argc, char *argv[])
       extract_raw = 1, file_type = RAW;
     else if (!strcmp(argv[i], "-tiff"))
       extract_raw = 1, file_type = TIFF;
+    else if (!strcmp(argv[i], "-dng"))
+      extract_raw = 1, file_type = DNG;
     else if (!strcmp(argv[i], "-ppm-ascii"))
       extract_raw = 1, file_type = PPMP3;
     else if (!strcmp(argv[i], "-ppm"))
@@ -173,6 +176,11 @@ int main(int argc, char *argv[])
 	printf("Dump RAW as TIFF to %s\n", outfilename);
 	ret_dump = x3f_dump_raw_data_as_tiff(x3f, outfilename,
 					     color_encoding, crop);
+	break;
+      case DNG:
+	strcat(outfilename, ".dng");
+	printf("Dump RAW as DNG to %s\n", outfilename);
+	ret_dump = x3f_dump_raw_data_as_dng(x3f, outfilename);
 	break;
       case PPMP3:
       case PPMP6:

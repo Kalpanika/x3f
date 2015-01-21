@@ -2996,6 +2996,91 @@ x3f_return_t x3f_dump_raw_data_as_tiff(x3f_t *x3f,
   return X3F_OK;
 }
 
+/* extern */
+x3f_return_t x3f_dump_raw_data_as_dng(x3f_t *x3f, char *outfilename)
+{
+  area_t image, shield;
+  TIFF *f_out = TIFFOpen(outfilename, "wb");
+  int row, col, color;
+  uint32_t rect[4];
+
+  uint64_t black_sum[3] = {0,0,0};
+  uint32_t black_pixels = 0;
+  float black_level[3];
+  uint16_t black_level_repeat[2] = {1,1};
+  uint16_t max_raw[3];
+  uint32_t white_level[3];
+  uint32_t active_area[4], masked_areas[8];
+
+  assert(f_out != NULL);
+
+  image_area(x3f, &image);
+  assert(image.channels == 3);
+
+  TIFFSetField(f_out, TIFFTAG_SUBFILETYPE, 0);
+  TIFFSetField(f_out, TIFFTAG_IMAGEWIDTH, image.columns);
+  TIFFSetField(f_out, TIFFTAG_IMAGELENGTH, image.rows);
+  TIFFSetField(f_out, TIFFTAG_ROWSPERSTRIP, 32);
+  TIFFSetField(f_out, TIFFTAG_SAMPLESPERPIXEL, 3);
+  TIFFSetField(f_out, TIFFTAG_BITSPERSAMPLE, 16);
+  TIFFSetField(f_out, TIFFTAG_PLANARCONFIG, PLANARCONFIG_CONTIG);
+  TIFFSetField(f_out, TIFFTAG_COMPRESSION, COMPRESSION_NONE);
+  TIFFSetField(f_out, TIFFTAG_PHOTOMETRIC, 34892); /* ???? */
+  TIFFSetField(f_out, TIFFTAG_DNGVERSION, "\001\004\000\000");
+  TIFFSetField(f_out, TIFFTAG_DNGBACKWARDVERSION, "\001\001\000\000");
+
+  crop_area_camf(x3f, "DarkShieldTop", &image, &shield);
+  for (row = 0; row < shield.rows; row++)
+    for (col = 0; col < shield.columns; col++)
+      for (color = 0; color < 3; color++)
+	black_sum[color] += shield.data[shield.row_stride*row + shield.channels*col + color];
+  black_pixels += shield.columns*shield.rows;
+
+  crop_area_camf(x3f, "DarkShieldBottom", &image, &shield);
+  for (row = 0; row < shield.rows; row++)
+    for (col = 0; col < shield.columns; col++)
+      for (color = 0; color < 3; color++)
+	black_sum[color] += shield.data[shield.row_stride*row + shield.channels*col + color];
+  black_pixels += shield.columns*shield.rows;
+
+  for (color = 0; color < 3; color++)
+    black_level[color] = (float)black_sum[color]/black_pixels;
+  TIFFSetField(f_out, TIFFTAG_BLACKLEVEL, 3, black_level);
+  TIFFSetField(f_out, TIFFTAG_BLACKLEVELREPEATDIM, black_level_repeat);
+
+  get_max_raw(x3f, max_raw);
+  for (color=0; color < 3; color++)
+    white_level[color] = max_raw[color];
+  TIFFSetField(f_out, TIFFTAG_WHITELEVEL, 3, white_level);
+
+  get_camf_matrix(x3f, "ActiveImageArea", 4, 0, 0, M_UINT, rect);
+  active_area[0] = rect[1];
+  active_area[1] = rect[0];
+  active_area[2] = rect[3] + 1;
+  active_area[3] = rect[2] + 1;
+  TIFFSetField(f_out, TIFFTAG_ACTIVEAREA, active_area);
+
+  get_camf_matrix(x3f, "DarkShieldTop", 4, 0, 0, M_UINT, rect);
+  masked_areas[0] = rect[1];
+  masked_areas[1] = rect[0];
+  masked_areas[2] = rect[3] + 1;
+  masked_areas[3] = rect[2] + 1;
+  get_camf_matrix(x3f, "DarkShieldBottom", 4, 0, 0, M_UINT, rect);
+  masked_areas[4] = rect[1];
+  masked_areas[5] = rect[0];
+  masked_areas[6] = rect[3] + 1;
+  masked_areas[7] = rect[2] + 1;
+  TIFFSetField(f_out, TIFFTAG_MASKEDAREAS, 8, masked_areas);
+
+  for (row=0; row < image.rows; row++)
+    TIFFWriteScanline(f_out, image.data + image.row_stride*row, row, 0);
+
+  TIFFWriteDirectory(f_out);
+  TIFFClose(f_out);
+
+  return X3F_OK;
+}
+
 static int ilog(int i, double base, int steps)
 {
   if (i <= 0)
