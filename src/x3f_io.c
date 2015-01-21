@@ -3003,6 +3003,8 @@ x3f_return_t x3f_dump_raw_data_as_dng(x3f_t *x3f, char *outfilename)
   TIFF *f_out = TIFFOpen(outfilename, "wb");
   int row, col, color;
   uint32_t rect[4];
+  uint64_t sub_ifds[1] = {0};	/* ???? */
+  uint8_t thumbnail[300];
 
   uint64_t black_sum[3] = {0,0,0};
   uint32_t black_pixels = 0;
@@ -3011,11 +3013,40 @@ x3f_return_t x3f_dump_raw_data_as_dng(x3f_t *x3f, char *outfilename)
   uint16_t max_raw[3];
   uint32_t white_level[3];
   uint32_t active_area[4], masked_areas[8];
+  float color_matrix1[9] = {1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0};
+  float as_shot_neutral[3] = {1.0, 1.0, 1.0};
 
   assert(f_out != NULL);
 
   image_area(x3f, &image);
   assert(image.channels == 3);
+
+  TIFFSetField(f_out, TIFFTAG_SUBFILETYPE, FILETYPE_REDUCEDIMAGE);
+  TIFFSetField(f_out, TIFFTAG_IMAGEWIDTH, 100);
+  TIFFSetField(f_out, TIFFTAG_IMAGELENGTH, 100);
+  TIFFSetField(f_out, TIFFTAG_ROWSPERSTRIP, 100);
+  TIFFSetField(f_out, TIFFTAG_SAMPLESPERPIXEL, 3);
+  TIFFSetField(f_out, TIFFTAG_BITSPERSAMPLE, 8);
+  TIFFSetField(f_out, TIFFTAG_PLANARCONFIG, PLANARCONFIG_CONTIG);
+  TIFFSetField(f_out, TIFFTAG_COMPRESSION, COMPRESSION_NONE);
+  TIFFSetField(f_out, TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_RGB);
+  TIFFSetField(f_out, TIFFTAG_ORIENTATION, ORIENTATION_TOPLEFT);
+  TIFFSetField(f_out, TIFFTAG_DNGVERSION, "\001\004\000\000");
+  TIFFSetField(f_out, TIFFTAG_DNGBACKWARDVERSION, "\001\001\000\000");
+  TIFFSetField(f_out, TIFFTAG_MAKE, "SIGMA");
+  TIFFSetField(f_out, TIFFTAG_MODEL, "SIGMA DP1");
+  TIFFSetField(f_out, TIFFTAG_UNIQUECAMERAMODEL, "SIGMA DP1");
+  TIFFSetField(f_out, TIFFTAG_SOFTWARE, "X3F Tools");
+  TIFFSetField(f_out, TIFFTAG_DATETIME, "1111:11:11 11:11:11");
+  TIFFSetField(f_out, TIFFTAG_COLORMATRIX1, 9, color_matrix1);
+  TIFFSetField(f_out, TIFFTAG_ASSHOTNEUTRAL, 3, as_shot_neutral);
+  TIFFSetField(f_out, TIFFTAG_SUBIFD, 1, sub_ifds);
+
+  memset(thumbnail, 0, sizeof(thumbnail));
+  for (row=0; row < 100; row++)
+    TIFFWriteScanline(f_out, thumbnail, row, 0);
+
+  TIFFWriteDirectory(f_out);
 
   TIFFSetField(f_out, TIFFTAG_SUBFILETYPE, 0);
   TIFFSetField(f_out, TIFFTAG_IMAGEWIDTH, image.columns);
@@ -3026,8 +3057,6 @@ x3f_return_t x3f_dump_raw_data_as_dng(x3f_t *x3f, char *outfilename)
   TIFFSetField(f_out, TIFFTAG_PLANARCONFIG, PLANARCONFIG_CONTIG);
   TIFFSetField(f_out, TIFFTAG_COMPRESSION, COMPRESSION_NONE);
   TIFFSetField(f_out, TIFFTAG_PHOTOMETRIC, 34892); /* ???? */
-  TIFFSetField(f_out, TIFFTAG_DNGVERSION, "\001\004\000\000");
-  TIFFSetField(f_out, TIFFTAG_DNGBACKWARDVERSION, "\001\001\000\000");
 
   crop_area_camf(x3f, "DarkShieldTop", &image, &shield);
   for (row = 0; row < shield.rows; row++)
