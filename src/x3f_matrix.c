@@ -179,7 +179,7 @@ void x3f_sRGB_LUT(double *lut, int size, uint16_t max)
     else
       srgb = (1 + a)*pow(lin, 1/2.4) - a;
 
-    srgb = round (srgb * max);
+    srgb *= max;
 
     if (srgb < 0)
       lut[i] = 0;
@@ -199,7 +199,7 @@ void x3f_gamma_LUT(double *lut, int size, uint16_t max, double gamma)
     double gam;
 
     gam = pow(lin, 1/gamma);
-    gam = round (gam * max);
+    gam *= max;
 
     if (gam < 0)
       lut[i] = 0;
@@ -217,9 +217,9 @@ uint16_t x3f_LUT_lookup(double *lut, int size, double val)
   double frac = index - i;
 
   if (i<0)
-    return (uint16_t)lut[0];
+    return (uint16_t)round(lut[0]);
   else if (i>=(size - 1))
-    return (uint16_t)lut[size-1];
+    return (uint16_t)round(lut[size-1]);
   else
-    return (uint16_t)(lut[i] + frac*(lut[i+1] - lut[i]));
+    return (uint16_t)round(lut[i] + frac*(lut[i+1] - lut[i]));
 }
