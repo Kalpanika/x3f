@@ -2803,7 +2803,7 @@ static void convert_data(x3f_t *x3f,
     x3f_XYZ_to_AdobeRGB(xyz_to_rgb_matrix);
     break;
   case PPRGB:
-    x3f_gamma_LUT(lut, LUTSIZE, max_out, 2.2);
+    x3f_gamma_LUT(lut, LUTSIZE, max_out, 1.8);
     x3f_XYZ_to_ProPhotoRGB(xyz_to_rgb_matrix);
     break;
   default:
