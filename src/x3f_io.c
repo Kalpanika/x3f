@@ -2746,11 +2746,9 @@ static void convert_data(x3f_t *x3f,
   double cc_matrix[9];
   double wb_gain[3];
   double wb_gain_matrix[9];
-  double cam_to_ciergb_matrix[9];
-  double ciergb_to_xyz_matrix[9];
-  double bradford_d50_to_d65_matrix[9];
-  double cam_to_xyz_d50_matrix[9];
-  double cam_to_xyz_d65_matrix[9];
+  double cam_to_srgb_matrix[9];
+  double srgb_to_xyz_matrix[9];
+  double cam_to_xyz_matrix[9];	/* White point for XYZ is assumed to be D65 */
   double xyz_to_rgb_matrix[9];
   double cam_to_rgb_matrix[9];
   double conv_matrix[9];
@@ -2790,8 +2788,7 @@ static void convert_data(x3f_t *x3f,
   get_camf_matrix_for_wb(x3f, "WBGain", 3, 0, wb_gain);
   x3f_3x3_diag(wb_gain, wb_gain_matrix);
 
-  x3f_CIERGB_to_XYZ(ciergb_to_xyz_matrix);
-  x3f_Bradford_D50_to_D65(bradford_d50_to_d65_matrix);
+  x3f_sRGB_to_XYZ(srgb_to_xyz_matrix);
 
   switch (encoding) {
   case SRGB:
@@ -2803,18 +2800,24 @@ static void convert_data(x3f_t *x3f,
     x3f_XYZ_to_AdobeRGB(xyz_to_rgb_matrix);
     break;
   case PPRGB:
-    x3f_gamma_LUT(lut, LUTSIZE, max_out, 1.8);
-    x3f_XYZ_to_ProPhotoRGB(xyz_to_rgb_matrix);
+    {
+      double xyz_to_prophotorgb[9], d65_to_d50[9];
+
+      x3f_gamma_LUT(lut, LUTSIZE, max_out, 1.8);
+      x3f_XYZ_to_ProPhotoRGB(xyz_to_prophotorgb);
+      /* The standad white point for ProPhoto RGB is D50 */
+      x3f_Bradford_D65_to_D50(d65_to_d50);
+      x3f_3x3_3x3_mul(xyz_to_prophotorgb, d65_to_d50, xyz_to_rgb_matrix);
+    }
     break;
   default:
     fprintf(stderr, "Unknown color space %d\n", encoding);
     abort();
   }
 
-  x3f_3x3_3x3_mul(cc_matrix, wb_gain_matrix, cam_to_ciergb_matrix);
-  x3f_3x3_3x3_mul(ciergb_to_xyz_matrix, cam_to_ciergb_matrix, cam_to_xyz_d50_matrix);
-  x3f_3x3_3x3_mul(bradford_d50_to_d65_matrix, cam_to_xyz_d50_matrix, cam_to_xyz_d65_matrix);
-  x3f_3x3_3x3_mul(xyz_to_rgb_matrix, cam_to_xyz_d65_matrix, cam_to_rgb_matrix);
+  x3f_3x3_3x3_mul(cc_matrix, wb_gain_matrix, cam_to_srgb_matrix);
+  x3f_3x3_3x3_mul(srgb_to_xyz_matrix, cam_to_srgb_matrix, cam_to_xyz_matrix);
+  x3f_3x3_3x3_mul(xyz_to_rgb_matrix, cam_to_xyz_matrix, cam_to_rgb_matrix);
   x3f_scalar_3x3_mul(iso_scaling, cam_to_rgb_matrix, conv_matrix);
 
   printf("cc_matrix\n");
@@ -2822,18 +2825,12 @@ static void convert_data(x3f_t *x3f,
   printf("wb_gain\n");
   x3f_3x1_print(wb_gain);
 
-  printf("ciergb_to_xyz_matrix\n");
-  x3f_3x3_print(ciergb_to_xyz_matrix);
+  printf("cam_to_srgb_matrix\n");
+  x3f_3x3_print(cam_to_srgb_matrix);
+  printf("cam_to_xyz_matrix\n");
+  x3f_3x3_print(cam_to_xyz_matrix);
   printf("xyz_to_rgb_matrix\n");
   x3f_3x3_print(xyz_to_rgb_matrix);
-  printf("cam_to_ciergb_matrix\n");
-  x3f_3x3_print(cam_to_ciergb_matrix);
-  printf("bradford_d50_to_d65_matrix\n");
-  x3f_3x3_print(bradford_d50_to_d65_matrix);
-  printf("cam_to_xyz_d50_matrix\n");
-  x3f_3x3_print(cam_to_xyz_d50_matrix);
-  printf("cam_to_xyz_d65_matrix\n");
-  x3f_3x3_print(cam_to_xyz_d65_matrix);
   printf("cam_to_rgb_matrix\n");
   x3f_3x3_print(cam_to_rgb_matrix);
   printf("conv_matrix\n");
@@ -3024,8 +3021,8 @@ x3f_return_t x3f_dump_raw_data_as_dng(x3f_t *x3f, char *outfilename)
   uint32_t white_level[3];
   uint32_t active_area[4], masked_areas[8];
 
-  double cc_matrix[9], wb_gain[3], wb_gain_matrix[9], ciergb_to_xyz[9];
-  double cam_to_ciergb[9], cam_to_xyz[9], xyz_to_cam[9];
+  double cc_matrix[9], wb_gain[3], wb_gain_matrix[9], srgb_to_xyz[9];
+  double cam_to_srgb[9], cam_to_xyz[9], xyz_to_cam[9];
   float color_matrix1[9],  as_shot_neutral[3];
   double sensor_iso, capture_iso, baseline_exposure;
 
@@ -3050,19 +3047,19 @@ x3f_return_t x3f_dump_raw_data_as_dng(x3f_t *x3f, char *outfilename)
 
   get_camf_matrix_for_wb(x3f, "CCMatrix", 3, 3, cc_matrix);
   get_camf_matrix_for_wb(x3f, "WBGain", 3, 0, wb_gain);
-  x3f_CIERGB_to_XYZ(ciergb_to_xyz);
+  x3f_sRGB_to_XYZ(srgb_to_xyz);
   
   x3f_3x3_diag(wb_gain, wb_gain_matrix);
-  x3f_3x3_3x3_mul(cc_matrix, wb_gain_matrix, cam_to_ciergb);
-  x3f_3x3_3x3_mul(ciergb_to_xyz, cam_to_ciergb, cam_to_xyz);
+  x3f_3x3_3x3_mul(cc_matrix, wb_gain_matrix, cam_to_srgb);
+  x3f_3x3_3x3_mul(srgb_to_xyz, cam_to_srgb, cam_to_xyz);
   x3f_3x3_inverse(cam_to_xyz, xyz_to_cam);
 
   printf("cc_matrix\n");
   x3f_3x3_print(cc_matrix);
   printf("wb_gain\n");
   x3f_3x1_print(wb_gain);
-  printf("cam_to_ciergb\n");
-  x3f_3x3_print(cam_to_ciergb);
+  printf("cam_to_srgb\n");
+  x3f_3x3_print(cam_to_srgb);
   printf("cam_to_xyz\n");
   x3f_3x3_print(cam_to_xyz);
   printf("xyz_to_cam\n");
