@@ -116,20 +116,27 @@ void x3f_XYZ_to_ProPhotoRGB(double *a)
   M20(a) = +0.0000; M21(a) = +0.0000; M22(a) = +1.2123;
 }
 
+void x3f_ProPhotoRGB_to_XYZ(double *a)
+{
+  M00(a) = 0.7977; M01(a) = 0.1352; M02(a) = 0.0313;
+  M10(a) = 0.2880; M11(a) = 0.7119; M12(a) = 0.0001;
+  M20(a) = 0.0000; M21(a) = 0.0000; M22(a) = 0.8249;
+}
+
 /* http://en.wikipedia.org/wiki/Adobe_RGB_color_space */
 /* http://www.adobe.com/digitalimag/pdfs/AdobeRGB1998.pdf */
 void x3f_XYZ_to_AdobeRGB(double *a)
 {
-  M00(a) = +1.96253; M01(a) = -0.61068; M02(a) = -0.34137;
-  M10(a) = -0.97876; M11(a) = +1.91615; M12(a) = +0.03342;
-  M20(a) = +0.02829; M21(a) = -0.14067; M22(a) = +1.34926;
+  M00(a) = +2.04159; M01(a) = -0.56501; M02(a) = -0.33473;
+  M10(a) = -0.96924; M11(a) = +1.87597; M12(a) = +0.04156;
+  M20(a) = +0.01344; M21(a) = -0.11836; M22(a) = +1.01517;
 }
 
 void x3f_AdobeRGB_to_XYZ(double *a)
 {
-  M00(a) = 0.60974; M01(a) = 0.20528; M02(a) = 0.14919;
-  M10(a) = 0.31111; M11(a) = 0.62567; M12(a) = 0.06322;
-  M20(a) = 0.01947; M21(a) = 0.06087; M22(a) = 0.74457;
+  M00(a) = 0.57667; M01(a) = 0.18556; M02(a) = 0.18823;
+  M10(a) = 0.29737; M11(a) = 0.62736; M12(a) = 0.07529;
+  M20(a) = 0.02703; M21(a) = 0.07069; M22(a) = 0.99134;
 }
 
 /* http://en.wikipedia.org/wiki/SRGB */
@@ -140,20 +147,19 @@ void x3f_XYZ_to_sRGB(double *a)
   M20(a) = +0.0557; M21(a) = -0.2040; M22(a) = +1.0570;
 }
 
+void x3f_sRGB_to_XYZ(double *a)
+{
+  M00(a) = 0.4124; M01(a) = 0.3576; M02(a) = 0.1805;
+  M10(a) = 0.2126; M11(a) = 0.7152; M12(a) = 0.0722;
+  M20(a) = 0.0193; M21(a) = 0.1192; M22(a) = 0.9505;
+}
+
 /* http://en.wikipedia.org/wiki/CIE_1931_color_space */
 void x3f_CIERGB_to_XYZ(double *a)
 {
   M00(a) = 0.49    ; M01(a) = 0.31    ; M02(a) = 0.20    ;
   M10(a) = 0.17697 ; M11(a) = 0.81240 ; M12(a) = 0.01063 ;
   M20(a) = 0.00    ; M21(a) = 0.01    ; M22(a) = 0.99    ;
-}
-
-#define B21 0.17697
-void x3f_CIERGB_to_XYZ_strange(double *a)
-{
-  M00(a) = 0.49    /B21; M01(a) = 0.31    /B21; M02(a) = 0.20    /B21;
-  M10(a) = 0.17697 /B21; M11(a) = 0.81240 /B21; M12(a) = 0.01063 /B21;
-  M20(a) = 0.00    /B21; M21(a) = 0.01    /B21; M22(a) = 0.99    /B21;
 }
 
 /* http://www.brucelindbloom.com/index.html?Eqn_ChromAdapt.html */

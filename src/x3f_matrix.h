@@ -14,11 +14,13 @@ extern void x3f_3x1_print(double *a);
 extern void x3f_3x3_print(double *a);
 
 extern void x3f_XYZ_to_ProPhotoRGB(double *a);
+extern void x3f_ProPhotoRGB_to_XYZ(double *a);
 
 extern void x3f_XYZ_to_AdobeRGB(double *a);
 extern void x3f_AdobeRGB_to_XYZ(double *a);
 
 extern void x3f_XYZ_to_sRGB(double *a);
+extern void x3f_sRGB_to_XYZ(double *a);
 
 extern void x3f_CIERGB_to_XYZ(double *a);
 
