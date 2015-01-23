@@ -3049,14 +3049,18 @@ static void vec_double_to_float(double *a, float *b, int len)
 /* extern */
 x3f_return_t x3f_dump_raw_data_as_dng(x3f_t *x3f, char *outfilename)
 {
-  area_t image, shield;
   TIFF *f_out = TIFFOpen(outfilename, "w");
-  int row, col, color;
-  uint32_t rect[4];
-  uint64_t sub_ifds[1] = {0};	/* ???? Should this really be int64_t? */
+  uint64_t sub_ifds[1] = {0};
 #define THUMBSIZE 100
   uint8_t thumbnail[3*THUMBSIZE];
 
+  double sensor_iso, capture_iso, baseline_exposure;
+  float as_shot_white_xy[2] = {0.3127, 0.3290}; /* D65 */
+  /* Adaptaion to the D65 white point is included in WBGain */
+
+  area_t image, shield;
+  int row, col, color;
+  uint32_t rect[4];
   uint64_t black_sum[3] = {0,0,0};
   uint32_t black_pixels = 0;
   float black_level[3];
@@ -3067,13 +3071,9 @@ x3f_return_t x3f_dump_raw_data_as_dng(x3f_t *x3f, char *outfilename)
 
   double cc_matrix[9], wb_gain[3], wb_gain_matrix[9], srgb_to_xyz[9];
   double cam_to_srgb[9], cam_to_xyz[9], xyz_to_cam[9];
-  float color_matrix1[9],  as_shot_neutral[3];
-  double sensor_iso, capture_iso, baseline_exposure;
+  float color_matrix1[9];
 
   if (f_out == NULL) return X3F_OUTFILE_ERROR;
-
-  image_area(x3f, &image);
-  assert(image.channels == 3);
 
   TIFFSetField(f_out, TIFFTAG_SUBFILETYPE, FILETYPE_REDUCEDIMAGE);
   TIFFSetField(f_out, TIFFTAG_IMAGEWIDTH, THUMBSIZE);
@@ -3088,6 +3088,12 @@ x3f_return_t x3f_dump_raw_data_as_dng(x3f_t *x3f, char *outfilename)
   TIFFSetField(f_out, TIFFTAG_DNGVERSION, "\001\004\000\000");
   TIFFSetField(f_out, TIFFTAG_DNGBACKWARDVERSION, "\001\001\000\000");
   TIFFSetField(f_out, TIFFTAG_SUBIFD, 1, sub_ifds);
+
+  get_camf_float(x3f, "SensorISO", &sensor_iso);
+  get_camf_float(x3f, "CaptureISO", &capture_iso);
+  baseline_exposure = log2(capture_iso/sensor_iso);
+  TIFFSetField(f_out, TIFFTAG_BASELINEEXPOSURE, baseline_exposure);
+  TIFFSetField(f_out, TIFFTAG_ASSHOTWHITEXY, as_shot_white_xy);
 
   get_camf_matrix_for_wb(x3f, "WhiteBalanceColorCorrections", get_wb(x3f),
 			 3, 3, cc_matrix);
@@ -3113,20 +3119,14 @@ x3f_return_t x3f_dump_raw_data_as_dng(x3f_t *x3f, char *outfilename)
   vec_double_to_float(xyz_to_cam, color_matrix1, 9);
   TIFFSetField(f_out, TIFFTAG_COLORMATRIX1, 9, color_matrix1);
 
-  for (color=0; color<3; color++)
-    as_shot_neutral[color] = 1.0/wb_gain[color]; /* TODO: Is this correct? */
-  TIFFSetField(f_out, TIFFTAG_ASSHOTNEUTRAL, 3, as_shot_neutral);
-
-  get_camf_float(x3f, "SensorISO", &sensor_iso);
-  get_camf_float(x3f, "CaptureISO", &capture_iso);
-  baseline_exposure = log2(capture_iso/sensor_iso);
-  TIFFSetField(f_out, TIFFTAG_BASELINEEXPOSURE, baseline_exposure);
-
   memset(thumbnail, 0, 3*THUMBSIZE); /* TODO: Thumbnail is all black */
   for (row=0; row < 100; row++)
     TIFFWriteScanline(f_out, thumbnail, row, 0);
 
   TIFFWriteDirectory(f_out);
+
+  image_area(x3f, &image);
+  assert(image.channels == 3);
 
   TIFFSetField(f_out, TIFFTAG_SUBFILETYPE, 0);
   TIFFSetField(f_out, TIFFTAG_IMAGEWIDTH, image.columns);
