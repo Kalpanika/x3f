@@ -7,6 +7,7 @@
 
 #include "x3f_io.h"
 #include "x3f_matrix.h"
+#include "x3f_dngtags.h"
 
 #include <string.h>
 #include <stdlib.h>
@@ -3046,17 +3047,50 @@ static void vec_double_to_float(double *a, float *b, int len)
     b[i] = a[i];
 }
 
+void write_camera_profile_for_wb(x3f_t *x3f, TIFF *tiff, char *wb)
+{
+  double cc_matrix[9], wb_gain[3], wb_gain_matrix[9], srgb_to_xyz[9];
+  double cam_to_srgb[9], cam_to_xyz[9], xyz_to_cam[9];
+  float color_matrix1[9];
+
+  TIFFSetField(tiff, TIFFTAG_PROFILENAME, wb);
+  
+  get_camf_matrix_for_wb(x3f, "WhiteBalanceColorCorrections", wb,
+			 3, 3, cc_matrix);
+  get_camf_matrix_for_wb(x3f, "WhiteBalanceGains", wb, 3, 0, wb_gain);
+  x3f_sRGB_to_XYZ(srgb_to_xyz);
+  
+  x3f_3x3_diag(wb_gain, wb_gain_matrix);
+  x3f_3x3_3x3_mul(cc_matrix, wb_gain_matrix, cam_to_srgb);
+  x3f_3x3_3x3_mul(srgb_to_xyz, cam_to_srgb, cam_to_xyz);
+  x3f_3x3_inverse(cam_to_xyz, xyz_to_cam);
+
+  printf("cc_matrix\n");
+  x3f_3x3_print(cc_matrix);
+  printf("wb_gain\n");
+  x3f_3x1_print(wb_gain);
+  printf("cam_to_srgb\n");
+  x3f_3x3_print(cam_to_srgb);
+  printf("cam_to_xyz\n");
+  x3f_3x3_print(cam_to_xyz);
+  printf("xyz_to_cam\n");
+  x3f_3x3_print(xyz_to_cam);
+
+  vec_double_to_float(xyz_to_cam, color_matrix1, 9);
+  TIFFSetField(tiff, TIFFTAG_COLORMATRIX1, 9, color_matrix1);
+}
+
 /* extern */
 x3f_return_t x3f_dump_raw_data_as_dng(x3f_t *x3f, char *outfilename)
 {
-  TIFF *f_out = TIFFOpen(outfilename, "w");
+  TIFF *f_out;
   uint64_t sub_ifds[1] = {0};
 #define THUMBSIZE 100
   uint8_t thumbnail[3*THUMBSIZE];
 
   double sensor_iso, capture_iso, baseline_exposure;
   float as_shot_white_xy[2] = {0.3127, 0.3290}; /* D65 */
-  /* Adaptaion to the D65 white point is included in WBGain */
+  /* Adaptation to the D65 white point is included in WBGain */
 
   area_t image, shield;
   int row, col, color;
@@ -3069,10 +3103,9 @@ x3f_return_t x3f_dump_raw_data_as_dng(x3f_t *x3f, char *outfilename)
   uint32_t white_level[3];
   uint32_t active_area[4], masked_areas[8];
 
-  double cc_matrix[9], wb_gain[3], wb_gain_matrix[9], srgb_to_xyz[9];
-  double cam_to_srgb[9], cam_to_xyz[9], xyz_to_cam[9];
-  float color_matrix1[9];
+  x3f_dngtags_install_extender();
 
+  f_out = TIFFOpen(outfilename, "w");
   if (f_out == NULL) return X3F_OUTFILE_ERROR;
 
   TIFFSetField(f_out, TIFFTAG_SUBFILETYPE, FILETYPE_REDUCEDIMAGE);
@@ -3094,30 +3127,9 @@ x3f_return_t x3f_dump_raw_data_as_dng(x3f_t *x3f, char *outfilename)
   baseline_exposure = log2(capture_iso/sensor_iso);
   TIFFSetField(f_out, TIFFTAG_BASELINEEXPOSURE, baseline_exposure);
   TIFFSetField(f_out, TIFFTAG_ASSHOTWHITEXY, as_shot_white_xy);
-
-  get_camf_matrix_for_wb(x3f, "WhiteBalanceColorCorrections", get_wb(x3f),
-			 3, 3, cc_matrix);
-  get_camf_matrix_for_wb(x3f, "WhiteBalanceGains", get_wb(x3f), 3, 0, wb_gain);
-  x3f_sRGB_to_XYZ(srgb_to_xyz);
-  
-  x3f_3x3_diag(wb_gain, wb_gain_matrix);
-  x3f_3x3_3x3_mul(cc_matrix, wb_gain_matrix, cam_to_srgb);
-  x3f_3x3_3x3_mul(srgb_to_xyz, cam_to_srgb, cam_to_xyz);
-  x3f_3x3_inverse(cam_to_xyz, xyz_to_cam);
-
-  printf("cc_matrix\n");
-  x3f_3x3_print(cc_matrix);
-  printf("wb_gain\n");
-  x3f_3x1_print(wb_gain);
-  printf("cam_to_srgb\n");
-  x3f_3x3_print(cam_to_srgb);
-  printf("cam_to_xyz\n");
-  x3f_3x3_print(cam_to_xyz);
-  printf("xyz_to_cam\n");
-  x3f_3x3_print(xyz_to_cam);
-
-  vec_double_to_float(xyz_to_cam, color_matrix1, 9);
-  TIFFSetField(f_out, TIFFTAG_COLORMATRIX1, 9, color_matrix1);
+  TIFFSetField(f_out, TIFFTAG_ASSHOTPROFILENAME, get_wb(x3f));
+  /* Write default camera profile in IFD 0 for backwards comptibility */
+  write_camera_profile_for_wb(x3f, f_out, get_wb(x3f));
 
   memset(thumbnail, 0, 3*THUMBSIZE); /* TODO: Thumbnail is all black */
   for (row=0; row < 100; row++)
@@ -3136,7 +3148,7 @@ x3f_return_t x3f_dump_raw_data_as_dng(x3f_t *x3f, char *outfilename)
   TIFFSetField(f_out, TIFFTAG_BITSPERSAMPLE, 16);
   TIFFSetField(f_out, TIFFTAG_PLANARCONFIG, PLANARCONFIG_CONTIG);
   TIFFSetField(f_out, TIFFTAG_COMPRESSION, COMPRESSION_NONE);
-  TIFFSetField(f_out, TIFFTAG_PHOTOMETRIC, 34892); /* LinearRaw */
+  TIFFSetField(f_out, TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_LINEARRAW);
 
   crop_area_camf(x3f, "DarkShieldTop", &image, &shield);
   for (row = 0; row < shield.rows; row++)

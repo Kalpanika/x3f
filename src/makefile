@@ -61,10 +61,10 @@ BINDIR = ../bin/$(SYS)
 
 all: $(BINDIR)/x3f_extract$(EXE) $(BINDIR)/x3f_io_test$(EXE) $(BINDIR)/x3f_matrix_test$(EXE)
 
-$(BINDIR)/x3f_extract$(EXE): $(BINDIR)/x3f_extract.o $(BINDIR)/x3f_io.o $(BINDIR)/x3f_matrix.o
+$(BINDIR)/x3f_extract$(EXE): $(BINDIR)/x3f_extract.o $(BINDIR)/x3f_io.o $(BINDIR)/x3f_matrix.o $(BINDIR)/x3f_dngtags.o
 	gcc $^ -o $@ $(LDFLAGS)
 
-$(BINDIR)/x3f_io_test$(EXE): $(BINDIR)/x3f_io_test.o $(BINDIR)/x3f_io.o $(BINDIR)/x3f_matrix.o
+$(BINDIR)/x3f_io_test$(EXE): $(BINDIR)/x3f_io_test.o $(BINDIR)/x3f_io.o $(BINDIR)/x3f_matrix.o $(BINDIR)/x3f_dngtags.o
 	gcc $^ -o $@ $(LDFLAGS)
 
 $(BINDIR)/x3f_extract.o: x3f_extract.c x3f_io.h $(BINDIR)/.dummy
@@ -73,10 +73,13 @@ $(BINDIR)/x3f_extract.o: x3f_extract.c x3f_io.h $(BINDIR)/.dummy
 $(BINDIR)/x3f_io_test.o: x3f_io_test.c x3f_io.h $(BINDIR)/.dummy
 	gcc $(CFLAGS) $< -c -o $@
 
-$(BINDIR)/x3f_io.o: x3f_io.c x3f_io.h $(BINDIR)/.dummy
+$(BINDIR)/x3f_io.o: x3f_io.c x3f_io.h x3f_matrix.h x3f_dngtags.h $(BINDIR)/.dummy
 	gcc $(CFLAGS) $< -c -o $@
 
 $(BINDIR)/x3f_matrix.o: x3f_matrix.c x3f_matrix.h $(BINDIR)/.dummy
+	gcc $(CFLAGS) $< -c -o $@
+
+$(BINDIR)/x3f_dngtags.o: x3f_dngtags.c x3f_dngtags.h $(BINDIR)/.dummy
 	gcc $(CFLAGS) $< -c -o $@
 
 $(BINDIR)/x3f_matrix_test.o: x3f_matrix_test.c x3f_matrix.h $(BINDIR)/.dummy
