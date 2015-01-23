@@ -2593,7 +2593,6 @@ static int get_camf_float(x3f_t *x3f, char *name,  double *val)
   return get_camf_matrix(x3f, name, 1, 0, 0, M_FLOAT, val);
 }
 
-
 static int get_camf_unsigned(x3f_t *x3f, char *name,  uint32_t *val)
 {
   return get_camf_matrix(x3f, name, 1, 0, 0, M_UINT, val);
@@ -2604,46 +2603,90 @@ static int get_camf_signed_vector(x3f_t *x3f, char *name,  int32_t *val)
   return get_camf_matrix(x3f, name, 3, 0, 0, M_INT, val);
 }
 
-static void get_wb(x3f_t *x3f, char *name)
+static int get_camf_property_list(x3f_t *x3f, char *list,
+				  char ***names, char ***values, uint32_t *num)
+{
+  x3f_directory_entry_t *DE = x3f_get_camf(x3f);
+  x3f_directory_entry_header_t *DEH = &DE->header;
+  x3f_camf_t *CAMF = &DEH->data_subsection.camf;
+  camf_entry_t *table = CAMF->entry_table.element;
+  int i;
+  
+  for (i=0; i<CAMF->entry_table.size; i++) {
+    camf_entry_t *entry = &table[i];
+
+    if (!strcmp(list, entry->name_address)) {
+      if (entry->id != X3F_CMbP) {
+	fprintf(stderr, "CAMF entry is not a propert list: %s\n", list);
+	return 0;
+      }
+
+      *names = entry->property_name;
+      *values = (char **)entry->property_value;
+      *num = entry->property_num;
+      return 1;
+    }
+  }
+
+  fprintf(stderr, "CAMF entry not found: %s\n", list);
+  
+  return 0;
+}
+
+static int get_camf_property(x3f_t *x3f, char *list, char *name, char **value)
+{
+  char **names, **values;
+  uint32_t num, i;
+
+  if (!get_camf_property_list(x3f, list, &names, &values, &num))
+    return 0;
+  
+  for (i=0; i<num; i++)
+    if (!strcmp(names[i], name)) {
+	*value = values[i];
+	return 1;
+    }
+
+  fprintf(stderr, "CAMF poperty '%s' not found in list '%s'\n", name, list);
+
+  return 0;
+}
+
+static char *get_wb(x3f_t *x3f)
 {
   uint32_t wb;
 
   if (get_camf_unsigned(x3f, "WhiteBalance", &wb)) {
-    char *wbs = "Auto";
     /* Quattro. TODO: any better way to do this? Maybe get the info
        from the EXIF in the JPEG? */
     switch (wb) {
-    case 1:  wbs = "Auto";          break;
-    case 2:  wbs = "Sunlight";      break;
-    case 3:  wbs = "Shadow";        break;
-    case 4:  wbs = "Overcast";      break;
-    case 5:  wbs = "Incandenscent"; break;
-    case 6:  wbs = "Florescent";    break;
-    case 7:  wbs = "Flash";         break;
-    case 8:  wbs = "Custom";        break;
-    case 11: wbs = "ColorTemp";     break;
-    case 12: wbs = "AutoLSP";       break;
-    default: wbs = "Auto";          break;
+    case 1:  return "Auto";
+    case 2:  return "Sunlight";
+    case 3:  return "Shadow";
+    case 4:  return "Overcast";
+    case 5:  return "Incandenscent";
+    case 6:  return "Florescent";
+    case 7:  return "Flash";
+    case 8:  return "Custom";
+    case 11: return "ColorTemp";
+    case 12: return "AutoLSP";
+    default: return "Auto";
     }
-    strcpy(name, wbs);
-  } else {
-    strcpy(name, x3f->header.white_balance);
   }
+
+  return x3f->header.white_balance;
 }
 
 static int get_camf_matrix_for_wb(x3f_t *x3f,
-				  char *name, int dim0, int dim1,
+				  char *list, char *wb, int dim0, int dim1,
 				  double *matrix)
 {
-  char name_with_wb[1024];
+  char *matrix_name;
 
-  /* TODO - not correct way of calculating the name. Input to this
-     function should be a name of a table containing the names. As key
-     to that table, current wb should be used. This works for Merrill,
-     Quattro and most (all?) older TRUE engine cameras though */
-  get_wb(x3f, name_with_wb); strcat(name_with_wb, name);
-
-  return get_camf_matrix(x3f, name_with_wb, dim0, dim1, 0, M_FLOAT, matrix);
+  if (!get_camf_property(x3f, list, wb, &matrix_name))
+    return 0;
+  
+  return get_camf_matrix(x3f, matrix_name, dim0, dim1, 0, M_FLOAT, matrix);
 }
 
 /*
@@ -2784,8 +2827,9 @@ static void convert_data(x3f_t *x3f,
      engine. Older cameras convert to XYZ instead, and use other
      matrices.  */
 
-  get_camf_matrix_for_wb(x3f, "CCMatrix", 3, 3, cc_matrix);
-  get_camf_matrix_for_wb(x3f, "WBGain", 3, 0, wb_gain);
+  get_camf_matrix_for_wb(x3f, "WhiteBalanceColorCorrections", get_wb(x3f),
+			 3, 3, cc_matrix);
+  get_camf_matrix_for_wb(x3f, "WhiteBalanceGains", get_wb(x3f), 3, 0, wb_gain);
   x3f_3x3_diag(wb_gain, wb_gain_matrix);
 
   x3f_sRGB_to_XYZ(srgb_to_xyz_matrix);
@@ -3045,8 +3089,9 @@ x3f_return_t x3f_dump_raw_data_as_dng(x3f_t *x3f, char *outfilename)
   TIFFSetField(f_out, TIFFTAG_DNGBACKWARDVERSION, "\001\001\000\000");
   TIFFSetField(f_out, TIFFTAG_SUBIFD, 1, sub_ifds);
 
-  get_camf_matrix_for_wb(x3f, "CCMatrix", 3, 3, cc_matrix);
-  get_camf_matrix_for_wb(x3f, "WBGain", 3, 0, wb_gain);
+  get_camf_matrix_for_wb(x3f, "WhiteBalanceColorCorrections", get_wb(x3f),
+			 3, 3, cc_matrix);
+  get_camf_matrix_for_wb(x3f, "WhiteBalanceGains", get_wb(x3f), 3, 0, wb_gain);
   x3f_sRGB_to_XYZ(srgb_to_xyz);
   
   x3f_3x3_diag(wb_gain, wb_gain_matrix);
