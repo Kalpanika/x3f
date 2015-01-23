@@ -2926,7 +2926,7 @@ x3f_return_t x3f_dump_raw_data_as_ppm(x3f_t *x3f,
   FILE *f_out = fopen(outfilename, "wb");
   int row;
 
-  assert(f_out != NULL);
+  if (f_out == NULL) return X3F_OUTFILE_ERROR;
 
   get_image(x3f, &image, encoding, crop);
 
@@ -2968,7 +2968,7 @@ x3f_return_t x3f_dump_raw_data_as_tiff(x3f_t *x3f,
   TIFF *f_out = TIFFOpen(outfilename, "w");
   int row;
 
-  assert(f_out != NULL);
+  if (f_out == NULL) return X3F_OUTFILE_ERROR;
 
   get_image(x3f, &image, encoding, crop);
 
@@ -3026,7 +3026,7 @@ x3f_return_t x3f_dump_raw_data_as_dng(x3f_t *x3f, char *outfilename)
   float color_matrix1[9],  as_shot_neutral[3];
   double sensor_iso, capture_iso, baseline_exposure;
 
-  assert(f_out != NULL);
+  if (f_out == NULL) return X3F_OUTFILE_ERROR;
 
   image_area(x3f, &image);
   assert(image.channels == 3);
@@ -3179,7 +3179,7 @@ x3f_return_t x3f_dump_raw_data_as_histogram(x3f_t *x3f,
   int row;
   uint16_t max = 0;
 
-  assert(f_out != NULL);
+  if (f_out == NULL) return X3F_OUTFILE_ERROR;
 
   get_image(x3f, &image, encoding, crop);
 
