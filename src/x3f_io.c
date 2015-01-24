@@ -3405,6 +3405,18 @@ x3f_return_t x3f_dump_raw_data_as_histogram(x3f_t *x3f,
   return X3F_OK;
 }
 
+/* extern */ char *x3f_err(x3f_return_t err)
+{
+  switch (err) {
+  case X3F_OK:             return "ok";
+  case X3F_ARGUMENT_ERROR: return "argument error";
+  case X3F_INFILE_ERROR:   return "infile error";
+  case X3F_OUTFILE_ERROR:  return "outfile error";
+  case X3F_INTERNAL_ERROR: return "internal error";
+  default:                 return "undefined error";
+  }
+}
+
 /* --------------------------------------------------------------------- */
 /* The End                                                               */
 /* --------------------------------------------------------------------- */

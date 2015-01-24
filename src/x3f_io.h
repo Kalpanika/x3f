@@ -450,5 +450,6 @@ extern x3f_return_t x3f_dump_jpeg(x3f_t *x3f, char *outfilename);
 
 extern x3f_return_t x3f_dump_meta_data(x3f_t *x3f, char *outfilename);
 
+extern char *x3f_err(x3f_return_t err);
 
 #endif /* X3F_IO_H */

@@ -117,6 +117,7 @@ int main(int argc, char *argv[])
 
     if (extract_jpg) {
       char outfilename[1024];
+      x3f_return_t ret;
 
       x3f_load_data(x3f, x3f_get_thumb_jpeg(x3f));
 
@@ -124,8 +125,9 @@ int main(int argc, char *argv[])
       strcat(outfilename, ".jpg");
 
       printf("Dump JPEG to %s\n", outfilename);
-      if (X3F_OK != x3f_dump_jpeg(x3f, outfilename))
-        fprintf(stderr, "Could not dump JPEG to %s\n", outfilename);
+      if (X3F_OK != (ret=x3f_dump_jpeg(x3f, outfilename)))
+        fprintf(stderr, "Could not dump JPEG to %s: %s\n",
+		outfilename, x3f_err(ret));
     }
 
     if (extract_meta || extract_raw) {
@@ -137,13 +139,15 @@ int main(int argc, char *argv[])
 
     if (extract_meta) {
       char outfilename[1024];
+      x3f_return_t ret;
 
       strcpy(outfilename, infilename);
       strcat(outfilename, ".meta");
 
       printf("Dump META DATA to %s\n", outfilename);
-      if (X3F_OK != x3f_dump_meta_data(x3f, outfilename))
-        fprintf(stderr, "Could not dump META DATA to %s\n", outfilename);
+      if (X3F_OK != (ret=x3f_dump_meta_data(x3f, outfilename)))
+        fprintf(stderr, "Could not dump META DATA to %s: %s\n",
+		outfilename, x3f_err(ret));
     }
 
     if (extract_raw) {
@@ -200,7 +204,8 @@ int main(int argc, char *argv[])
       }
 
       if (X3F_OK != ret_dump)
-        fprintf(stderr, "Could not dump RAW to %s\n", outfilename);
+        fprintf(stderr, "Could not dump RAW to %s: %s\n",
+		outfilename, x3f_err(ret_dump));
     }
 
   clean_up:
