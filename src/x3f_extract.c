@@ -143,7 +143,7 @@ int main(int argc, char *argv[])
 
       printf("Dump META DATA to %s\n", outfilename);
       if (X3F_OK != x3f_dump_meta_data(x3f, outfilename))
-        fprintf(stderr, "Could not dump JPEG to %s\n", outfilename);
+        fprintf(stderr, "Could not dump META DATA to %s\n", outfilename);
     }
 
     if (extract_raw) {
