@@ -50,6 +50,10 @@ int main(int argc, char *argv[])
 
   int i;
 
+  /* Set stdout and stderr to line buffered mode to avoid scrambling */
+  setvbuf(stdout, NULL, _IOLBF, 0);
+  setvbuf(stderr, NULL, _IOLBF, 0);
+
   for (i=1; i<argc; i++)
     if (!strcmp(argv[i], "-jpg"))
       extract_raw = 0, extract_jpg = 1;
