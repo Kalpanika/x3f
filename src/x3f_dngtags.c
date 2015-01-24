@@ -1,10 +1,7 @@
 /* x3f_dngtags.c - libtiff tag extender for DNG tags.
  *
- * The current vestion of lbtiff (4.0.3) only supports tag for DNG
- * version <= 1.1.0.0
- *
- * Copyright (c) 2014 - Roland Karlsson (roland@proxel.se)
- * BSD-style - see doc/copyright.txt
+ * The current version of libtiff (4.0.3) only supports tags for DNG
+ * versions <= 1.1.0.0
  *
  */
 
@@ -36,6 +33,7 @@ void x3f_dngtags_install_extender(void)
   static int invoked = 0;
 
   if (invoked) return;
+  invoked = 1;
 
   previous_tag_extender = TIFFSetTagExtender(tag_extender); 
 }
