@@ -3081,59 +3081,72 @@ static void write_camera_profile_for_wb(x3f_t *x3f, TIFF *tiff, char *wb)
   TIFFSetField(tiff, TIFFTAG_COLORMATRIX1, 9, color_matrix1);
 }
 
-static void write_camera_profiles(x3f_t *x3f, TIFF *tiff)
+static x3f_return_t write_camera_profiles(x3f_t *x3f, TIFF *tiff)
 {
-  int tiff_fd = TIFFFileno(tiff);
   char **profile_names, **profile_values;
   uint32_t *profile_offsets, profile_num, profile;
+  FILE *tiff_file;
+
+  if (!get_camf_property_list(x3f, "WhiteBalanceColorCorrections",
+			      &profile_names, &profile_values, &profile_num))
+    return X3F_ARGUMENT_ERROR;
+  profile_offsets = alloca(profile_num*sizeof(uint32_t));
 
   TIFFFlush(tiff);
-
-  assert(get_camf_property_list(x3f, "WhiteBalanceColorCorrections",
-				&profile_names, &profile_values, &profile_num));
-  profile_offsets = malloc(profile_num*sizeof(uint32_t));
-
+  TIFFSetWriteOffset(tiff, 0);	/* Tell libtiff to do the next write at EOF */
+  
+  tiff_file = fdopen(dup(TIFFFileno(tiff)), "w+");
+  if (!tiff_file) return X3F_OUTFILE_ERROR;
+	
   for (profile=0; profile < profile_num; profile++) {
-    FILE *tmp = tmpfile();
-    TIFF *tmp_tiff = TIFFFdOpen(dup(fileno(tmp)), "", "wb"); /* Big endian */
-    const static char profile_magic_big[4] = {'M','M','C','R'};
+    FILE *tmp;
+    TIFF *tmp_tiff;
 #define BUFSIZE 1024
     char buf[BUFSIZE];
     int offset, count;
 
+    if (!(tmp = tmpfile())) {
+      fclose(tiff_file);
+      return X3F_OUTFILE_ERROR;
+    }
+    if (!(tmp_tiff = TIFFFdOpen(dup(fileno(tmp)), "", "wb"))) { /* Big endian */
+      fclose(tmp);
+      fclose(tiff_file);
+      return X3F_OUTFILE_ERROR;
+    }
     write_camera_profile_for_wb(x3f, tmp_tiff, profile_names[profile]);
     TIFFWriteDirectory(tmp_tiff);
     TIFFClose(tmp_tiff);
     
-    if ((offset = lseek(tiff_fd, 0, SEEK_CUR)) & 1) /* 2-byte alignment */
-      offset = lseek(tiff_fd, 1, SEEK_CUR);
+    fseek(tiff_file, 0, SEEK_END);
+    offset = (ftell(tiff_file)+1) & ~1; /* 2-byte alignment */
+    fseek(tiff_file, offset, SEEK_SET);
     
     /* The defualt camera profile has to be first to make ACR happy */
     if (profile != 0 && !strcmp(profile_names[profile], get_wb(x3f))) {
-      profile_offsets[profile] = profile_offsets[0];
+      memmove(profile_offsets+1, profile_offsets, profile*sizeof(uint32_t));
       profile_offsets[0] = offset;
     }
     else profile_offsets[profile] = offset;
 
-    assert(write(tiff_fd, profile_magic_big, 4) == 4);
-    fseek(tmp, 4, SEEK_SET);
+    fputs("MMCR", tiff_file);	/* DNG camera profile magic in big endian */
+    fseek(tmp, 4, SEEK_SET);	/* Skip over the standard TIFF magic */
 
     while((count = fread(buf, 1, BUFSIZE, tmp)))
-      assert(write(tiff_fd, buf, count) == count);
+      fwrite(buf, 1, count, tiff_file);
 
     fclose(tmp);
   }
   
-  if (lseek(tiff_fd, 0, SEEK_CUR) & 1) /* 2-byte alignment */
-    lseek(tiff_fd, 1, SEEK_CUR);
-
+  fclose(tiff_file);
   TIFFSetField(tiff, TIFFTAG_EXTRACAMERAPROFILES, profile_num, profile_offsets);
-  free(profile_offsets);
+  return X3F_OK;
 }
 
 /* extern */
 x3f_return_t x3f_dump_raw_data_as_dng(x3f_t *x3f, char *outfilename)
 {
+  x3f_return_t ret;
   TIFF *f_out;
   uint64_t sub_ifds[1] = {0};
 #define THUMBSIZE 100
@@ -3159,7 +3172,11 @@ x3f_return_t x3f_dump_raw_data_as_dng(x3f_t *x3f, char *outfilename)
   f_out = TIFFOpen(outfilename, "w");
   if (f_out == NULL) return X3F_OUTFILE_ERROR;
 
-  write_camera_profiles(x3f, f_out);
+  ret = write_camera_profiles(x3f, f_out);
+  if (ret != X3F_OK) {
+    TIFFClose(f_out);
+    return ret;
+  }
 
   TIFFSetField(f_out, TIFFTAG_SUBFILETYPE, FILETYPE_REDUCEDIMAGE);
   TIFFSetField(f_out, TIFFTAG_IMAGEWIDTH, THUMBSIZE);
