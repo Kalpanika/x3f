@@ -2713,6 +2713,25 @@ static int get_camf_matrix_for_wb(x3f_t *x3f,
   return get_camf_matrix(x3f, matrix_name, dim0, dim1, 0, M_FLOAT, matrix);
 }
 
+static int is_TRUE_engine(x3f_t *x3f)
+{
+  char **names, **values;
+  uint32_t num;
+
+  /* TODO: is there a better way to test this */
+  if ((get_camf_property_list(x3f, "WhiteBalanceColorCorrections",
+			      &names, &values, &num) ||
+       get_camf_property_list(x3f, "DP1_WhiteBalanceColorCorrections",
+			      &names, &values, &num)) &&
+      (get_camf_property_list(x3f, "WhiteBalanceGains",
+			      &names, &values, &num) ||
+       get_camf_property_list(x3f, "DP1_WhiteBalanceGains",
+			      &names, &values, &num)))
+    return 1;
+  else
+    return 0;
+}
+
 /*
   Candidates for getting Max RAW level:
   - SaturationLevel: x530, SD9, SD10, SD14, SD15, DP1-DP2x
@@ -2721,28 +2740,28 @@ static int get_camf_matrix_for_wb(x3f_t *x3f,
   - ImageDepth: Merrill and Quattro
 */
 
-static void get_max_raw(x3f_t *x3f, uint32_t *max_raw)
+static int get_max_raw(x3f_t *x3f, uint32_t *max_raw)
 {
   uint32_t image_depth;
-  int32_t raw_level[3];
 
   if (get_camf_unsigned(x3f, "ImageDepth", &image_depth)) {
     uint32_t max = (1<<image_depth) - 1;
     max_raw[0] = max;
     max_raw[1] = max;
     max_raw[2] = max;
-  } else if (get_camf_signed_vector(x3f, "RawSaturationLevel", raw_level)) {
-    max_raw[0] = (uint32_t)raw_level[0];
-    max_raw[1] = (uint32_t)raw_level[1];
-    max_raw[2] = (uint32_t)raw_level[2];
-  } else {
-    /* TODO: x530, SD9 and SD10 */
-    max_raw[0] = 4095;
-    max_raw[1] = 4095;
-    max_raw[2] = 4095;
-    fprintf(stderr, "WARNING: Could not get max value, assuming {%d,%d,%d}\n",
-	    max_raw[0], max_raw[1], max_raw[2]);
+    return 1;
   }
+
+  /* It seems that RawSaturationLevel should be used for TURE engine and
+     SaturationLevel for pre-TRUE engine */
+  if (is_TRUE_engine(x3f) &&
+      get_camf_signed_vector(x3f, "RawSaturationLevel", (int32_t *)max_raw))
+    return 1;
+  if (get_camf_signed_vector(x3f, "SaturationLevel", (int32_t *)max_raw))
+    return 1;
+
+  fprintf(stderr, "Could not get max raw value\n");
+  return 0;
 }
 
 typedef struct
@@ -2844,6 +2863,54 @@ static void get_black_level(x3f_t *x3f, double *black_level)
     black_level[i] = (double)black_sum[i]/black_pixels;
 }
 
+static int get_raw_to_xyz_for_wb(x3f_t *x3f, char *wb, double *raw_to_xyz)
+{
+  double cc_matrix[9], wb_gain[3];
+  double cam_to_xyz[9], wb_correction[9];
+
+  if ((get_camf_matrix_for_wb(x3f, "WhiteBalanceColorCorrections", wb,
+			      3, 3, cc_matrix) ||
+       get_camf_matrix_for_wb(x3f, "DP1_WhiteBalanceColorCorrections", wb,
+			      3, 3, cc_matrix)) &&
+      (get_camf_matrix_for_wb(x3f, "WhiteBalanceGains", wb,
+			      3, 0, wb_gain) ||
+       get_camf_matrix_for_wb(x3f, "DP1_WhiteBalanceGains", wb,
+			      3, 0, wb_gain))) {
+    /* TRUE engine CCMatrix/WBGain */
+    double wb_gain_matrix[9], srgb_to_xyz[9], raw_to_srgb[9];
+
+    x3f_3x3_diag(wb_gain, wb_gain_matrix);
+    x3f_3x3_3x3_mul(cc_matrix, wb_gain_matrix, raw_to_srgb);      
+    x3f_sRGB_to_XYZ(srgb_to_xyz);
+    x3f_3x3_3x3_mul(srgb_to_xyz, raw_to_srgb, raw_to_xyz);
+
+    printf("cc_matrix\n");
+    x3f_3x3_print(cc_matrix);
+    printf("wb_gain\n");
+    x3f_3x1_print(wb_gain);
+    printf("raw_to_srgb\n");
+    x3f_3x3_print(raw_to_srgb);
+  }
+  else if (get_camf_matrix_for_wb(x3f, "WhiteBalanceIlluminants", wb,
+				  3, 3, cam_to_xyz) &&
+	   get_camf_matrix_for_wb(x3f, "WhiteBalanceCorrections", wb,
+				  3, 3, wb_correction)) {
+    /* pre-TRUE engine CamToXYZ/WBCorrection */
+    x3f_3x3_3x3_mul(cam_to_xyz, wb_correction, raw_to_xyz);
+
+    printf("cam_to_xyz\n");
+    x3f_3x3_print(cam_to_xyz);
+    printf("wb_correction\n");
+    x3f_3x3_print(wb_correction);
+  }
+  else
+    return 0;
+     
+  printf("raw_to_xyz\n");
+  x3f_3x3_print(raw_to_xyz);
+  return 1;
+}
+
 /* Converts the data in place */
 
 #define LUTSIZE 1024
@@ -2856,14 +2923,9 @@ static x3f_return_t convert_data(x3f_t *x3f,
   uint32_t max_raw[3];
   uint16_t max_out = 65535; /* TODO: should be possible to adjust */
 
-  double cc_matrix[9];
-  double wb_gain[3];
-  double wb_gain_matrix[9];
-  double cam_to_srgb_matrix[9];
-  double srgb_to_xyz_matrix[9];
-  double cam_to_xyz_matrix[9];	/* White point for XYZ is assumed to be D65 */
-  double xyz_to_rgb_matrix[9];
-  double cam_to_rgb_matrix[9];
+  double raw_to_xyz[9];	/* White point for XYZ is assumed to be D65 */
+  double xyz_to_rgb[9];
+  double raw_to_rgb[9];
   double conv_matrix[9];
   double sensor_iso, capture_iso, iso_scaling;
   double black_level[3];
@@ -2871,7 +2933,7 @@ static x3f_return_t convert_data(x3f_t *x3f,
 
   if (image->channels < 3) return X3F_ARGUMENT_ERROR;
 
-  get_max_raw(x3f, max_raw);
+  if (!get_max_raw(x3f, max_raw)) return X3F_ARGUMENT_ERROR;
   printf("max_raw = {%d,%d,%d}\n", max_raw[0], max_raw[1], max_raw[2]);
   printf("max_out = %d\n", max_out);
 
@@ -2890,28 +2952,20 @@ static x3f_return_t convert_data(x3f_t *x3f,
 	    iso_scaling);
   }
 
-  /* TODO: this way of calculating is only correct for TRUE
-     engine. Older cameras convert to XYZ instead, and use other
-     matrices.  */
-
-  if (!get_camf_matrix_for_wb(x3f, "WhiteBalanceColorCorrections", get_wb(x3f),
-			      3, 3, cc_matrix))
+  if (!get_raw_to_xyz_for_wb(x3f, get_wb(x3f), raw_to_xyz)) {
+    fprintf(stderr, "Could not get raw_to_xyz for white balance: %s\n",
+	    get_wb(x3f));
     return X3F_ARGUMENT_ERROR;
-  if (!get_camf_matrix_for_wb(x3f, "WhiteBalanceGains", get_wb(x3f),
-			      3, 0, wb_gain))
-    return X3F_ARGUMENT_ERROR;
-
-  x3f_3x3_diag(wb_gain, wb_gain_matrix);
-  x3f_sRGB_to_XYZ(srgb_to_xyz_matrix);
+  }
 
   switch (encoding) {
   case SRGB:
     x3f_sRGB_LUT(lut, LUTSIZE, max_out);
-    x3f_XYZ_to_sRGB(xyz_to_rgb_matrix);
+    x3f_XYZ_to_sRGB(xyz_to_rgb);
     break;
   case ARGB:
     x3f_gamma_LUT(lut, LUTSIZE, max_out, 2.2);
-    x3f_XYZ_to_AdobeRGB(xyz_to_rgb_matrix);
+    x3f_XYZ_to_AdobeRGB(xyz_to_rgb);
     break;
   case PPRGB:
     {
@@ -2921,7 +2975,7 @@ static x3f_return_t convert_data(x3f_t *x3f,
       x3f_XYZ_to_ProPhotoRGB(xyz_to_prophotorgb);
       /* The standad white point for ProPhoto RGB is D50 */
       x3f_Bradford_D65_to_D50(d65_to_d50);
-      x3f_3x3_3x3_mul(xyz_to_prophotorgb, d65_to_d50, xyz_to_rgb_matrix);
+      x3f_3x3_3x3_mul(xyz_to_prophotorgb, d65_to_d50, xyz_to_rgb);
     }
     break;
   default:
@@ -2929,24 +2983,11 @@ static x3f_return_t convert_data(x3f_t *x3f,
     return X3F_ARGUMENT_ERROR;
   }
 
-  x3f_3x3_3x3_mul(cc_matrix, wb_gain_matrix, cam_to_srgb_matrix);
-  x3f_3x3_3x3_mul(srgb_to_xyz_matrix, cam_to_srgb_matrix, cam_to_xyz_matrix);
-  x3f_3x3_3x3_mul(xyz_to_rgb_matrix, cam_to_xyz_matrix, cam_to_rgb_matrix);
-  x3f_scalar_3x3_mul(iso_scaling, cam_to_rgb_matrix, conv_matrix);
+  x3f_3x3_3x3_mul(xyz_to_rgb, raw_to_xyz, raw_to_rgb);
+  x3f_scalar_3x3_mul(iso_scaling, raw_to_rgb, conv_matrix);
 
-  printf("cc_matrix\n");
-  x3f_3x3_print(cc_matrix);
-  printf("wb_gain\n");
-  x3f_3x1_print(wb_gain);
-
-  printf("cam_to_srgb_matrix\n");
-  x3f_3x3_print(cam_to_srgb_matrix);
-  printf("cam_to_xyz_matrix\n");
-  x3f_3x3_print(cam_to_xyz_matrix);
-  printf("xyz_to_rgb_matrix\n");
-  x3f_3x3_print(xyz_to_rgb_matrix);
-  printf("cam_to_rgb_matrix\n");
-  x3f_3x3_print(cam_to_rgb_matrix);
+  printf("raw_to_rgb\n");
+  x3f_3x3_print(raw_to_rgb);
   printf("conv_matrix\n");
   x3f_3x3_print(conv_matrix);
 
@@ -3130,34 +3171,16 @@ static void vec_double_to_float(double *a, float *b, int len)
 
 static int write_camera_profile_for_wb(x3f_t *x3f, TIFF *tiff, char *wb)
 {
-  double cc_matrix[9], wb_gain[3], wb_gain_matrix[9], srgb_to_xyz[9];
-  double cam_to_srgb[9], cam_to_xyz[9], xyz_to_cam[9];
+  double raw_to_xyz[9], xyz_to_raw[9];
   float color_matrix1[9];
 
-  if (!get_camf_matrix_for_wb(x3f, "WhiteBalanceColorCorrections", wb,
-			      3, 3, cc_matrix))
-    return 0;
-  if (!get_camf_matrix_for_wb(x3f, "WhiteBalanceGains", wb, 3, 0, wb_gain))
-    return 0;
-  x3f_sRGB_to_XYZ(srgb_to_xyz);
-  
-  x3f_3x3_diag(wb_gain, wb_gain_matrix);
-  x3f_3x3_3x3_mul(cc_matrix, wb_gain_matrix, cam_to_srgb);
-  x3f_3x3_3x3_mul(srgb_to_xyz, cam_to_srgb, cam_to_xyz);
-  x3f_3x3_inverse(cam_to_xyz, xyz_to_cam);
+  if (!get_raw_to_xyz_for_wb(x3f, wb, raw_to_xyz)) return 0;
+  x3f_3x3_inverse(raw_to_xyz, xyz_to_raw);
 
-  printf("cc_matrix\n");
-  x3f_3x3_print(cc_matrix);
-  printf("wb_gain\n");
-  x3f_3x1_print(wb_gain);
-  printf("cam_to_srgb\n");
-  x3f_3x3_print(cam_to_srgb);
-  printf("cam_to_xyz\n");
-  x3f_3x3_print(cam_to_xyz);
-  printf("xyz_to_cam\n");
-  x3f_3x3_print(xyz_to_cam);
+  printf("xyz_to_raw\n");
+  x3f_3x3_print(xyz_to_raw);
 
-  vec_double_to_float(xyz_to_cam, color_matrix1, 9);
+  vec_double_to_float(xyz_to_raw, color_matrix1, 9);
   TIFFSetField(tiff, TIFFTAG_COLORMATRIX1, 9, color_matrix1);
   TIFFSetField(tiff, TIFFTAG_PROFILENAME, wb);
 
@@ -3171,6 +3194,10 @@ static x3f_return_t write_camera_profiles(x3f_t *x3f, TIFF *tiff)
   FILE *tiff_file;
 
   if (!get_camf_property_list(x3f, "WhiteBalanceColorCorrections",
+			      &profile_names, &profile_values, &profile_num) &&
+      !get_camf_property_list(x3f, "DP1_WhiteBalanceColorCorrections",
+			      &profile_names, &profile_values, &profile_num) &&
+      !get_camf_property_list(x3f, "WhiteBalanceIlluminants",
 			      &profile_names, &profile_values, &profile_num))
     return X3F_ARGUMENT_ERROR;
   profile_offsets = alloca(profile_num*sizeof(uint32_t));
@@ -3336,7 +3363,10 @@ x3f_return_t x3f_dump_raw_data_as_dng(x3f_t *x3f, char *outfilename)
   TIFFSetField(f_out, TIFFTAG_BLACKLEVEL, 3, black_level);
   TIFFSetField(f_out, TIFFTAG_BLACKLEVELREPEATDIM, black_level_repeat);
 
-  get_max_raw(x3f, white_level);
+  if (!get_max_raw(x3f, white_level)) {
+    TIFFClose(f_out);
+    return X3F_ARGUMENT_ERROR;
+  }
   TIFFSetField(f_out, TIFFTAG_WHITELEVEL, 3, white_level);
 
   if (get_camf_rect_as_dngrect(x3f, "ActiveImageArea", active_area))
