@@ -2940,7 +2940,7 @@ static int get_raw_to_xyz_for_wb(x3f_t *x3f, char *wb, double *raw_to_xyz)
 	   get_camf_matrix_for_wb(x3f, "WhiteBalanceCorrections", wb,
 				  3, 3, wb_correction)) {
     /* pre-TRUE engine CamToXYZ/WBCorrection */
-    x3f_3x3_3x3_mul(cam_to_xyz, wb_correction, raw_to_xyz);
+    x3f_3x3_3x3_mul(wb_correction, cam_to_xyz, raw_to_xyz);
 
     printf("cam_to_xyz\n");
     x3f_3x3_print(cam_to_xyz);
