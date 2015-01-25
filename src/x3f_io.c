@@ -2754,14 +2754,12 @@ static int get_max_raw(x3f_t *x3f, uint32_t *max_raw)
 
   /* It seems that RawSaturationLevel should be used for TURE engine and
      SaturationLevel for pre-TRUE engine */
-  if (is_TRUE_engine(x3f) &&
-      get_camf_signed_vector(x3f, "RawSaturationLevel", (int32_t *)max_raw))
-    return 1;
-  if (get_camf_signed_vector(x3f, "SaturationLevel", (int32_t *)max_raw))
-    return 1;
-
-  fprintf(stderr, "Could not get max raw value\n");
-  return 0;
+  if (is_TRUE_engine(x3f))
+    return get_camf_signed_vector(x3f, "RawSaturationLevel",
+				  (int32_t *)max_raw);
+  else
+    return get_camf_signed_vector(x3f, "SaturationLevel",
+				  (int32_t *)max_raw);
 }
 
 typedef struct
@@ -2806,21 +2804,67 @@ static int image_area(x3f_t *x3f, area_t *image)
   return 1;
 }
 
-static void crop_area(uint32_t *coord, area_t *image, area_t *crop)
+static int crop_area(uint32_t *coord, area_t *image, area_t *crop)
 {
-  crop->data = image->data + image->channels*coord[0] + image->row_stride * coord[1];
+  if (coord[0] > coord[2] || coord[1] > coord[3]) return 0;
+  if (coord[2] >= image->columns || coord[3] >= image->rows) return 0;
+
+  crop->data =
+    image->data + image->channels*coord[0] + image->row_stride*coord[1];
   crop->columns = coord[2] - coord[0] + 1;
   crop->rows = coord[3] - coord[1] + 1;
   crop->channels = image->channels;
   crop->row_stride = image->row_stride;
+
+  return 1;
+}
+
+static int get_camf_rect(x3f_t *x3f, char *name, uint32_t *rect)
+{
+  uint32_t keep[4];
+
+ if (!get_camf_matrix(x3f, name, 4, 0, 0, M_UINT, rect)) return 0;
+ if (!get_camf_matrix(x3f, "KeepImageArea", 4, 0, 0, M_UINT, keep)) return 0;
+
+ /* KeepImageArea is the part of the sensor output that gets stored to
+    X3F. Coordinates in CAMF are relative to the actual sensor, NOT
+    the X3F image data. */
+
+ if (rect[0] > keep[2] || rect[1] > keep[3] ||
+     rect[2] < keep[0] || rect[3] < keep[1]) {
+   fprintf(stderr,
+	   "WARNING: CAMF rect %s (%u,%u,%u,%u) completely outside "
+	   "KeepImageArea (%u,%u,%u,%u)\n", name,
+	   rect[0], rect[1], rect[2], rect[3],
+	   keep[0], keep[1], keep[2], keep[3]);
+   return 0;
+ }
+
+ if (rect[0] < keep[0]) rect[0] = keep[0];
+ if (rect[1] < keep[1]) rect[1] = keep[1];
+ if (rect[2] > keep[2]) rect[2] = keep[2];
+ if (rect[3] > keep[3]) rect[3] = keep[3];
+ 
+ rect[0] -= keep[0];
+ rect[1] -= keep[1];
+ rect[2] -= keep[0];
+ rect[3] -= keep[1];
+   
+ return 1;
 }
 
 static int crop_area_camf(x3f_t *x3f, char *name, area_t *image, area_t *crop)
 {
   uint32_t coord[4];
 
-  if (!get_camf_matrix(x3f, name, 4, 0, 0, M_UINT, coord)) return 0;
-  crop_area(coord, image, crop);
+  if (!get_camf_rect(x3f, name, coord)) return 0;
+  if (!crop_area(coord, image, crop)) {
+    fprintf(stderr,
+	    "WARNING: CAMF crop out of bounds: %s (%u,%u,%u,%u) : (%u,%u)\n",
+	    name, coord[0], coord[1], coord[2], coord[3],
+	    image->columns, image->rows);
+    return 0;
+  }
 
   return 1;
 }
@@ -2933,7 +2977,11 @@ static x3f_return_t convert_data(x3f_t *x3f,
 
   if (image->channels < 3) return X3F_ARGUMENT_ERROR;
 
-  if (!get_max_raw(x3f, max_raw)) return X3F_ARGUMENT_ERROR;
+  if (!get_max_raw(x3f, max_raw)) {
+    fprintf(stderr, "Could not get maximum RAW level\n");
+    return X3F_ARGUMENT_ERROR;
+  }
+
   printf("max_raw = {%d,%d,%d}\n", max_raw[0], max_raw[1], max_raw[2]);
   printf("max_out = %d\n", max_out);
 
@@ -3263,7 +3311,7 @@ static int get_camf_rect_as_dngrect(x3f_t *x3f, char *name, uint32_t *rect)
 {
   uint32_t camf_rect[4];
 
-  if (!get_camf_matrix(x3f, name, 4, 0, 0, M_UINT, camf_rect))
+  if (!get_camf_rect(x3f, name, camf_rect))
     return 0;
   
   /* Translate from Sigma's to Adobe's view on rectangles */
@@ -3364,6 +3412,7 @@ x3f_return_t x3f_dump_raw_data_as_dng(x3f_t *x3f, char *outfilename)
   TIFFSetField(f_out, TIFFTAG_BLACKLEVELREPEATDIM, black_level_repeat);
 
   if (!get_max_raw(x3f, white_level)) {
+    fprintf(stderr, "Could not get maximum RAW level\n");
     TIFFClose(f_out);
     return X3F_ARGUMENT_ERROR;
   }
