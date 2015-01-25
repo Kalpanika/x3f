@@ -2704,9 +2704,12 @@ static int get_camf_matrix_for_wb(x3f_t *x3f,
 {
   char *matrix_name;
 
-  if (!get_camf_property(x3f, list, wb, &matrix_name))
+  if (!get_camf_property(x3f, list, wb, &matrix_name)) {
+    if (!strcmp(wb, "Daylight")) /* Workaround for bug in SD1 */
+      return get_camf_matrix_for_wb(x3f, list, "Sunlight", dim0, dim1, matrix);
     return 0;
-  
+  }
+
   return get_camf_matrix(x3f, matrix_name, dim0, dim1, 0, M_FLOAT, matrix);
 }
 
@@ -2977,7 +2980,7 @@ static x3f_return_t get_image(x3f_t *x3f,
 {
   area_t original_image;
 
-  image_area(x3f, &original_image);
+  if(!image_area(x3f, &original_image)) return X3F_ARGUMENT_ERROR;
   if (!crop || !crop_area_camf(x3f, "ActiveImageArea", &original_image, image))
     *image = original_image;
 
@@ -3185,6 +3188,9 @@ static x3f_return_t write_camera_profiles(x3f_t *x3f, TIFF *tiff)
     char buf[BUFSIZE];
     int offset, count;
 
+    if (!strcmp(profile_names[profile], get_wb(x3f)))
+      continue;     /* The default profile should only be in IFD 0 */
+
     if (!(tmp = tmpfile())) {
       fclose(tiff_file);
       return X3F_OUTFILE_ERROR;
@@ -3208,15 +3214,7 @@ static x3f_return_t write_camera_profiles(x3f_t *x3f, TIFF *tiff)
     fseek(tiff_file, 0, SEEK_END);
     offset = (ftell(tiff_file)+1) & ~1; /* 2-byte alignment */
     fseek(tiff_file, offset, SEEK_SET);
-    
-    /* The defualt camera profile has to be first to make ACR happy */
-    if (profile_num_out != 0 && !strcmp(profile_names[profile], get_wb(x3f))) {
-      memmove(profile_offsets+1, profile_offsets,
-	      profile_num_out*sizeof(uint32_t));
-      profile_offsets[0] = offset;
-    }
-    else profile_offsets[profile_num_out] = offset;
-    profile_num_out++;
+    profile_offsets[profile_num_out++] = offset;
 
     fputs("MMCR", tiff_file);	/* DNG camera profile magic in big endian */
     fseek(tmp, 4, SEEK_SET);	/* Skip over the standard TIFF magic */
@@ -3228,8 +3226,9 @@ static x3f_return_t write_camera_profiles(x3f_t *x3f, TIFF *tiff)
   }
   
   fclose(tiff_file);
-  TIFFSetField(tiff, TIFFTAG_EXTRACAMERAPROFILES,
-	       profile_num_out, profile_offsets);
+  if (profile_num_out > 0)
+    TIFFSetField(tiff, TIFFTAG_EXTRACAMERAPROFILES, 
+		 profile_num_out, profile_offsets);
   return X3F_OK;
 }
 
@@ -3303,10 +3302,13 @@ x3f_return_t x3f_dump_raw_data_as_dng(x3f_t *x3f, char *outfilename)
   }
   TIFFSetField(f_out, TIFFTAG_ASSHOTWHITEXY, as_shot_white_xy);
   TIFFSetField(f_out, TIFFTAG_ASSHOTPROFILENAME, get_wb(x3f));
-  /* Write default camera profile in IFD 0 for backwards comptibility */
-  if (!write_camera_profile_for_wb(x3f, f_out, get_wb(x3f))) 
-    fprintf(stderr, "WARNING: failed to generate default camera profile: %s\n",
+  /* Write default camera profile in IFD 0 */
+  if (!write_camera_profile_for_wb(x3f, f_out, get_wb(x3f))) {
+    fprintf(stderr, "Could not generate default camera profile: %s\n",
 	    get_wb(x3f));
+    TIFFClose(f_out);
+    return X3F_ARGUMENT_ERROR;
+  }
 
   memset(thumbnail, 0, 3*THUMBSIZE); /* TODO: Thumbnail is all black */
   for (row=0; row < 100; row++)
@@ -3399,6 +3401,10 @@ x3f_return_t x3f_dump_raw_data_as_histogram(x3f_t *x3f,
   if (ret != X3F_OK) {
     fclose(f_out);
     return ret;
+  }
+  if (image.channels < 3) {
+    fclose(f_out);
+    return X3F_ARGUMENT_ERROR;
   }
 
   for (color=0; color < 3; color++)
