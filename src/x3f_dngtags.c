@@ -20,6 +20,12 @@ static void tag_extender(TIFF *tiff)
      "ProfileName"},
     {TIFFTAG_ASSHOTPROFILENAME, -1, -1, TIFF_ASCII, FIELD_CUSTOM, 1, 0,
      "AsShotProfileName"},
+    {TIFFTAG_OPCODELIST1, -1, -1, TIFF_UNDEFINED, FIELD_CUSTOM, 1, 1,
+     "OpcodeList1"},
+    {TIFFTAG_OPCODELIST2, -1, -1, TIFF_UNDEFINED, FIELD_CUSTOM, 1, 1,
+     "OpcodeList2"},
+    {TIFFTAG_OPCODELIST3, -1, -1, TIFF_UNDEFINED, FIELD_CUSTOM, 1, 1,
+     "OpcodeList3"},
   };
 
   TIFFMergeFieldInfo(tiff, tags, sizeof(tags)/sizeof(tags[0]));

@@ -2521,6 +2521,80 @@ static void x3f_load_camf(x3f_info_t *I, x3f_directory_entry_t *DE)
   return X3F_OK;
 }
 
+static int get_camf_matrix_var(x3f_t *x3f, char *name,
+			       int *dim0, int *dim1, int *dim2,
+			       matrix_type_t type,
+			       void **matrix)
+{
+  x3f_directory_entry_t *DE = x3f_get_camf(x3f);
+  x3f_directory_entry_header_t *DEH;
+  x3f_camf_t *CAMF;
+  camf_entry_t *table;
+  int i;
+
+  if (!DE) {
+    fprintf(stderr, "Could not get entry %s: CAMF section not found\n", name);
+    return 0;
+  }
+
+  DEH = &DE->header;
+  CAMF = &DEH->data_subsection.camf;
+  table = CAMF->entry_table.element;
+
+  for (i=0; i<CAMF->entry_table.size; i++) {
+    camf_entry_t *entry = &table[i];
+
+    if (!strcmp(name, entry->name_address)) {
+      if (entry->id != X3F_CMbM) {
+	fprintf(stderr, "CAMF entry is not a matrix: %s\n", name);
+	return 0;
+      }
+      if (entry->matrix_decoded_type != type) {
+	fprintf(stderr, "CAMF entry not required type: %s\n", name);
+	return 0;
+      }
+
+      switch (entry->matrix_dim) {
+      case 3:
+	if (dim2 == NULL || dim1 == NULL || dim0 == NULL) {
+	  fprintf(stderr, "CAMF entry - wrong dimension size: %s\n", name);
+	  return 0;
+	}
+	*dim2 = entry->matrix_dim_entry[2].size;
+	*dim1 = entry->matrix_dim_entry[1].size;
+	*dim0 = entry->matrix_dim_entry[0].size;
+      break;
+      case 2:
+	if (dim2 != NULL || dim1 == NULL || dim0 == NULL) {
+	  fprintf(stderr, "CAMF entry - wrong dimension size: %s\n", name);
+	  return 0;
+	}
+	*dim1 = entry->matrix_dim_entry[1].size;
+	*dim0 = entry->matrix_dim_entry[0].size;
+      break;
+      case 1:
+	if (dim2 != NULL || dim1 != NULL || dim0 == NULL) {
+	  fprintf(stderr, "CAMF entry - wrong dimension size: %s\n", name);
+	  return 0;
+	}
+	*dim0 = entry->matrix_dim_entry[0].size;
+	break;
+      default:
+	fprintf(stderr, "CAMF entry - more than 3 dimensions: %s\n", name);
+	return 0;
+      }
+
+      printf("Getting CAMF matrix for %s\n", name);
+      *matrix = entry->matrix_decoded;
+      return 1;
+    }
+  }
+
+  fprintf(stderr, "CAMF entry not found: %s\n", name);
+
+  return 0;
+}
+
 static int get_camf_matrix(x3f_t *x3f, char *name,
 			   int dim0, int dim1, int dim2, matrix_type_t type,
 			   void *matrix)
@@ -2588,7 +2662,7 @@ static int get_camf_matrix(x3f_t *x3f, char *name,
       size = (entry->matrix_decoded_type==M_FLOAT ?
 	      sizeof(double) :
 	      sizeof(uint32_t)) * entry->matrix_elements;
-      printf("Copying matrix for %s\n", name);
+      printf("Copying CAMF matrix for %s\n", name);
       memcpy(matrix, entry->matrix_decoded, size);
       return 1;
     }
@@ -2642,6 +2716,7 @@ static int get_camf_property_list(x3f_t *x3f, char *list,
 	return 0;
       }
 
+      printf("Getting CAMF property list for %s\n", list);
       *names = entry->property_name;
       *values = (char **)entry->property_value;
       *num = entry->property_num;
@@ -3323,6 +3398,70 @@ static int get_camf_rect_as_dngrect(x3f_t *x3f, char *name, uint32_t *rect)
   return 1;
 }
 
+static int write_spatial_gain(x3f_t *x3f, TIFF *tiff)
+{
+  double *gain;
+  char *gain_name;
+  int rows, cols, channels, num, i;
+  uint32_t active_area[4];
+
+  uint8_t *list;
+  int parsize, list_size;
+  dng_opcodelist_header_t *header;
+  dng_opcode_GainMap_t *gain_map;
+
+  if (!get_camf_rect_as_dngrect(x3f, "ActiveImageArea", active_area)) return 0;
+
+  if ((get_camf_property(x3f, "SpatialGainTables", get_wb(x3f), &gain_name) &&
+       get_camf_matrix_var(x3f, gain_name,
+			   &rows, &cols, &channels, M_FLOAT, (void **)&gain)) ||
+      get_camf_matrix_var(x3f, "SpatialGain",
+			  &rows, &cols, &channels, M_FLOAT, (void **)&gain));
+  else
+    return 0;
+  
+  num = rows*cols*channels;
+  parsize = sizeof(dng_opcode_GainMap_t) - sizeof(dng_opcode_header_t) +
+    num*sizeof(float);
+  list_size = sizeof(dng_opcodelist_header_t) +
+    sizeof(dng_opcode_header_t) + parsize;
+  list = malloc(list_size);
+  header = (dng_opcodelist_header_t *)list;
+  gain_map = (dng_opcode_GainMap_t *)(list + sizeof(*header));
+
+  PUT_BIG_32(header->count, 1);
+
+  PUT_BIG_32(gain_map->header.id, DNG_OPCODE_GAINMAP_ID);
+  PUT_BIG_32(gain_map->header.ver, DNG_OPCODE_GAINMAP_VER);
+  PUT_BIG_32(gain_map->header.flags, 0);
+  PUT_BIG_32(gain_map->header.parsize, parsize);
+
+  /* The image is already cropped to ActiveArea when OpcodeList2 is applied */
+  PUT_BIG_32(gain_map->Top, 0);
+  PUT_BIG_32(gain_map->Left, 0);
+  PUT_BIG_32(gain_map->Bottom, active_area[2] - active_area[0]);
+  PUT_BIG_32(gain_map->Right, active_area[3] - active_area[1]);   
+  PUT_BIG_32(gain_map->Plane, 0);
+  PUT_BIG_32(gain_map->Planes, 3);
+  PUT_BIG_32(gain_map->RowPitch, 1);
+  PUT_BIG_32(gain_map->ColPitch, 1);
+  PUT_BIG_32(gain_map->MapPointsV, rows);
+  PUT_BIG_32(gain_map->MapPointsH, cols);
+  PUT_BIG_64(gain_map->MapSpacingV, 1.0/(rows-1));
+  PUT_BIG_64(gain_map->MapSpacingH, 1.0/(cols-1));
+  PUT_BIG_64(gain_map->MapOriginV, 0.0);
+  PUT_BIG_64(gain_map->MapOriginH, 0.0);
+  PUT_BIG_32(gain_map->MapPlanes, channels);
+
+  for (i=0; i<num; i++)
+    PUT_BIG_32(gain_map->MapGain[i], (float)gain[i]);
+
+  TIFFSetField(tiff, TIFFTAG_OPCODELIST2, list_size, list);
+  
+  free(list);
+  return 1;
+}
+
 /* extern */
 x3f_return_t x3f_dump_raw_data_as_dng(x3f_t *x3f, char *outfilename)
 {
@@ -3367,7 +3506,7 @@ x3f_return_t x3f_dump_raw_data_as_dng(x3f_t *x3f, char *outfilename)
   TIFFSetField(f_out, TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_RGB);
   TIFFSetField(f_out, TIFFTAG_ORIENTATION, ORIENTATION_TOPLEFT);
   TIFFSetField(f_out, TIFFTAG_DNGVERSION, "\001\004\000\000");
-  TIFFSetField(f_out, TIFFTAG_DNGBACKWARDVERSION, "\001\001\000\000");
+  TIFFSetField(f_out, TIFFTAG_DNGBACKWARDVERSION, "\001\003\000\000");
   TIFFSetField(f_out, TIFFTAG_SUBIFD, 1, sub_ifds);
 
   if (get_camf_float(x3f, "SensorISO", &sensor_iso) && 
@@ -3429,6 +3568,9 @@ x3f_return_t x3f_dump_raw_data_as_dng(x3f_t *x3f, char *outfilename)
     masked_areas_num++;
   if (masked_areas_num > 0)
     TIFFSetField(f_out, TIFFTAG_MASKEDAREAS, 4*masked_areas_num, masked_areas);
+
+  if (!write_spatial_gain(x3f, f_out))
+    fprintf(stderr, "WARNING: could not get spatial gain\n");
 
   for (row=0; row < image.rows; row++)
     TIFFWriteScanline(f_out, image.data + image.row_stride*row, row, 0);
