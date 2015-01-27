@@ -3436,67 +3436,180 @@ static int get_camf_rect_as_dngrect(x3f_t *x3f, char *name, uint32_t *rect)
   return 1;
 }
 
+static int find_merrill_spatial_gain(x3f_t *x3f,
+				     uint32_t *mgain[4][3],
+				     double mingain[4][3],
+				     double delta[4][3],
+				     double weight[4],
+				     int *ngain,
+				     int rows[3], int cols[3])
+{
+  double *spatial_gain_fstop;
+  int num_fstop;
+  char *gain_names[4];
+  int i, c;
+
+  if (get_camf_matrix_var(x3f, "SpatialGain_Fstop", &num_fstop, NULL, NULL,
+			  M_FLOAT, (void **)&spatial_gain_fstop)) {
+    gain_names[0] = "SpatialGainsProps_0_INF"; /* TODO: ???? */
+    weight[0] = 1.0;
+    *ngain = 1;
+  }
+  else {
+    gain_names[0] = "SpatialGainsProps_8.0_50"; /* TODO: ???? */
+    weight[0] = 1.0;
+    *ngain = 1;
+  }
+  
+  for(c=0; c<3; c++) {
+    rows[c] = -1;
+    cols[c] = -1;
+  }
+  
+  for (i=0; i<*ngain; i++) {
+    int rows_tmp, cols_tmp;
+    char *val;
+    
+    if (!get_camf_property(x3f, gain_names[i], "GainsTableR", &val) ||
+	!get_camf_matrix_var(x3f, val, &rows_tmp, &cols_tmp, NULL,
+			     M_UINT, (void **)&mgain[i][0]) ||
+	(rows[0] != -1 && rows[0] != rows_tmp) ||
+	(cols[0] != -1 && cols[0] != cols_tmp))
+      return 0;
+    rows[0] = rows_tmp;
+    cols[0] = cols_tmp;
+    if (!get_camf_property(x3f, gain_names[i], "GainsTableG", &val) ||
+	!get_camf_matrix_var(x3f, val, &rows_tmp, &cols_tmp, NULL,
+			     M_UINT, (void **)&mgain[i][1]) || 
+	(rows[1] != -1 && rows[1] != rows_tmp) ||
+	(cols[1] != -1 && cols[1] != cols_tmp))
+      return 0;
+    rows[1] = rows_tmp;
+    cols[1] = cols_tmp;
+    if (!get_camf_property(x3f, gain_names[i], "GainsTableB", &val) ||
+	!get_camf_matrix_var(x3f, val, &rows_tmp, &cols_tmp, NULL,
+			     M_UINT, (void **)&mgain[i][2]) ||
+	(rows[2] != -1 && rows[2] != rows_tmp) ||
+	(cols[2] != -1 && cols[2] != cols_tmp))
+      return 0;
+    rows[2] = rows_tmp;
+    cols[2] = cols_tmp;
+    
+    if (!get_camf_property(x3f, gain_names[i], "MinGainsR", &val)) return 0;
+    mingain[i][0] = atof(val);
+    if (!get_camf_property(x3f, gain_names[i], "MinGainsG", &val)) return 0;
+    mingain[i][1] = atof(val);
+    if (!get_camf_property(x3f, gain_names[i], "MinGainsB", &val)) return 0;
+    mingain[i][2] = atof(val);
+
+    if (!get_camf_property(x3f, gain_names[i], "DeltaR", &val)) return 0;
+    delta[i][0] = atof(val);
+    if (!get_camf_property(x3f, gain_names[i], "DeltaG", &val)) return 0;
+    delta[i][1] = atof(val);
+    if (!get_camf_property(x3f, gain_names[i], "DeltaB", &val)) return 0;
+    delta[i][2] = atof(val);
+  }
+
+  return 1;
+}
+
 static int write_spatial_gain(x3f_t *x3f, TIFF *tiff)
 {
-  double *gain;
-  char *gain_name;
-  int rows, cols, channels, num, i;
+  double *gain[3];
+  int rows[3], cols[3], chan[3], channels[3], gain_num;
   uint32_t active_area[4];
 
-  uint8_t *list;
-  int parsize, list_size;
+  char *gain_name;
+
+  uint32_t *mgain[4][3];
+  double mingain[4][3], delta[4][3], weight[4];
+  int mgain_num;
+
+  uint8_t *opcode_list, *p;
+  int opcode_size[3];
+  int opcode_list_size = sizeof(dng_opcodelist_header_t);
   dng_opcodelist_header_t *header;
-  dng_opcode_GainMap_t *gain_map;
+  int i, j;
 
   if (!get_camf_rect_as_dngrect(x3f, "ActiveImageArea", active_area)) return 0;
 
-  if ((get_camf_property(x3f, "SpatialGainTables", get_wb(x3f), &gain_name) &&
-       get_camf_matrix_var(x3f, gain_name,
-			   &rows, &cols, &channels, M_FLOAT, (void **)&gain)) ||
-      get_camf_matrix_var(x3f, "SpatialGain",
-			  &rows, &cols, &channels, M_FLOAT, (void **)&gain));
+  if (find_merrill_spatial_gain(x3f, mgain, mingain, delta,
+				     weight, &mgain_num, rows, cols)) {
+    int g;
+
+    gain_num = 3;
+    for (i=0; i<gain_num; i++) {
+      int num = rows[i]*cols[i];
+
+      gain[i] = alloca(num*sizeof(double));
+      chan[i] = i;
+      channels[i] = 1;
+
+      for (j=0; j<num; j++) {
+	gain[i][j] = 0.0;
+	for (g=0; g<mgain_num; g++)
+	  gain[i][j] += weight[g]*(mingain[g][i] + delta[g][i]*mgain[g][i][j]);
+      }
+    }
+  }
+  else if ((get_camf_property(x3f, "SpatialGainTables", get_wb(x3f),
+			      &gain_name) &&
+	    get_camf_matrix_var(x3f, gain_name,
+				&rows[0], &cols[0], &channels[0],
+				M_FLOAT, (void **)&gain[0])) ||
+	   get_camf_matrix_var(x3f, "SpatialGain",
+			       &rows[0], &cols[0], &channels[0],
+			       M_FLOAT, (void **)&gain[0])) {
+    chan[0] = 0;
+    gain_num = 1;
+  }
   else
     return 0;
   
-  num = rows*cols*channels;
-  parsize = sizeof(dng_opcode_GainMap_t) - sizeof(dng_opcode_header_t) +
-    num*sizeof(float);
-  list_size = sizeof(dng_opcodelist_header_t) +
-    sizeof(dng_opcode_header_t) + parsize;
-  list = malloc(list_size);
-  header = (dng_opcodelist_header_t *)list;
-  gain_map = (dng_opcode_GainMap_t *)(list + sizeof(*header));
+  for (i=0; i<gain_num; i++) {
+    opcode_size[i] = sizeof(dng_opcode_GainMap_t) +
+      rows[i]*cols[i]*channels[i]*sizeof(float);
+    opcode_list_size += opcode_size[i];
+  }
 
-  PUT_BIG_32(header->count, 1);
+  opcode_list = alloca(opcode_list_size);
+  header = (dng_opcodelist_header_t *)opcode_list;
+  PUT_BIG_32(header->count, gain_num);
 
-  PUT_BIG_32(gain_map->header.id, DNG_OPCODE_GAINMAP_ID);
-  PUT_BIG_32(gain_map->header.ver, DNG_OPCODE_GAINMAP_VER);
-  PUT_BIG_32(gain_map->header.flags, 0);
-  PUT_BIG_32(gain_map->header.parsize, parsize);
+  for (p = opcode_list + sizeof(dng_opcodelist_header_t), i=0;
+       i<gain_num;
+       p += opcode_size[i], i++) {
+    dng_opcode_GainMap_t *gain_map = (dng_opcode_GainMap_t *)p;
 
-  /* The image is already cropped to ActiveArea when OpcodeList2 is applied */
-  PUT_BIG_32(gain_map->Top, 0);
-  PUT_BIG_32(gain_map->Left, 0);
-  PUT_BIG_32(gain_map->Bottom, active_area[2] - active_area[0]);
-  PUT_BIG_32(gain_map->Right, active_area[3] - active_area[1]);   
-  PUT_BIG_32(gain_map->Plane, 0);
-  PUT_BIG_32(gain_map->Planes, 3);
-  PUT_BIG_32(gain_map->RowPitch, 1);
-  PUT_BIG_32(gain_map->ColPitch, 1);
-  PUT_BIG_32(gain_map->MapPointsV, rows);
-  PUT_BIG_32(gain_map->MapPointsH, cols);
-  PUT_BIG_64(gain_map->MapSpacingV, 1.0/(rows-1));
-  PUT_BIG_64(gain_map->MapSpacingH, 1.0/(cols-1));
-  PUT_BIG_64(gain_map->MapOriginV, 0.0);
-  PUT_BIG_64(gain_map->MapOriginH, 0.0);
-  PUT_BIG_32(gain_map->MapPlanes, channels);
+    PUT_BIG_32(gain_map->header.id, DNG_OPCODE_GAINMAP_ID);
+    PUT_BIG_32(gain_map->header.ver, DNG_OPCODE_GAINMAP_VER);
+    PUT_BIG_32(gain_map->header.flags, 0);
+    PUT_BIG_32(gain_map->header.parsize,
+	       opcode_size[i] - sizeof(dng_opcode_header_t));
 
-  for (i=0; i<num; i++)
-    PUT_BIG_32(gain_map->MapGain[i], (float)gain[i]);
+    /* The image is already cropped to ActiveArea when OpcodeList2 is applied */
+    PUT_BIG_32(gain_map->Top, 0);
+    PUT_BIG_32(gain_map->Left, 0);
+    PUT_BIG_32(gain_map->Bottom, active_area[2] - active_area[0]);
+    PUT_BIG_32(gain_map->Right, active_area[3] - active_area[1]);   
+    PUT_BIG_32(gain_map->Plane, chan[i]);
+    PUT_BIG_32(gain_map->Planes, channels[i]);
+    PUT_BIG_32(gain_map->RowPitch, 1);
+    PUT_BIG_32(gain_map->ColPitch, 1);
+    PUT_BIG_32(gain_map->MapPointsV, rows[i]);
+    PUT_BIG_32(gain_map->MapPointsH, cols[i]);
+    PUT_BIG_64(gain_map->MapSpacingV, 1.0/(rows[i]-1));
+    PUT_BIG_64(gain_map->MapSpacingH, 1.0/(cols[i]-1));
+    PUT_BIG_64(gain_map->MapOriginV, 0.0);
+    PUT_BIG_64(gain_map->MapOriginH, 0.0);
+    PUT_BIG_32(gain_map->MapPlanes, channels[i]);
 
-  TIFFSetField(tiff, TIFFTAG_OPCODELIST2, list_size, list);
+    for (j=0; j<rows[i]*cols[i]*channels[i]; j++)
+      PUT_BIG_32(gain_map->MapGain[j], gain[i][j]);
+  }
   
-  free(list);
+  TIFFSetField(tiff, TIFFTAG_OPCODELIST2, opcode_list_size, opcode_list);
+  
   return 1;
 }
 

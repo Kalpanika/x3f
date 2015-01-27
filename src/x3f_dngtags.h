@@ -66,7 +66,6 @@ typedef uint64_t uint64_alias_t __attribute__((may_alias));
 #define PUT_BIG_16(_dst, _src)				\
 do {							\
   assert(sizeof(_dst) == 2);				\
-  assert(sizeof(_src) == 2);				\
   typeof(_dst) _tmp = (_src);	/* For type checking */	\
   uint16_t _srcu = *(uint16_alias_t *)&_tmp;		\
   uint8_alias_t *_dstp = (uint8_alias_t *)&(_dst);	\
@@ -78,7 +77,6 @@ do {							\
 #define PUT_BIG_32(_dst, _src)				\
 do {							\
   assert(sizeof(_dst) == 4);				\
-  assert(sizeof(_src) == 4);				\
   typeof(_dst) _tmp = (_src);	/* For type checking */	\
   uint32_t _srcu = *(uint32_alias_t *)&_tmp;		\
   uint8_alias_t *_dstp = (uint8_alias_t *)&(_dst);	\
@@ -92,7 +90,6 @@ do {							\
 #define PUT_BIG_64(_dst, _src)				\
 do {							\
   assert(sizeof(_dst) == 8);				\
-  assert(sizeof(_src) == 8);				\
   typeof(_dst) _tmp = (_src);	/* For type checking */	\
   uint64_t _srcu = *(uint64_alias_t *)&_tmp;		\
   uint8_alias_t *_dstp = (uint8_alias_t *)&(_dst);	\
