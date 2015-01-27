@@ -88,6 +88,13 @@ void x3f_3x3_diag(double *a, double *b)
   M20(b) = 0.0;   M21(b) = 0.0;   M22(b) = M2(a);
 }
 
+void x3f_3x3_identity(double *a)
+{
+  M00(a) = 1.0; M01(a) = 0.0; M02(a) = 0.0;
+  M10(a) = 0.0; M11(a) = 1.0; M12(a) = 0.0;
+  M20(a) = 0.0; M21(a) = 0.0; M22(a) = 1.0;
+}
+
 /* Print a 3x1 matrix */
 void x3f_3x1_print(double *a)
 {
