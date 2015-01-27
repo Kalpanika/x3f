@@ -2678,6 +2678,11 @@ static int get_camf_float(x3f_t *x3f, char *name,  double *val)
   return get_camf_matrix(x3f, name, 1, 0, 0, M_FLOAT, val);
 }
 
+static int get_camf_float_vector(x3f_t *x3f, char *name,  double *val)
+{
+  return get_camf_matrix(x3f, name, 3, 0, 0, M_FLOAT, val);
+}
+
 static int get_camf_unsigned(x3f_t *x3f, char *name,  uint32_t *val)
 {
   return get_camf_matrix(x3f, name, 1, 0, 0, M_UINT, val);
@@ -2986,6 +2991,12 @@ static int get_raw_to_xyz_for_wb(x3f_t *x3f, char *wb, double *raw_to_xyz)
 {
   double cc_matrix[9], wb_gain[3];
   double cam_to_xyz[9], wb_correction[9];
+  double gcraw_to_xyz[9];
+
+  double sensor_adjustment_gain_fact[3], sensor_adjustment_gain_fact_matrix[9];
+  double temp_gain_fact[3], temp_gain_fact_matrix[9];
+  double fnumber_gain_fact[3], fnumber_gain_fact_matrix[9];
+  double gain_matrix1[9], gain_matrix[9];
 
   if ((get_camf_matrix_for_wb(x3f, "WhiteBalanceColorCorrections", wb,
 			      3, 3, cc_matrix) ||
@@ -3001,7 +3012,7 @@ static int get_raw_to_xyz_for_wb(x3f_t *x3f, char *wb, double *raw_to_xyz)
     x3f_3x3_diag(wb_gain, wb_gain_matrix);
     x3f_3x3_3x3_mul(cc_matrix, wb_gain_matrix, raw_to_srgb);      
     x3f_sRGB_to_XYZ(srgb_to_xyz);
-    x3f_3x3_3x3_mul(srgb_to_xyz, raw_to_srgb, raw_to_xyz);
+    x3f_3x3_3x3_mul(srgb_to_xyz, raw_to_srgb, gcraw_to_xyz);
 
     printf("cc_matrix\n");
     x3f_3x3_print(cc_matrix);
@@ -3015,7 +3026,7 @@ static int get_raw_to_xyz_for_wb(x3f_t *x3f, char *wb, double *raw_to_xyz)
 	   get_camf_matrix_for_wb(x3f, "WhiteBalanceCorrections", wb,
 				  3, 3, wb_correction)) {
     /* pre-TRUE engine CamToXYZ/WBCorrection */
-    x3f_3x3_3x3_mul(wb_correction, cam_to_xyz, raw_to_xyz);
+    x3f_3x3_3x3_mul(wb_correction, cam_to_xyz, gcraw_to_xyz);
 
     printf("cam_to_xyz\n");
     x3f_3x3_print(cam_to_xyz);
@@ -3024,9 +3035,36 @@ static int get_raw_to_xyz_for_wb(x3f_t *x3f, char *wb, double *raw_to_xyz)
   }
   else
     return 0;
+
+  if (get_camf_float_vector(x3f, "SensorAdjustmentGainFact",
+			    sensor_adjustment_gain_fact))
+    x3f_3x3_diag(sensor_adjustment_gain_fact, 
+		 sensor_adjustment_gain_fact_matrix);
+  else
+    x3f_3x3_identity(sensor_adjustment_gain_fact_matrix);
+
+  if (get_camf_float_vector(x3f, "TempGainFact", temp_gain_fact))
+    x3f_3x3_diag(temp_gain_fact, temp_gain_fact_matrix);
+  else
+    x3f_3x3_identity(temp_gain_fact_matrix);
      
+  if (get_camf_float_vector(x3f, "FNumberGainFact", fnumber_gain_fact))
+    x3f_3x3_diag(fnumber_gain_fact, fnumber_gain_fact_matrix);
+  else
+    x3f_3x3_identity(fnumber_gain_fact_matrix);
+
+  x3f_3x3_3x3_mul(temp_gain_fact_matrix, sensor_adjustment_gain_fact_matrix,
+		  gain_matrix1);
+  x3f_3x3_3x3_mul(fnumber_gain_fact_matrix, gain_matrix1, gain_matrix);
+  x3f_3x3_3x3_mul(gcraw_to_xyz, gain_matrix, raw_to_xyz);
+
+  printf("gcraw_to_xyz\n");
+  x3f_3x3_print(gcraw_to_xyz);
+  printf("gain_matrix\n");
+  x3f_3x3_print(gain_matrix);
   printf("raw_to_xyz\n");
   x3f_3x3_print(raw_to_xyz);
+
   return 1;
 }
 
