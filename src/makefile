@@ -31,22 +31,22 @@ endif
 
 ifeq (windows, $(SYS))
   EXE = .exe
-  CFBASE = -O3 -Wall
+  CFBASE = -g -O3 -Wall
   LDFLAGS = -lm -ltiff
 else
 ifeq (linux, $(SYS))
   EXE =
-  CFBASE = -O3 -Wall
+  CFBASE = -g -O3 -Wall
   LDFLAGS = -lm -ltiff
 else
 ifeq (osx, $(SYS))
   EXE =
   ARCH = -arch i386 -arch x86_64
-  CFBASE = -O3 -Wall $(ARCH)
+  CFBASE = -g -O3 -Wall $(ARCH)
   LDFLAGS = -lm -ltiff $(ARCH)
 else
   EXE =
-  CFBASE = -O3 -Wall
+  CFBASE = -g -O3 -Wall
   LDFLAGS = -lm -ltiff
 endif
 endif
