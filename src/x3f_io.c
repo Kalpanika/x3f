@@ -1781,6 +1781,8 @@ static char *utf16le_to_utf8(utf16_t *str)
   assert(iconv(ic, &ibuf, &isize, &obuf, &osize) != -1);
   *obuf = 0;
 
+  iconv_close(ic);
+
   return realloc(buf, obuf-buf+1);
 }
 
@@ -3534,13 +3536,13 @@ static int find_merrill_spatial_gain(x3f_t *x3f,
     for (i=0; i<include_blocks_num; i++) {
       char **names, **values;
       uint32_t num, aperture_index;
-      char focus_distance[4];
+      char focus_distance[4], dummy;
 
       /* TODO: Quattro gives weird results. Probably
 	 SpatialGainHPProps_[0-2] have to be applied too, or maybe
 	 only those */
-      if (sscanf(include_blocks[i], "SpatialGainsProps_%d_%3s",
-		 &aperture_index, focus_distance) == 2 &&
+      if (sscanf(include_blocks[i], "SpatialGainsProps_%d_%3s%c",
+		 &aperture_index, focus_distance, &dummy) == 2 &&
 	  get_camf_property_list(x3f, include_blocks[i],
 				 &names, &values, &num) &&
 	  aperture_index >= 0 && aperture_index < num_fstop) {
@@ -3553,7 +3555,8 @@ static int find_merrill_spatial_gain(x3f_t *x3f,
 
 	g = alloca(sizeof(merrill_spatial_gain_t));
 	g->name = include_blocks[i];
-	g->x = spatial_gain_fstop[aperture_index];
+	g->x = 1.0/(spatial_gain_fstop[aperture_index]*
+		    spatial_gain_fstop[aperture_index]);
 	g->y = y_tmp;
 	g->next = gains;
 	gains = g;
@@ -3561,27 +3564,29 @@ static int find_merrill_spatial_gain(x3f_t *x3f,
     }
 
     if (!get_camf_float(x3f, "CaptureAperture", &x)) return 0;
+    x = 1.0/(x*x);
     /* TODO: what goes here ???? Is it possible to find the actual
        focus distance?  Currently assuming infinty. */
     y = 1.0; 	
   }
   else {				/* SD1 */
-    char *fleq35mm;
+    char *flength;
       
     for (i=0; i<include_blocks_num; i++) {
       char **names, **values;
       uint32_t num;
       double aperture, focal_length;
+      char dummy;
       
-      if (sscanf(include_blocks[i], "SpatialGainsProps_%lf_%lf",
-		 &aperture, &focal_length) == 2 &&
+      if (sscanf(include_blocks[i], "SpatialGainsProps_%lf_%lf%c",
+		 &aperture, &focal_length, &dummy) == 2 &&
 	  get_camf_property_list(x3f, include_blocks[i],
 				 &names, &values, &num)) {
 	g = alloca(sizeof(merrill_spatial_gain_t));
 	g->name = include_blocks[i];
-	/* TODO: doing bilinear interpolation with respect to aperture
+	/* TODO: doing bilinear interpolation with respect to 1/aperture^2
 	   and focal length. Is that correct? */
-	g->x = aperture;
+	g->x = 1.0/(aperture*aperture);
 	g->y = focal_length;
 	g->next = gains;
 	gains = g;
@@ -3589,8 +3594,9 @@ static int find_merrill_spatial_gain(x3f_t *x3f,
     }
 
     if (!get_camf_float(x3f, "CaptureAperture", &x)) return 0;
-    if (!get_prop_entry(x3f, "FLEQ35MM", &fleq35mm)) return 0;
-    y = atof(fleq35mm);
+    x = 1.0/(x*x);
+    if (!get_prop_entry(x3f, "FLENGTH", &flength)) return 0;
+    y= atof(flength);
   }
 
   for (g=gains; g; g=g->next) {
