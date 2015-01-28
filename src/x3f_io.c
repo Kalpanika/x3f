@@ -3787,6 +3787,9 @@ static int get_merrill_type_spatial_gain(x3f_t *x3f, spatial_gain_corr_t *corr)
     }    
   }
 
+  for (i=0; i<corr_num; i++)
+    if (corr[i].mgain_num == 0) return 0;
+  
   return corr_num;
 }
 
@@ -3824,10 +3827,10 @@ static int get_classic_spatial_gain(x3f_t *x3f, spatial_gain_corr_t *corr)
   if ((get_camf_property(x3f, "SpatialGainTables", get_wb(x3f), &gain_name) &&
        get_camf_matrix_var(x3f, gain_name,
 			   &corr->rows, &corr->cols, &corr->channels, M_FLOAT,
-			   (void **)&corr->gain[0])) ||
+			   (void **)&corr->gain)) ||
       get_camf_matrix_var(x3f, "SpatialGain",
 			  &corr->rows, &corr->cols, &corr->channels, M_FLOAT,
-			  (void **)&corr->gain[0])) {
+			  (void **)&corr->gain)) {
     corr->malloc = 0;
     corr->rowoff = corr->coloff = 0;
     corr->rowpitch = corr->colpitch = 1;
