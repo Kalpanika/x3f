@@ -3498,23 +3498,73 @@ static int get_camf_rect_as_dngrect(x3f_t *x3f, char *name, uint32_t *rect)
   return 1;
 }
 
+
+typedef struct {
+  double weight;
+
+  uint32_t *gain;
+  double mingain, delta;
+} spatial_gain_corr_merrill_t; 
+
+typedef struct {
+  double *gain;		    /* final gain (interpolated if necessary) */
+  int malloc;		    /* 1 if gain is allocated with malloc() */
+
+  int rows, cols;
+  int rowoff, coloff, rowpitch, colpitch;
+  int chan, channels;
+
+  spatial_gain_corr_merrill_t mgain[4]; /* raw merril type gains */
+  int mgain_num;
+} spatial_gain_corr_t;
+
+static int get_merril_type_gains_table(x3f_t *x3f, char *name, char *chan,
+				       double scale_factor,
+				       uint32_t **mgain, int *rows, int *cols,
+				       double *mingain, double *delta)
+{
+  char table[32], *val;
+  int rows_tmp, cols_tmp;
+
+  sprintf(table, "GainsTable%s", chan);
+  if (!get_camf_property(x3f, name, table, &val) ||
+      !get_camf_matrix_var(x3f, val, &rows_tmp, &cols_tmp, NULL,
+			   M_UINT, (void **)mgain) ||
+      (*rows != -1 && *rows != rows_tmp) ||
+      (*cols != -1 && *cols != cols_tmp))
+    return 0;
+  *rows = rows_tmp;
+  *cols = cols_tmp;
+
+  sprintf(table, "MinGains%s", chan);
+  if (!get_camf_property(x3f, name, table, &val)) return 0;
+  *mingain = scale_factor*atof(val);
+
+  sprintf(table, "Delta%s", chan);
+  if (!get_camf_property(x3f, name, table, &val)) return 0;
+  *delta = scale_factor*atof(val);
+  
+  return 1;
+}
+
 typedef struct merrill_spatial_gain_s {
   char *name;
   double x,y;
   struct merrill_spatial_gain_s *next;
 } merrill_spatial_gain_t;
 
-static int find_merrill_spatial_gain(x3f_t *x3f,
-				     uint32_t *mgain[4][3],
-				     double mingain[4][3],
-				     double delta[4][3],
-				     double weight[4],
-				     int rows[3], int cols[3])
+#define MAXCORR 6 /* Quattro: R, G, B0, B1, B2, B3 */
+
+static int get_merrill_type_spatial_gain(x3f_t *x3f, spatial_gain_corr_t *corr)
 {
   char **include_blocks, **include_blocks_val;
   uint32_t include_blocks_num;
   double *spatial_gain_fstop;
   int num_fstop;
+
+  int quattro = 0;
+  double scale_factor = 1.0;
+  int corr_num = 3;
 
   merrill_spatial_gain_t *gains = NULL, *g;
   merrill_spatial_gain_t *q_closest[4] = {NULL, NULL, NULL, NULL};
@@ -3523,31 +3573,58 @@ static int find_merrill_spatial_gain(x3f_t *x3f,
   double q_closest_d2[4] = {INFINITY, INFINITY, INFINITY, INFINITY};
   double q_weight_x[4], q_weight_y[4], q_weight[4];
   double x,y;
-  int mgain_num, i;
+  int i;
 
   if (!get_camf_property_list(x3f, "IncludeBlocks",
 			      &include_blocks, &include_blocks_val,
 			      &include_blocks_num))
     return 0;
 
-  if (get_camf_matrix_var(x3f, "SpatialGain_Fstop", &num_fstop, NULL, NULL,
+  /* Quattro */
+  if (get_camf_matrix_var(x3f, "SpatialGainHP_Fstop", &num_fstop, NULL, NULL,
 			  M_FLOAT, (void **)&spatial_gain_fstop)) {
-    /* Merrill and Quattro */
+    quattro = 1;
+    scale_factor = 1.0/4.0;
+    corr_num = 6; /* R, G, B0, B1, B2, B3 */
+    
+    for (i=0; i<include_blocks_num; i++) {
+      char **names, **values;
+      uint32_t num, aperture_index;
+      char dummy;
+      
+      if (sscanf(include_blocks[i], "SpatialGainHPProps_%d%c",
+		 &aperture_index, &dummy) == 1 &&
+	  get_camf_property_list(x3f, include_blocks[i],
+				 &names, &values, &num) &&
+	  aperture_index >= 0 && aperture_index < num_fstop) {
+	  g = alloca(sizeof(merrill_spatial_gain_t));
+	  g->name = include_blocks[i];
+	  g->x = 1.0/spatial_gain_fstop[aperture_index];
+	  g->y = 0.0;
+	  g->next = gains;
+	  gains = g;
+      }
+    }
+
+    if (!get_camf_float(x3f, "CaptureAperture", &x)) return 0;
+    x = 1.0/x;
+    y = 0.0; 	
+  }
+  /* Marrill */
+  else if (get_camf_matrix_var(x3f, "SpatialGain_Fstop", &num_fstop, NULL, NULL,
+			       M_FLOAT, (void **)&spatial_gain_fstop)) {
     for (i=0; i<include_blocks_num; i++) {
       char **names, **values;
       uint32_t num, aperture_index;
       char focus_distance[4], dummy;
-
-      /* TODO: Quattro gives weird results. Probably
-	 SpatialGainHPProps_[0-2] have to be applied too, or maybe
-	 only those */
+      
       if (sscanf(include_blocks[i], "SpatialGainsProps_%d_%3s%c",
 		 &aperture_index, focus_distance, &dummy) == 2 &&
 	  get_camf_property_list(x3f, include_blocks[i],
 				 &names, &values, &num) &&
 	  aperture_index >= 0 && aperture_index < num_fstop) {
 	double y_tmp;
-
+	
 	/* TODO: What does does MOD actially mean ???? */
 	if (!strcmp(focus_distance, "INF")) y_tmp = 1.0;
 	else if (!strcmp(focus_distance, "MOD")) y_tmp = 0.0;
@@ -3555,23 +3632,22 @@ static int find_merrill_spatial_gain(x3f_t *x3f,
 
 	g = alloca(sizeof(merrill_spatial_gain_t));
 	g->name = include_blocks[i];
-	g->x = 1.0/(spatial_gain_fstop[aperture_index]*
-		    spatial_gain_fstop[aperture_index]);
+	g->x = 1.0/spatial_gain_fstop[aperture_index];
 	g->y = y_tmp;
 	g->next = gains;
 	gains = g;
       }
     }
-
+    
     if (!get_camf_float(x3f, "CaptureAperture", &x)) return 0;
-    x = 1.0/(x*x);
-    /* TODO: what goes here ???? Is it possible to find the actual
-       focus distance?  Currently assuming infinty. */
-    y = 1.0; 	
+      x = 1.0/x;
+      /* TODO: what goes here ???? Is it possible to find the actual
+	 focus distance?  Currently assuming infinty. */
+      y = 1.0; 	
   }
-  else {				/* SD1 */
+  else {	/* SD1 */
     char *flength;
-      
+    
     for (i=0; i<include_blocks_num; i++) {
       char **names, **values;
       uint32_t num;
@@ -3584,21 +3660,21 @@ static int find_merrill_spatial_gain(x3f_t *x3f,
 				 &names, &values, &num)) {
 	g = alloca(sizeof(merrill_spatial_gain_t));
 	g->name = include_blocks[i];
-	/* TODO: doing bilinear interpolation with respect to 1/aperture^2
-	   and focal length. Is that correct? */
-	g->x = 1.0/(aperture*aperture);
+	/* TODO: doing bilinear interpolation with respect to
+	   1/aperture and focal length. Is that correct? */
+	g->x = 1.0/aperture;
 	g->y = focal_length;
 	g->next = gains;
 	gains = g;
       }
     }
-
+    
     if (!get_camf_float(x3f, "CaptureAperture", &x)) return 0;
-    x = 1.0/(x*x);
+    x = 1.0/x;
     if (!get_prop_entry(x3f, "FLENGTH", &flength)) return 0;
-    y= atof(flength);
+    y = atof(flength);
   }
-
+  
   for (g=gains; g; g=g->next) {
     double dx = g->x - x;
     double dy = g->y - y;
@@ -3653,134 +3729,152 @@ static int find_merrill_spatial_gain(x3f_t *x3f,
     printf("q = %d name = %s w = %f\n",
 	   i, q_closest[i] ? q_closest[i]->name : "NULL", q_weight[i]);
 
-  for (i=0; i<3; i++) {
-    rows[i] = -1;
-    cols[i] = -1;
+  for (i=0; i<corr_num; i++) {
+    spatial_gain_corr_t *c = &corr[i];
+    c->gain = NULL;		/* No interploated gains present */
+    c->malloc = 0;
+    
+    c->rows = c->cols = -1;
+    c->rowoff = c->coloff = 0;
+    c->rowpitch = c->colpitch = 1;
+    c->chan = i;
+    c->channels = 1;
+
+    c->mgain_num = 0;
   }
-  
-  for (i=0,mgain_num=0; i<4; i++) {
-    int rows_tmp, cols_tmp;
-    char *name, *val;
+
+  if (quattro) {
+    corr[2].rowoff = 0;
+    corr[2].coloff = 0;
+    corr[2].rowpitch = corr[2].colpitch = 2;
+    corr[2].chan = 2;
+
+    corr[3].rowoff = 0;
+    corr[3].coloff = 1;
+    corr[3].rowpitch = corr[3].colpitch = 2;
+    corr[3].chan = 2;
+
+    corr[4].rowoff = 1;
+    corr[4].coloff = 0;
+    corr[4].rowpitch = corr[4].colpitch = 2;
+    corr[4].chan = 2;
+
+    corr[5].rowoff = 1;
+    corr[5].coloff = 1;
+    corr[5].rowpitch = corr[5].colpitch = 2;
+    corr[5].chan = 2;
+  }
+
+  for (i=0; i<4; i++) {
+    char *name;
+    char *channels_normal[3] = {"R", "G", "B"};
+    char *channels_quattro[6] = {"R", "G", "B0", "B1", "B2", "B3"};
+    char **channels = quattro ? channels_quattro : channels_normal;
+    int j;
     
     if (!q_closest[i]) continue;
-
     name = q_closest[i]->name;
-    weight[mgain_num] = q_weight[i];
-    
-    if (!get_camf_property(x3f, name, "GainsTableR", &val) ||
-	!get_camf_matrix_var(x3f, val, &rows_tmp, &cols_tmp, NULL,
-			     M_UINT, (void **)&mgain[mgain_num][0]) ||
-	(rows[0] != -1 && rows[0] != rows_tmp) ||
-	(cols[0] != -1 && cols[0] != cols_tmp))
-      return 0;
-    rows[0] = rows_tmp;
-    cols[0] = cols_tmp;
-    if (!get_camf_property(x3f, name, "GainsTableG", &val) ||
-	!get_camf_matrix_var(x3f, val, &rows_tmp, &cols_tmp, NULL,
-			     M_UINT, (void **)&mgain[mgain_num][1]) || 
-	(rows[1] != -1 && rows[1] != rows_tmp) ||
-	(cols[1] != -1 && cols[1] != cols_tmp))
-      return 0;
-    rows[1] = rows_tmp;
-    cols[1] = cols_tmp;
-    if (!get_camf_property(x3f, name, "GainsTableB", &val) ||
-	!get_camf_matrix_var(x3f, val, &rows_tmp, &cols_tmp, NULL,
-			     M_UINT, (void **)&mgain[mgain_num][2]) ||
-	(rows[2] != -1 && rows[2] != rows_tmp) ||
-	(cols[2] != -1 && cols[2] != cols_tmp))
-      return 0;
-    rows[2] = rows_tmp;
-    cols[2] = cols_tmp;
-    
-    if (!get_camf_property(x3f, name, "MinGainsR", &val)) return 0;
-    mingain[mgain_num][0] = atof(val);
-    if (!get_camf_property(x3f, name, "MinGainsG", &val)) return 0;
-    mingain[mgain_num][1] = atof(val);
-    if (!get_camf_property(x3f, name, "MinGainsB", &val)) return 0;
-    mingain[mgain_num][2] = atof(val);
 
-    if (!get_camf_property(x3f, name, "DeltaR", &val)) return 0;
-    delta[mgain_num][0] = atof(val);
-    if (!get_camf_property(x3f, name, "DeltaG", &val)) return 0;
-    delta[mgain_num][1] = atof(val);
-    if (!get_camf_property(x3f, name, "DeltaB", &val)) return 0;
-    delta[mgain_num][2] = atof(val);
+    for (j=0; j<corr_num; j++) {
+      spatial_gain_corr_t *c = &corr[j];
+      spatial_gain_corr_merrill_t *m = &c->mgain[c->mgain_num++];
 
-    mgain_num++;
+      m->weight = q_weight[i];
+      if (!get_merril_type_gains_table(x3f, name, channels[j], scale_factor,
+				       &m->gain, &c->rows, &c->cols,
+				       &m->mingain, &m->delta))
+	return 0;
+    }    
   }
 
-  return mgain_num;
+  return corr_num;
+}
+
+static int get_interp_merrill_type_spatial_gain(x3f_t *x3f,
+						spatial_gain_corr_t *corr)
+{
+  int corr_num = get_merrill_type_spatial_gain(x3f, corr);
+  int i;
+
+  for (i=0; i<corr_num; i++) {
+    spatial_gain_corr_t *c = &corr[i];
+    int j, num = c->rows*c->cols;
+    
+    c->gain = malloc(num*sizeof(double));
+    c->malloc = 1;
+
+    for (j=0; j<num; j++) {
+      int g;
+      
+      c->gain[j] = 0.0;
+      for (g=0; g < c->mgain_num; g++) {
+	spatial_gain_corr_merrill_t *m = &c->mgain[g];
+	c->gain[j] += m->weight*(m->mingain + m->delta*m->gain[j]);
+      }
+    }
+  }
+
+  return corr_num;
+}
+
+static int get_classic_spatial_gain(x3f_t *x3f, spatial_gain_corr_t *corr)
+{
+  char *gain_name;
+  
+  if ((get_camf_property(x3f, "SpatialGainTables", get_wb(x3f), &gain_name) &&
+       get_camf_matrix_var(x3f, gain_name,
+			   &corr->rows, &corr->cols, &corr->channels, M_FLOAT,
+			   (void **)&corr->gain[0])) ||
+      get_camf_matrix_var(x3f, "SpatialGain",
+			  &corr->rows, &corr->cols, &corr->channels, M_FLOAT,
+			  (void **)&corr->gain[0])) {
+    corr->malloc = 0;
+    corr->rowoff = corr->coloff = 0;
+    corr->rowpitch = corr->colpitch = 1;
+    corr->chan = 0;
+    corr->mgain_num = 0;
+
+    return 1;
+  }
+
+  return 0;
 }
 
 static int write_spatial_gain(x3f_t *x3f, TIFF *tiff)
 {
-  double *gain[3];
-  int rows[3], cols[3], chan[3], channels[3], gain_num;
+  spatial_gain_corr_t corr[2*MAXCORR]; /* normal corrections + HP (Quattro) */
+  int corr_num = 0;
   uint32_t active_area[4];
 
-  char *gain_name;
-
-  uint32_t *mgain[4][3];
-  double mingain[4][3], delta[4][3], weight[4];
-  int mgain_num;
-
   uint8_t *opcode_list, *p;
-  int opcode_size[3];
+  int opcode_size[2*MAXCORR];
   int opcode_list_size = sizeof(dng_opcodelist_header_t);
   dng_opcodelist_header_t *header;
   int i, j;
 
   if (!get_camf_rect_as_dngrect(x3f, "ActiveImageArea", active_area)) return 0;
 
-  if ((mgain_num = find_merrill_spatial_gain(x3f, mgain, mingain, delta,
-					     weight, rows, cols))) {
-    gain_num = 3;
-    for (i=0; i<gain_num; i++) {
-      int num = rows[i]*cols[i];
+  corr_num += get_interp_merrill_type_spatial_gain(x3f, &corr[corr_num]);
+  if (corr_num == 0)
+    corr_num += get_classic_spatial_gain(x3f, &corr[corr_num]);
 
-      gain[i] = alloca(num*sizeof(double));
-      chan[i] = i;
-      channels[i] = 1;
-
-      for (j=0; j<num; j++) {
-	int g;
-    
-	gain[i][j] = 0.0;
-	for (g=0; g<mgain_num; g++)
-	  gain[i][j] += weight[g]*(mingain[g][i] + delta[g][i]*mgain[g][i][j]);
-      }
-    }
-  }
-  else if ((get_camf_property(x3f, "SpatialGainTables", get_wb(x3f),
-			      &gain_name) &&
-	    get_camf_matrix_var(x3f, gain_name,
-				&rows[0], &cols[0], &channels[0],
-				M_FLOAT, (void **)&gain[0])) ||
-	   get_camf_matrix_var(x3f, "SpatialGain",
-			       &rows[0], &cols[0], &channels[0],
-			       M_FLOAT, (void **)&gain[0])) {
-    chan[0] = 0;
-    gain_num = 1;
-  }
-  else
-    return 0;
-
-  if (gain_num == 0) return 0;
+  if (corr_num == 0) return 0;
   
-  for (i=0; i<gain_num; i++) {
+  for (i=0; i<corr_num; i++) {
     opcode_size[i] = sizeof(dng_opcode_GainMap_t) +
-      rows[i]*cols[i]*channels[i]*sizeof(float);
+      corr[i].rows*corr[i].cols*corr[i].channels*sizeof(float);
     opcode_list_size += opcode_size[i];
   }
 
   opcode_list = alloca(opcode_list_size);
   header = (dng_opcodelist_header_t *)opcode_list;
-  PUT_BIG_32(header->count, gain_num);
+  PUT_BIG_32(header->count, corr_num);
 
   for (p = opcode_list + sizeof(dng_opcodelist_header_t), i=0;
-       i<gain_num;
+       i<corr_num;
        p += opcode_size[i], i++) {
     dng_opcode_GainMap_t *gain_map = (dng_opcode_GainMap_t *)p;
+    spatial_gain_corr_t *c = &corr[i];
 
     PUT_BIG_32(gain_map->header.id, DNG_OPCODE_GAINMAP_ID);
     PUT_BIG_32(gain_map->header.ver, DNG_OPCODE_GAINMAP_VER);
@@ -3789,28 +3883,31 @@ static int write_spatial_gain(x3f_t *x3f, TIFF *tiff)
 	       opcode_size[i] - sizeof(dng_opcode_header_t));
 
     /* The image is already cropped to ActiveArea when OpcodeList2 is applied */
-    PUT_BIG_32(gain_map->Top, 0);
-    PUT_BIG_32(gain_map->Left, 0);
+    PUT_BIG_32(gain_map->Top, c->rowoff);
+    PUT_BIG_32(gain_map->Left, c->coloff);
     PUT_BIG_32(gain_map->Bottom, active_area[2] - active_area[0]);
     PUT_BIG_32(gain_map->Right, active_area[3] - active_area[1]);   
-    PUT_BIG_32(gain_map->Plane, chan[i]);
-    PUT_BIG_32(gain_map->Planes, channels[i]);
-    PUT_BIG_32(gain_map->RowPitch, 1);
-    PUT_BIG_32(gain_map->ColPitch, 1);
-    PUT_BIG_32(gain_map->MapPointsV, rows[i]);
-    PUT_BIG_32(gain_map->MapPointsH, cols[i]);
-    PUT_BIG_64(gain_map->MapSpacingV, 1.0/(rows[i]-1));
-    PUT_BIG_64(gain_map->MapSpacingH, 1.0/(cols[i]-1));
+    PUT_BIG_32(gain_map->Plane, c->chan);
+    PUT_BIG_32(gain_map->Planes, c->channels);
+    PUT_BIG_32(gain_map->RowPitch, c->rowpitch);
+    PUT_BIG_32(gain_map->ColPitch, c->colpitch);
+    PUT_BIG_32(gain_map->MapPointsV, c->rows);
+    PUT_BIG_32(gain_map->MapPointsH, c->cols);
+    PUT_BIG_64(gain_map->MapSpacingV, 1.0/(c->rows-1));
+    PUT_BIG_64(gain_map->MapSpacingH, 1.0/(c->cols-1));
     PUT_BIG_64(gain_map->MapOriginV, 0.0);
     PUT_BIG_64(gain_map->MapOriginH, 0.0);
-    PUT_BIG_32(gain_map->MapPlanes, channels[i]);
+    PUT_BIG_32(gain_map->MapPlanes, c->channels);
 
-    for (j=0; j<rows[i]*cols[i]*channels[i]; j++)
-      PUT_BIG_32(gain_map->MapGain[j], gain[i][j]);
+    for (j=0; j<c->rows*c->cols*c->channels; j++)
+      PUT_BIG_32(gain_map->MapGain[j], c->gain[j]);
   }
   
   TIFFSetField(tiff, TIFFTAG_OPCODELIST2, opcode_list_size, opcode_list);
-  
+
+  for (i=0; i<corr_num; i++)
+    if (corr[i].malloc) free(corr[i].gain);
+
   return 1;
 }
 
