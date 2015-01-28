@@ -3845,12 +3845,12 @@ static int get_classic_spatial_gain(x3f_t *x3f, spatial_gain_corr_t *corr)
 
 static int write_spatial_gain(x3f_t *x3f, TIFF *tiff)
 {
-  spatial_gain_corr_t corr[2*MAXCORR]; /* normal corrections + HP (Quattro) */
+  spatial_gain_corr_t corr[MAXCORR];
   int corr_num = 0;
   uint32_t active_area[4];
 
   uint8_t *opcode_list, *p;
-  int opcode_size[2*MAXCORR];
+  int opcode_size[MAXCORR];
   int opcode_list_size = sizeof(dng_opcodelist_header_t);
   dng_opcodelist_header_t *header;
   int i, j;
