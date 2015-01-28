@@ -16,6 +16,7 @@
 #include <stdio.h>
 #include <assert.h>
 #include <tiffio.h>
+#include <iconv.h>
 
 /* --------------------------------------------------------------------- */
 /* Hacky external flags                                                 */
@@ -468,6 +469,8 @@ static x3f_huffman_t *new_huffman(x3f_huffman_t **HUFP)
 }
 
 
+#if 0 /* Not used display functions */
+
 /* --------------------------------------------------------------------- */
 /* Pretty print UTF 16                                        */
 /* --------------------------------------------------------------------- */
@@ -496,7 +499,6 @@ static char display_char(char c)
   return '?';
 }
 
-#if 0 /* Not used display functions */
 static char *display_chars(char *str, char *buffer, int size)
 {
   int i;
@@ -548,7 +550,6 @@ static char *display_utf16s(utf16_t *str, char *buffer, int size)
 
   return buffer;
 }
-#endif /* Not used display functions */
 
 static char *display_utf16_string(utf16_t *str, char *buffer)
 {
@@ -573,6 +574,8 @@ static char *display_utf16_string(utf16_t *str, char *buffer)
 
   return buffer;
 }
+
+#endif /* Not used display functions */
 
 /* --------------------------------------------------------------------- */
 /* Pretty print the x3f structure                                        */
@@ -813,14 +816,9 @@ static void print_prop_meta_data2(FILE *f_out, x3f_property_list_t *PL)
     int i;
     x3f_property_t *P = PL->property_table.element;
 
-    for (i=0; i<PL->num_properties; i++) {
-      char buf1[100], buf2[100];
-
+    for (i=0; i<PL->num_properties; i++)
       fprintf(f_out, "          [%d] \"%s\" = \"%s\"\n",
-	      i,
-	      display_utf16_string(P[i].name, buf1),
-	      display_utf16_string(P[i].value, buf2));
-    }
+	      i, P[i].name_utf8, P[i].value_utf8);
   }
 
   fprintf(f_out, "END: PROP meta data\n\n");
@@ -1068,6 +1066,12 @@ static void free_camf_entry(camf_entry_t *entry)
 
     if (DEH->identifier == X3F_SECp) {
       x3f_property_list_t *PL = &DEH->data_subsection.property_list;
+      int i;
+
+      for (i=0; i<PL->property_table.size; i++) {
+	FREE(PL->property_table.element[i].name_utf8);
+	FREE(PL->property_table.element[i].value_utf8);
+      }
 
       FREE(PL->property_table.element);
       FREE(PL->data);
@@ -1758,11 +1762,32 @@ static void x3f_load_image_verbatim(x3f_info_t *I, x3f_directory_entry_t *DE)
   ID->data_size = read_data_block(&ID->data, I, DE, 0);
 }
 
+static char *utf16le_to_utf8(utf16_t *str)
+{
+  iconv_t ic = iconv_open("UTF-8", "UTF-16LE");
+  size_t isize, osize;
+  char *buf, *ibuf, *obuf;
+
+  assert(ic != (iconv_t)-1);
+  
+  for (isize=0; str[isize]; isize++);
+  isize *= 2;			/* Size in bytes */
+  osize = 2*isize;		/* Worst case scenario */
+
+  buf = malloc(osize+1);
+  ibuf = (char *)str;
+  obuf = buf;
+
+  assert(iconv(ic, &ibuf, &isize, &obuf, &osize) != -1);
+  *obuf = 0;
+
+  return realloc(buf, obuf-buf+1);
+}
+
 static void x3f_load_property_list(x3f_info_t *I, x3f_directory_entry_t *DE)
 {
   x3f_directory_entry_header_t *DEH = &DE->header;
   x3f_property_list_t *PL = &DEH->data_subsection.property_list;
-
   int i;
 
   read_data_set_offset(I, DE, X3F_PROPERTY_LIST_HEADER_SIZE);
@@ -1776,6 +1801,8 @@ static void x3f_load_property_list(x3f_info_t *I, x3f_directory_entry_t *DE)
 
     P->name = ((utf16_t *)PL->data + P->name_offset);
     P->value = ((utf16_t *)PL->data + P->value_offset);
+    P->name_utf8 = utf16le_to_utf8(P->name);
+    P->value_utf8 = utf16le_to_utf8(P->value);
   }
 }
 
@@ -2753,6 +2780,39 @@ static int get_camf_property(x3f_t *x3f, char *list, char *name, char **value)
   return 0;
 }
 
+static int get_prop_entry(x3f_t *x3f, char *name, char **value)
+{
+  x3f_directory_entry_t *DE = x3f_get_prop(x3f);
+  x3f_directory_entry_header_t *DEH;
+  x3f_property_list_t *PL;
+  x3f_property_t *table;
+  int i;
+
+  if (!DE) {
+    fprintf(stderr, "Could not get property %s: PROP section not found\n",
+	    name);
+    return 0;
+  }
+
+  DEH = &DE->header;
+  PL = &DEH->data_subsection.property_list;
+  table = PL->property_table.element;
+
+  for (i=0; i<PL->property_table.size; i++) {
+    x3f_property_t *entry = &table[i];
+
+    if (!strcmp(name, entry->name_utf8)) {
+      printf("Getting PROP entry \"%s\" = \"%s\"\n", name, entry->value_utf8);
+      *value = entry->value_utf8;
+      return 1;
+    }
+  }
+
+  fprintf(stderr, "PROP entry not found: %s\n", name);
+
+  return 0;
+}
+
 static char *get_wb(x3f_t *x3f)
 {
   uint32_t wb;
@@ -3470,28 +3530,67 @@ static int find_merrill_spatial_gain(x3f_t *x3f,
 
   if (get_camf_matrix_var(x3f, "SpatialGain_Fstop", &num_fstop, NULL, NULL,
 			  M_FLOAT, (void **)&spatial_gain_fstop)) {
-    /* TODO: ???? */
-  }
-  else {			/* SD1 */
-    char **names, **values;
-    uint32_t num;
-    double aperture, focal_length;
+    /* Merrill and Quattro */
+    for (i=0; i<include_blocks_num; i++) {
+      char **names, **values;
+      uint32_t num, aperture_index;
+      char focus_distance[4];
 
-    for (i=0; i<include_blocks_num; i++)
+      /* TODO: Quattro gives weird results. Probably
+	 SpatialGainHPProps_[0-2] have to be applied too, or maybe
+	 only those */
+      if (sscanf(include_blocks[i], "SpatialGainsProps_%d_%3s",
+		 &aperture_index, focus_distance) == 2 &&
+	  get_camf_property_list(x3f, include_blocks[i],
+				 &names, &values, &num) &&
+	  aperture_index >= 0 && aperture_index < num_fstop) {
+	double y_tmp;
+
+	/* TODO: What does does MOD actially mean ???? */
+	if (!strcmp(focus_distance, "INF")) y_tmp = 1.0;
+	else if (!strcmp(focus_distance, "MOD")) y_tmp = 0.0;
+	else continue;
+
+	g = alloca(sizeof(merrill_spatial_gain_t));
+	g->name = include_blocks[i];
+	g->x = spatial_gain_fstop[aperture_index];
+	g->y = y_tmp;
+	g->next = gains;
+	gains = g;
+      }
+    }
+
+    if (!get_camf_float(x3f, "CaptureAperture", &x)) return 0;
+    /* TODO: what goes here ???? Is it possible to find the actual
+       focus distance?  Currently assuming infinty. */
+    y = 1.0; 	
+  }
+  else {				/* SD1 */
+    char *fleq35mm;
+      
+    for (i=0; i<include_blocks_num; i++) {
+      char **names, **values;
+      uint32_t num;
+      double aperture, focal_length;
+      
       if (sscanf(include_blocks[i], "SpatialGainsProps_%lf_%lf",
 		 &aperture, &focal_length) == 2 &&
 	  get_camf_property_list(x3f, include_blocks[i],
 				 &names, &values, &num)) {
 	g = alloca(sizeof(merrill_spatial_gain_t));
 	g->name = include_blocks[i];
+	/* TODO: doing bilinear interpolation with respect to aperture
+	   and focal length. Is that correct? */
 	g->x = aperture;
 	g->y = focal_length;
 	g->next = gains;
 	gains = g;
       }
+    }
 
     if (!get_camf_float(x3f, "CaptureAperture", &x)) return 0;
-    y = 50.0;			/* TODO: ???? */
+    if (!get_prop_entry(x3f, "FLEQ35MM", &fleq35mm)) return 0;
+    y = atof(fleq35mm);
   }
 
   for (g=gains; g; g=g->next) {
@@ -3513,6 +3612,9 @@ static int find_merrill_spatial_gain(x3f_t *x3f,
     }
   }
   
+  /* TODO: bilinear interpolation requires that the points be laid out
+     in a more or less rectilinear grid. Is that assumption good
+     enough? It appears to be valid for the current cameras. */
   q_weight_x[0] = q_closest_dx[1]/(q_closest_dx[1] - q_closest_dx[0]);
   q_weight_x[1] = q_closest_dx[0]/(q_closest_dx[0] - q_closest_dx[1]);
   q_weight_x[2] = q_closest_dx[3]/(q_closest_dx[3] - q_closest_dx[2]);

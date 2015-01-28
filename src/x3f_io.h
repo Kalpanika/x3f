@@ -85,8 +85,10 @@ typedef struct x3f_property_s {
   uint32_t value_offset;
 
   /* Computed */
-  utf16_t *name;		/* 0x00 terminated UTF 16 */
-  utf16_t *value;               /* 0x00 terminated UTF 16 */
+  utf16_t *name;		/* 0x0000 terminated UTF 16 */
+  utf16_t *value;               /* 0x0000 terminated UTF 16 */
+  char *name_utf8;		/* converted to UTF 8 */
+  char *value_utf8;          /* converted to UTF 8 */
 } x3f_property_t;
 
 typedef struct x3f_property_table_s {
