@@ -3845,7 +3845,8 @@ static int write_spatial_gain(x3f_t *x3f, TIFF *tiff)
 {
   spatial_gain_corr_t corr[MAXCORR];
   int corr_num = 0;
-  uint32_t active_area[4];
+  uint32_t active_area[4], keep_area[4];
+  double originv, originh, scalev, scaleh;
 
   uint8_t *opcode_list, *p;
   int opcode_size[MAXCORR];
@@ -3854,6 +3855,18 @@ static int write_spatial_gain(x3f_t *x3f, TIFF *tiff)
   int i, j;
 
   if (!get_camf_rect_as_dngrect(x3f, "ActiveImageArea", active_area)) return 0;
+  if (!get_camf_rect_as_dngrect(x3f, "KeepImageArea", keep_area)) return 0;
+
+  /* Spatial gain in X3F refers to the entire sensor, but GainMain in
+     OpcodeList 2 in DNG refers to the active area */
+  originv = (double)((int32_t)keep_area[0] - (int32_t)active_area[0])/
+    (active_area[2] - active_area[0]);
+  originh = (double)((int32_t)keep_area[1] - (int32_t)active_area[1])/
+    (active_area[3] - active_area[1]);
+  scalev =
+    (double)(keep_area[2] - keep_area[0])/(active_area[2] - active_area[0]);
+  scaleh =
+    (double)(keep_area[3] - keep_area[1])/(active_area[3] - active_area[1]);
 
   corr_num += get_interp_merrill_type_spatial_gain(x3f, 0, &corr[corr_num]);
   if (corr_num == 0)
@@ -3894,10 +3907,10 @@ static int write_spatial_gain(x3f_t *x3f, TIFF *tiff)
     PUT_BIG_32(gain_map->ColPitch, c->colpitch);
     PUT_BIG_32(gain_map->MapPointsV, c->rows);
     PUT_BIG_32(gain_map->MapPointsH, c->cols);
-    PUT_BIG_64(gain_map->MapSpacingV, 1.0/(c->rows-1));
-    PUT_BIG_64(gain_map->MapSpacingH, 1.0/(c->cols-1));
-    PUT_BIG_64(gain_map->MapOriginV, 0.0);
-    PUT_BIG_64(gain_map->MapOriginH, 0.0);
+    PUT_BIG_64(gain_map->MapSpacingV, scalev/(c->rows-1));
+    PUT_BIG_64(gain_map->MapSpacingH, scaleh/(c->cols-1));
+    PUT_BIG_64(gain_map->MapOriginV, originv);
+    PUT_BIG_64(gain_map->MapOriginH, originh);
     PUT_BIG_32(gain_map->MapPlanes, c->channels);
 
     for (j=0; j<c->rows*c->cols*c->channels; j++)
