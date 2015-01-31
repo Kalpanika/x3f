@@ -3045,7 +3045,7 @@ static void get_black_level(x3f_t *x3f, double *black_level)
   if (black_pixels == 0) {
     black_level[0] = black_level[1] = black_level[2] = 0.0;
     fprintf(stderr,
-	    "WARNING: could not calculate black level, assuming {%f,%f,%f}\n",
+	    "WARNING: could not calculate black level, assuming {%g,%g,%g}\n",
 	    black_level[0], black_level[1], black_level[2]);
     return;
   }
@@ -3176,7 +3176,7 @@ static x3f_return_t convert_data(x3f_t *x3f,
   }
   else {
     iso_scaling = 1.0;
-    fprintf(stderr, "WARNING: could not calculate ISO scaling, assuming %f\n",
+    fprintf(stderr, "WARNING: could not calculate ISO scaling, assuming %g\n",
 	    iso_scaling);
   }
 
@@ -3517,7 +3517,7 @@ static double get_focal_length(x3f_t *x3f)
     focal_length = atof(flength);
   else {
     focal_length = 30.0;
-    fprintf(stderr, "WARNING: could not get focal length, assuming %f mm\n",
+    fprintf(stderr, "WARNING: could not get focal length, assuming %g mm\n",
 	    focal_length);
   }
     
@@ -3532,7 +3532,7 @@ static double get_object_distance(x3f_t *x3f)
     object_distance *= 10.0;	/* Convert cm to mm */
   else {
     object_distance = INFINITY;
-    fprintf(stderr, "WARNING: could not get object distance, assuming %f mm\n",
+    fprintf(stderr, "WARNING: could not get object distance, assuming %g mm\n",
 	    object_distance);
   }
     
@@ -3561,7 +3561,7 @@ static double get_MOD(x3f_t *x3f)
     break;
   default:
     mod = 280.0;
-    fprintf(stderr, "WARNING: could not get MOD, assuming %f mm\n", mod);
+    fprintf(stderr, "WARNING: could not get MOD, assuming %g mm\n", mod);
   }
 
   return mod;
