@@ -2717,6 +2717,11 @@ static int get_camf_unsigned(x3f_t *x3f, char *name,  uint32_t *val)
   return get_camf_matrix(x3f, name, 1, 0, 0, M_UINT, val);
 }
 
+static int get_camf_signed(x3f_t *x3f, char *name,  int32_t *val)
+{
+  return get_camf_matrix(x3f, name, 1, 0, 0, M_INT, val);
+}
+
 static int get_camf_signed_vector(x3f_t *x3f, char *name,  int32_t *val)
 {
   return get_camf_matrix(x3f, name, 3, 0, 0, M_INT, val);
@@ -3498,6 +3503,69 @@ static int get_camf_rect_as_dngrect(x3f_t *x3f, char *name, uint32_t *rect)
   return 1;
 }
 
+static double lens_position(double focal_length, double object_distance)
+{
+  return 1.0/(1.0/focal_length - 1.0/object_distance);
+}
+
+static double get_focal_length(x3f_t *x3f)
+{
+  char *flength;
+  double focal_length;
+
+  if (get_prop_entry(x3f, "FLENGTH", &flength))
+    focal_length = atof(flength);
+  else {
+    focal_length = 30.0;
+    fprintf(stderr, "WARNING: could not get focal length, assuming %f mm\n",
+	    focal_length);
+  }
+    
+  return focal_length;
+}
+
+static double get_object_distance(x3f_t *x3f)
+{
+  double object_distance;
+
+  if (get_camf_float(x3f, "ObjectDistance", &object_distance))
+    object_distance *= 10.0;	/* Convert cm to mm */
+  else {
+    object_distance = INFINITY;
+    fprintf(stderr, "WARNING: could not get object distance, assuming %f mm\n",
+	    object_distance);
+  }
+    
+  return object_distance;
+}
+
+/* Get the minimum object distance (MOD)  */
+static double get_MOD(x3f_t *x3f)
+{
+  int32_t lens_information;
+  double mod;
+
+  if (!get_camf_signed(x3f, "LensInformation", &lens_information))
+    lens_information = -1;
+
+  /* TODO: is there any better way of obtaining MOD? */
+  switch (lens_information) {
+  case 1003:			/* DP1 Merrill */
+    mod = 200.0;
+    break;
+  case 1004:			/* DP2 Merrill */
+    mod = 280.0;
+    break;
+  case 1005:			/* DP3 Merrill */
+    mod = 226.0;
+    break;
+  default:
+    mod = 280.0;
+    fprintf(stderr, "WARNING: could not get MOD, assuming %f mm\n", mod);
+  }
+
+  return mod;
+}
 
 typedef struct {
   double weight;
@@ -3559,6 +3627,7 @@ static int get_merrill_type_spatial_gain(x3f_t *x3f, int hp_flag,
 {
   char **include_blocks, **include_blocks_val;
   uint32_t include_blocks_num;
+  double capture_aperture;
   double *spatial_gain_fstop;
   int num_fstop;
   int corr_num = 3;
@@ -3571,6 +3640,8 @@ static int get_merrill_type_spatial_gain(x3f_t *x3f, int hp_flag,
   double q_weight_x[4], q_weight_y[4], q_weight[4];
   double x,y;
   int i;
+
+  if (!get_camf_float(x3f, "CaptureAperture", &capture_aperture)) return 0;
 
   if (!get_camf_property_list(x3f, "IncludeBlocks",
 			      &include_blocks, &include_blocks_val,
@@ -3593,23 +3664,21 @@ static int get_merrill_type_spatial_gain(x3f_t *x3f, int hp_flag,
 	  get_camf_property_list(x3f, include_blocks[i],
 				 &names, &values, &num) &&
 	  aperture_index >= 0 && aperture_index < num_fstop) {
-	  g = alloca(sizeof(merrill_spatial_gain_t));
-	  g->name = include_blocks[i];
-	  g->x = 1.0/spatial_gain_fstop[aperture_index];
-	  g->y = 0.0;
-	  g->next = gains;
-	  gains = g;
+	g = alloca(sizeof(merrill_spatial_gain_t));
+	g->name = include_blocks[i];
+	g->x = 1.0/spatial_gain_fstop[aperture_index];
+	g->y = 0.0;		/* unused */
+	g->next = gains;
+	gains = g;
       }
     }
-
-    if (!get_camf_float(x3f, "CaptureAperture", &x)) return 0;
-    x = 1.0/x;
-    y = 0.0; 	
+    
+    x = 1.0/capture_aperture;
+    y = 0.0;			/* unused */
   }
-  else {
-    /* Merrill and Quattro */
+  else {			/* Merrill and Quattro */
     if (get_camf_matrix_var(x3f, "SpatialGain_Fstop", &num_fstop, NULL, NULL,
-			    M_FLOAT, (void **)&spatial_gain_fstop)) {
+			    M_FLOAT, (void **)&spatial_gain_fstop))
       for (i=0; i<include_blocks_num; i++) {
 	char **names, **values;
 	uint32_t num, aperture_index;
@@ -3620,57 +3689,46 @@ static int get_merrill_type_spatial_gain(x3f_t *x3f, int hp_flag,
 	    get_camf_property_list(x3f, include_blocks[i],
 				   &names, &values, &num) &&
 	    aperture_index >= 0 && aperture_index < num_fstop) {
-	  double y_tmp;
+	  double lenspos;
 	  
-	  /* TODO: What does does MOD actially mean ???? */
-	  if (!strcmp(focus_distance, "INF")) y_tmp = 1.0;
-	  else if (!strcmp(focus_distance, "MOD")) y_tmp = 0.0;
+	  if (!strcmp(focus_distance, "INF"))
+	    lenspos = lens_position(get_focal_length(x3f), INFINITY);
+	  else if (!strcmp(focus_distance, "MOD"))
+	    lenspos = lens_position(get_focal_length(x3f), get_MOD(x3f));
 	  else continue;
 	  
 	  g = alloca(sizeof(merrill_spatial_gain_t));
 	  g->name = include_blocks[i];
 	  g->x = 1.0/spatial_gain_fstop[aperture_index];
-	  g->y = y_tmp;
+	  g->y = lenspos;
 	  g->next = gains;
 	  gains = g;
 	}
       }
-      
-      if (!get_camf_float(x3f, "CaptureAperture", &x)) return 0;
-      x = 1.0/x;
-      /* TODO: what goes here ???? Is it possible to find the actual
-	 focus distance?  Currently assuming infinty. */
-      y = 1.0; 	
-    }
-    else {	/* SD1 */
-      char *flength;
-      
+    else
       for (i=0; i<include_blocks_num; i++) {
 	char **names, **values;
 	uint32_t num;
-	double aperture, focal_length;
+	double aperture, lenspos;
 	char dummy;
-	
+	  
 	if (sscanf(include_blocks[i], "SpatialGainsProps_%lf_%lf%c",
-		   &aperture, &focal_length, &dummy) == 2 &&
+		   &aperture, &lenspos, &dummy) == 2 &&
 	    get_camf_property_list(x3f, include_blocks[i],
 				   &names, &values, &num)) {
 	  g = alloca(sizeof(merrill_spatial_gain_t));
 	  g->name = include_blocks[i];
-	  /* TODO: doing bilinear interpolation with respect to
-	     1/aperture and focal length. Is that correct? */
 	  g->x = 1.0/aperture;
-	  g->y = focal_length;
+	  g->y = lenspos;
 	  g->next = gains;
 	  gains = g;
 	}
       }
     
-      if (!get_camf_float(x3f, "CaptureAperture", &x)) return 0;
-      x = 1.0/x;
-      if (!get_prop_entry(x3f, "FLENGTH", &flength)) return 0;
-      y = atof(flength);
-    }
+    /* TODO: doing bilinear interpolation with respect to 1/aperture
+       and lens position. Is that correct? */
+    x = 1.0/capture_aperture;
+    y = lens_position(get_focal_length(x3f), get_object_distance(x3f));
   }
   
   for (g=gains; g; g=g->next) {
