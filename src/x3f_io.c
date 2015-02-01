@@ -3542,6 +3542,14 @@ static int get_spatial_gain(x3f_t *x3f, spatial_gain_corr_t *corr)
   return corr_num;
 }
 
+static void cleanup_spatial_gain(spatial_gain_corr_t *corr, int corr_num)
+{
+  int i;
+
+  for (i=0; i<corr_num; i++)
+    if (corr[i].malloc) free(corr[i].gain);
+}
+
 static double calc_spatial_gain(spatial_gain_corr_t *corr, int corr_num,
 				int row, int col, int chan, int rows, int cols)
 {
@@ -3713,6 +3721,8 @@ static x3f_return_t convert_data(x3f_t *x3f,
 	*valp[color] = x3f_LUT_lookup(lut, LUTSIZE, output[color]);
     }
   }
+
+  cleanup_spatial_gain(sgain, sgain_num);
 
   return X3F_OK;
 }
@@ -4054,10 +4064,9 @@ static int write_spatial_gain(x3f_t *x3f, TIFF *tiff)
       PUT_BIG_32(gain_map->MapGain[j], c->gain[j]);
   }
   
-  TIFFSetField(tiff, TIFFTAG_OPCODELIST2, opcode_list_size, opcode_list);
+  cleanup_spatial_gain(corr, corr_num);
 
-  for (i=0; i<corr_num; i++)
-    if (corr[i].malloc) free(corr[i].gain);
+  TIFFSetField(tiff, TIFFTAG_OPCODELIST2, opcode_list_size, opcode_list);
 
   return 1;
 }
