@@ -3135,374 +3135,6 @@ static int get_raw_to_xyz_for_wb(x3f_t *x3f, char *wb, double *raw_to_xyz)
   return 1;
 }
 
-/* Converts the data in place */
-
-#define LUTSIZE 1024
-
-static x3f_return_t convert_data(x3f_t *x3f,
-				 area_t *image,
-				 x3f_color_encoding_t encoding)
-{
-  int row, col, color;
-  uint32_t max_raw[3];
-  uint16_t max_out = 65535; /* TODO: should be possible to adjust */
-
-  double raw_to_xyz[9];	/* White point for XYZ is assumed to be D65 */
-  double xyz_to_rgb[9];
-  double raw_to_rgb[9];
-  double conv_matrix[9];
-  double sensor_iso, capture_iso, iso_scaling;
-  double black_level[3];
-  double lut[LUTSIZE];
-
-  if (image->channels < 3) return X3F_ARGUMENT_ERROR;
-
-  if (!get_max_raw(x3f, max_raw)) {
-    fprintf(stderr, "Could not get maximum RAW level\n");
-    return X3F_ARGUMENT_ERROR;
-  }
-
-  printf("max_raw = {%d,%d,%d}\n", max_raw[0], max_raw[1], max_raw[2]);
-  printf("max_out = %d\n", max_out);
-
-  get_black_level(x3f, black_level);
-  printf("black_level = {%g,%g,%g}\n", black_level[0], black_level[1], black_level[2]);
-
-  if (get_camf_float(x3f, "SensorISO", &sensor_iso) &&
-      get_camf_float(x3f, "CaptureISO", &capture_iso)) {
-    printf("SensorISO = %g\n", sensor_iso);
-    printf("CaptureISO = %g\n", capture_iso);
-    iso_scaling = capture_iso/sensor_iso;
-  }
-  else {
-    iso_scaling = 1.0;
-    fprintf(stderr, "WARNING: could not calculate ISO scaling, assuming %g\n",
-	    iso_scaling);
-  }
-
-  if (!get_raw_to_xyz_for_wb(x3f, get_wb(x3f), raw_to_xyz)) {
-    fprintf(stderr, "Could not get raw_to_xyz for white balance: %s\n",
-	    get_wb(x3f));
-    return X3F_ARGUMENT_ERROR;
-  }
-
-  switch (encoding) {
-  case SRGB:
-    x3f_sRGB_LUT(lut, LUTSIZE, max_out);
-    x3f_XYZ_to_sRGB(xyz_to_rgb);
-    break;
-  case ARGB:
-    x3f_gamma_LUT(lut, LUTSIZE, max_out, 2.2);
-    x3f_XYZ_to_AdobeRGB(xyz_to_rgb);
-    break;
-  case PPRGB:
-    {
-      double xyz_to_prophotorgb[9], d65_to_d50[9];
-
-      x3f_gamma_LUT(lut, LUTSIZE, max_out, 1.8);
-      x3f_XYZ_to_ProPhotoRGB(xyz_to_prophotorgb);
-      /* The standad white point for ProPhoto RGB is D50 */
-      x3f_Bradford_D65_to_D50(d65_to_d50);
-      x3f_3x3_3x3_mul(xyz_to_prophotorgb, d65_to_d50, xyz_to_rgb);
-    }
-    break;
-  default:
-    fprintf(stderr, "Unknown color space %d\n", encoding);
-    return X3F_ARGUMENT_ERROR;
-  }
-
-  x3f_3x3_3x3_mul(xyz_to_rgb, raw_to_xyz, raw_to_rgb);
-  x3f_scalar_3x3_mul(iso_scaling, raw_to_rgb, conv_matrix);
-
-  printf("raw_to_rgb\n");
-  x3f_3x3_print(raw_to_rgb);
-  printf("conv_matrix\n");
-  x3f_3x3_print(conv_matrix);
-
-  for (row = 0; row < image->rows; row++) {
-    for (col = 0; col < image->columns; col++) {
-      uint16_t *valp[3];
-      double input[3], output[3];
-
-      /* Get the data */
-      for (color = 0; color < 3; color++) {
-	valp[color] = &image->data[image->row_stride*row + image->channels*col + color];
-	input[color] = (*valp[color] - black_level[color])/max_raw[color];
-      }
-
-      /* Do color conversion */
-      x3f_3x3_3x1_mul(conv_matrix, input, output);
-
-      /* Write back the data, doing non linear coding */
-      for (color = 0; color < 3; color++)
-	*valp[color] = x3f_LUT_lookup(lut, LUTSIZE, output[color]);
-    }
-  }
-
-  return X3F_OK;
-}
-
-static x3f_return_t get_image(x3f_t *x3f,
-			      area_t *image,
-			      x3f_color_encoding_t encoding,
-			      int crop)
-{
-  area_t original_image;
-
-  if(!image_area(x3f, &original_image)) return X3F_ARGUMENT_ERROR;
-  if (!crop || !crop_area_camf(x3f, "ActiveImageArea", &original_image, image))
-    *image = original_image;
-
-  if (encoding != NONE)
-    return convert_data(x3f, image, encoding);
-  else 
-    return X3F_OK;
-}
-
-/* extern */ x3f_return_t x3f_dump_raw_data(x3f_t *x3f,
-                                            char *outfilename)
-{
-  x3f_directory_entry_t *DE = x3f_get_raw(x3f);
-
-  if (DE == NULL) {
-    return X3F_ARGUMENT_ERROR;
-  } else {
-    x3f_directory_entry_header_t *DEH = &DE->header;
-    x3f_image_data_t *ID = &DEH->data_subsection.image_data;
-    void *data = ID->data;
-
-    if (data == NULL) {
-      return X3F_INTERNAL_ERROR;
-    } else {
-      FILE *f_out = fopen(outfilename, "wb");
-
-      if (f_out == NULL) {
-        return X3F_OUTFILE_ERROR;
-      } else {
-        fwrite(data, 1, DE->input.size, f_out);
-        fclose(f_out);
-      }
-    }
-  }
-
-  return X3F_OK;
-}
-
-/* Routines for writing big endian ppm data */
-
-static void write_16B(FILE *f_out, uint16_t val)
-{
-  fputc((val>>8) & 0xff, f_out);
-  fputc((val>>0) & 0xff, f_out);
-}
-
-/* extern */
-x3f_return_t x3f_dump_raw_data_as_ppm(x3f_t *x3f,
-				      char *outfilename,
-				      x3f_color_encoding_t encoding,
-				      int crop,
-				      int binary)
-{
-  x3f_return_t ret;
-  area_t image;
-  FILE *f_out = fopen(outfilename, "wb");
-  int row;
-
-  if (f_out == NULL) return X3F_OUTFILE_ERROR;
-
-  ret = get_image(x3f, &image, encoding, crop);
-  if (ret != X3F_OK) {
-    fclose(f_out);
-    return ret;
-  }
-  if (image.channels < 3) {
-    fclose(f_out);
-    return X3F_ARGUMENT_ERROR;
-  }
-
-  if (binary)
-    fprintf(f_out, "P6\n%d %d\n65535\n", image.columns, image.rows);
-  else
-    fprintf(f_out, "P3\n%d %d\n65535\n", image.columns, image.rows);
-
-  for (row=0; row < image.rows; row++) {
-    int col;
-
-    for (col=0; col < image.columns; col++) {
-      int color;
-
-      for (color=0; color < 3; color++) {
-	uint16_t val = image.data[image.row_stride*row + image.channels*col + color];
-	if (binary)
-	  write_16B(f_out, val);
-	else
-	  fprintf(f_out, "%d ", val);
-      }
-      if (!binary)
-	fprintf(f_out, "\n");
-    }
-  }
-
-  fclose(f_out);
-
-  return X3F_OK;
-}
-
-/* extern */
-x3f_return_t x3f_dump_raw_data_as_tiff(x3f_t *x3f,
-				       char *outfilename,
-				       x3f_color_encoding_t encoding,
-				       int crop)
-{
-  x3f_return_t ret;
-  area_t image;
-  TIFF *f_out = TIFFOpen(outfilename, "w");
-  int row;
-
-  if (f_out == NULL) return X3F_OUTFILE_ERROR;
-
-  ret = get_image(x3f, &image, encoding, crop);
-  if (ret != X3F_OK) {
-    TIFFClose(f_out);
-    return ret;
-  }
-
-  TIFFSetField(f_out, TIFFTAG_IMAGEWIDTH, image.columns);
-  TIFFSetField(f_out, TIFFTAG_IMAGELENGTH, image.rows);
-  TIFFSetField(f_out, TIFFTAG_ROWSPERSTRIP, 32);
-  TIFFSetField(f_out, TIFFTAG_SAMPLESPERPIXEL, image.channels);
-  TIFFSetField(f_out, TIFFTAG_BITSPERSAMPLE, 16);
-  TIFFSetField(f_out, TIFFTAG_PLANARCONFIG, PLANARCONFIG_CONTIG);
-  TIFFSetField(f_out, TIFFTAG_COMPRESSION, COMPRESSION_NONE);
-  TIFFSetField(f_out, TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_RGB);
-  TIFFSetField(f_out, TIFFTAG_ORIENTATION, ORIENTATION_TOPLEFT);
-  TIFFSetField(f_out, TIFFTAG_XRESOLUTION, 72.0);
-  TIFFSetField(f_out, TIFFTAG_YRESOLUTION, 72.0);
-  TIFFSetField(f_out, TIFFTAG_RESOLUTIONUNIT, RESUNIT_INCH);
-
-  for (row=0; row < image.rows; row++)
-    TIFFWriteScanline(f_out, image.data + image.row_stride*row, row, 0);
-
-  TIFFWriteDirectory(f_out);
-  TIFFClose(f_out);
-
-  return X3F_OK;
-}
-
-static void vec_double_to_float(double *a, float *b, int len)
-{
-  int i;
-
-  for (i=0; i<len; i++)
-    b[i] = a[i];
-}
-
-static int write_camera_profile_for_wb(x3f_t *x3f, TIFF *tiff, char *wb)
-{
-  double raw_to_xyz[9], xyz_to_raw[9];
-  float color_matrix1[9];
-
-  if (!get_raw_to_xyz_for_wb(x3f, wb, raw_to_xyz)) return 0;
-  x3f_3x3_inverse(raw_to_xyz, xyz_to_raw);
-
-  printf("xyz_to_raw\n");
-  x3f_3x3_print(xyz_to_raw);
-
-  vec_double_to_float(xyz_to_raw, color_matrix1, 9);
-  TIFFSetField(tiff, TIFFTAG_COLORMATRIX1, 9, color_matrix1);
-  TIFFSetField(tiff, TIFFTAG_PROFILENAME, wb);
-
-  return 1;
-}
-
-static x3f_return_t write_camera_profiles(x3f_t *x3f, TIFF *tiff)
-{
-  char **profile_names, **profile_values;
-  uint32_t *profile_offsets, profile_num, profile_num_out, profile;
-  FILE *tiff_file;
-
-  if (!get_camf_property_list(x3f, "WhiteBalanceColorCorrections",
-			      &profile_names, &profile_values, &profile_num) &&
-      !get_camf_property_list(x3f, "DP1_WhiteBalanceColorCorrections",
-			      &profile_names, &profile_values, &profile_num) &&
-      !get_camf_property_list(x3f, "WhiteBalanceIlluminants",
-			      &profile_names, &profile_values, &profile_num))
-    return X3F_ARGUMENT_ERROR;
-  profile_offsets = alloca(profile_num*sizeof(uint32_t));
-
-  TIFFFlush(tiff);
-  TIFFSetWriteOffset(tiff, 0);	/* Tell libtiff to do the next write at EOF */
-  
-  tiff_file = fdopen(dup(TIFFFileno(tiff)), "w+");
-  if (!tiff_file) return X3F_OUTFILE_ERROR;
-	
-  for (profile=0,profile_num_out=0; profile < profile_num; profile++) {
-    FILE *tmp;
-    TIFF *tmp_tiff;
-#define BUFSIZE 1024
-    char buf[BUFSIZE];
-    int offset, count;
-
-    if (!strcmp(profile_names[profile], get_wb(x3f)))
-      continue;     /* The default profile should only be in IFD 0 */
-
-    if (!(tmp = tmpfile())) {
-      fclose(tiff_file);
-      return X3F_OUTFILE_ERROR;
-    }
-    if (!(tmp_tiff = TIFFFdOpen(dup(fileno(tmp)), "", "wb"))) { /* Big endian */
-      fclose(tmp);
-      fclose(tiff_file);
-      return X3F_OUTFILE_ERROR;
-    }
-    if (!write_camera_profile_for_wb(x3f, tmp_tiff, profile_names[profile])) {
-      fprintf(stderr,
-	      "WARNING: failed to generate camera profile: %s, skipping\n",
-	      profile_names[profile]);
-      TIFFClose(tmp_tiff);
-      fclose(tmp);
-      continue;
-    }
-    TIFFWriteDirectory(tmp_tiff);
-    TIFFClose(tmp_tiff);
-    
-    fseek(tiff_file, 0, SEEK_END);
-    offset = (ftell(tiff_file)+1) & ~1; /* 2-byte alignment */
-    fseek(tiff_file, offset, SEEK_SET);
-    profile_offsets[profile_num_out++] = offset;
-
-    fputs("MMCR", tiff_file);	/* DNG camera profile magic in big endian */
-    fseek(tmp, 4, SEEK_SET);	/* Skip over the standard TIFF magic */
-
-    while((count = fread(buf, 1, BUFSIZE, tmp)))
-      fwrite(buf, 1, count, tiff_file);
-
-    fclose(tmp);
-  }
-  
-  fclose(tiff_file);
-  if (profile_num_out > 0)
-    TIFFSetField(tiff, TIFFTAG_EXTRACAMERAPROFILES, 
-		 profile_num_out, profile_offsets);
-  return X3F_OK;
-}
-
-static int get_camf_rect_as_dngrect(x3f_t *x3f, char *name, uint32_t *rect)
-{
-  uint32_t camf_rect[4];
-
-  if (!get_camf_rect(x3f, name, camf_rect))
-    return 0;
-  
-  /* Translate from Sigma's to Adobe's view on rectangles */
-  rect[0] = camf_rect[1];
-  rect[1] = camf_rect[0];
-  rect[2] = camf_rect[3] + 1;
-  rect[3] = camf_rect[2] + 1;
-
-  return 1;
-}
-
 static double lens_position(double focal_length, double object_distance)
 {
   return 1.0/(1.0/focal_length - 1.0/object_distance);
@@ -3899,10 +3531,392 @@ static int get_classic_spatial_gain(x3f_t *x3f, spatial_gain_corr_t *corr)
   return 0;
 }
 
+static int get_spatial_gain(x3f_t *x3f, spatial_gain_corr_t *corr)
+{
+  int corr_num = 0;
+
+  corr_num += get_interp_merrill_type_spatial_gain(x3f, 0, &corr[corr_num]);
+  if (corr_num == 0)
+    corr_num += get_classic_spatial_gain(x3f, &corr[corr_num]);
+
+  return corr_num;
+}
+
+/* Converts the data in place */
+
+#define LUTSIZE 1024
+
+static x3f_return_t convert_data(x3f_t *x3f,
+				 area_t *image,
+				 x3f_color_encoding_t encoding)
+{
+  int row, col, color;
+  uint32_t max_raw[3];
+  uint16_t max_out = 65535; /* TODO: should be possible to adjust */
+
+  double raw_to_xyz[9];	/* White point for XYZ is assumed to be D65 */
+  double xyz_to_rgb[9];
+  double raw_to_rgb[9];
+  double conv_matrix[9];
+  double sensor_iso, capture_iso, iso_scaling;
+  double black_level[3];
+  double lut[LUTSIZE];
+
+  if (image->channels < 3) return X3F_ARGUMENT_ERROR;
+
+  if (!get_max_raw(x3f, max_raw)) {
+    fprintf(stderr, "Could not get maximum RAW level\n");
+    return X3F_ARGUMENT_ERROR;
+  }
+
+  printf("max_raw = {%d,%d,%d}\n", max_raw[0], max_raw[1], max_raw[2]);
+  printf("max_out = %d\n", max_out);
+
+  get_black_level(x3f, black_level);
+  printf("black_level = {%g,%g,%g}\n", black_level[0], black_level[1], black_level[2]);
+
+  if (get_camf_float(x3f, "SensorISO", &sensor_iso) &&
+      get_camf_float(x3f, "CaptureISO", &capture_iso)) {
+    printf("SensorISO = %g\n", sensor_iso);
+    printf("CaptureISO = %g\n", capture_iso);
+    iso_scaling = capture_iso/sensor_iso;
+  }
+  else {
+    iso_scaling = 1.0;
+    fprintf(stderr, "WARNING: could not calculate ISO scaling, assuming %g\n",
+	    iso_scaling);
+  }
+
+  if (!get_raw_to_xyz_for_wb(x3f, get_wb(x3f), raw_to_xyz)) {
+    fprintf(stderr, "Could not get raw_to_xyz for white balance: %s\n",
+	    get_wb(x3f));
+    return X3F_ARGUMENT_ERROR;
+  }
+
+  switch (encoding) {
+  case SRGB:
+    x3f_sRGB_LUT(lut, LUTSIZE, max_out);
+    x3f_XYZ_to_sRGB(xyz_to_rgb);
+    break;
+  case ARGB:
+    x3f_gamma_LUT(lut, LUTSIZE, max_out, 2.2);
+    x3f_XYZ_to_AdobeRGB(xyz_to_rgb);
+    break;
+  case PPRGB:
+    {
+      double xyz_to_prophotorgb[9], d65_to_d50[9];
+
+      x3f_gamma_LUT(lut, LUTSIZE, max_out, 1.8);
+      x3f_XYZ_to_ProPhotoRGB(xyz_to_prophotorgb);
+      /* The standad white point for ProPhoto RGB is D50 */
+      x3f_Bradford_D65_to_D50(d65_to_d50);
+      x3f_3x3_3x3_mul(xyz_to_prophotorgb, d65_to_d50, xyz_to_rgb);
+    }
+    break;
+  default:
+    fprintf(stderr, "Unknown color space %d\n", encoding);
+    return X3F_ARGUMENT_ERROR;
+  }
+
+  x3f_3x3_3x3_mul(xyz_to_rgb, raw_to_xyz, raw_to_rgb);
+  x3f_scalar_3x3_mul(iso_scaling, raw_to_rgb, conv_matrix);
+
+  printf("raw_to_rgb\n");
+  x3f_3x3_print(raw_to_rgb);
+  printf("conv_matrix\n");
+  x3f_3x3_print(conv_matrix);
+
+  for (row = 0; row < image->rows; row++) {
+    for (col = 0; col < image->columns; col++) {
+      uint16_t *valp[3];
+      double input[3], output[3];
+
+      /* Get the data */
+      for (color = 0; color < 3; color++) {
+	valp[color] = &image->data[image->row_stride*row + image->channels*col + color];
+	input[color] = (*valp[color] - black_level[color])/max_raw[color];
+      }
+
+      /* Do color conversion */
+      x3f_3x3_3x1_mul(conv_matrix, input, output);
+
+      /* Write back the data, doing non linear coding */
+      for (color = 0; color < 3; color++)
+	*valp[color] = x3f_LUT_lookup(lut, LUTSIZE, output[color]);
+    }
+  }
+
+  return X3F_OK;
+}
+
+static x3f_return_t get_image(x3f_t *x3f,
+			      area_t *image,
+			      x3f_color_encoding_t encoding,
+			      int crop)
+{
+  area_t original_image;
+
+  if(!image_area(x3f, &original_image)) return X3F_ARGUMENT_ERROR;
+
+  if (encoding != NONE) {
+   x3f_return_t ret = convert_data(x3f, &original_image, encoding);
+   if (ret != X3F_OK) return ret;
+  }
+
+  if (!crop || !crop_area_camf(x3f, "ActiveImageArea", &original_image, image))
+    *image = original_image;
+
+  return X3F_OK;
+}
+
+/* extern */ x3f_return_t x3f_dump_raw_data(x3f_t *x3f,
+                                            char *outfilename)
+{
+  x3f_directory_entry_t *DE = x3f_get_raw(x3f);
+
+  if (DE == NULL) {
+    return X3F_ARGUMENT_ERROR;
+  } else {
+    x3f_directory_entry_header_t *DEH = &DE->header;
+    x3f_image_data_t *ID = &DEH->data_subsection.image_data;
+    void *data = ID->data;
+
+    if (data == NULL) {
+      return X3F_INTERNAL_ERROR;
+    } else {
+      FILE *f_out = fopen(outfilename, "wb");
+
+      if (f_out == NULL) {
+        return X3F_OUTFILE_ERROR;
+      } else {
+        fwrite(data, 1, DE->input.size, f_out);
+        fclose(f_out);
+      }
+    }
+  }
+
+  return X3F_OK;
+}
+
+/* Routines for writing big endian ppm data */
+
+static void write_16B(FILE *f_out, uint16_t val)
+{
+  fputc((val>>8) & 0xff, f_out);
+  fputc((val>>0) & 0xff, f_out);
+}
+
+/* extern */
+x3f_return_t x3f_dump_raw_data_as_ppm(x3f_t *x3f,
+				      char *outfilename,
+				      x3f_color_encoding_t encoding,
+				      int crop,
+				      int binary)
+{
+  x3f_return_t ret;
+  area_t image;
+  FILE *f_out = fopen(outfilename, "wb");
+  int row;
+
+  if (f_out == NULL) return X3F_OUTFILE_ERROR;
+
+  ret = get_image(x3f, &image, encoding, crop);
+  if (ret != X3F_OK) {
+    fclose(f_out);
+    return ret;
+  }
+  if (image.channels < 3) {
+    fclose(f_out);
+    return X3F_ARGUMENT_ERROR;
+  }
+
+  if (binary)
+    fprintf(f_out, "P6\n%d %d\n65535\n", image.columns, image.rows);
+  else
+    fprintf(f_out, "P3\n%d %d\n65535\n", image.columns, image.rows);
+
+  for (row=0; row < image.rows; row++) {
+    int col;
+
+    for (col=0; col < image.columns; col++) {
+      int color;
+
+      for (color=0; color < 3; color++) {
+	uint16_t val = image.data[image.row_stride*row + image.channels*col + color];
+	if (binary)
+	  write_16B(f_out, val);
+	else
+	  fprintf(f_out, "%d ", val);
+      }
+      if (!binary)
+	fprintf(f_out, "\n");
+    }
+  }
+
+  fclose(f_out);
+
+  return X3F_OK;
+}
+
+/* extern */
+x3f_return_t x3f_dump_raw_data_as_tiff(x3f_t *x3f,
+				       char *outfilename,
+				       x3f_color_encoding_t encoding,
+				       int crop)
+{
+  x3f_return_t ret;
+  area_t image;
+  TIFF *f_out = TIFFOpen(outfilename, "w");
+  int row;
+
+  if (f_out == NULL) return X3F_OUTFILE_ERROR;
+
+  ret = get_image(x3f, &image, encoding, crop);
+  if (ret != X3F_OK) {
+    TIFFClose(f_out);
+    return ret;
+  }
+
+  TIFFSetField(f_out, TIFFTAG_IMAGEWIDTH, image.columns);
+  TIFFSetField(f_out, TIFFTAG_IMAGELENGTH, image.rows);
+  TIFFSetField(f_out, TIFFTAG_ROWSPERSTRIP, 32);
+  TIFFSetField(f_out, TIFFTAG_SAMPLESPERPIXEL, image.channels);
+  TIFFSetField(f_out, TIFFTAG_BITSPERSAMPLE, 16);
+  TIFFSetField(f_out, TIFFTAG_PLANARCONFIG, PLANARCONFIG_CONTIG);
+  TIFFSetField(f_out, TIFFTAG_COMPRESSION, COMPRESSION_NONE);
+  TIFFSetField(f_out, TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_RGB);
+  TIFFSetField(f_out, TIFFTAG_ORIENTATION, ORIENTATION_TOPLEFT);
+  TIFFSetField(f_out, TIFFTAG_XRESOLUTION, 72.0);
+  TIFFSetField(f_out, TIFFTAG_YRESOLUTION, 72.0);
+  TIFFSetField(f_out, TIFFTAG_RESOLUTIONUNIT, RESUNIT_INCH);
+
+  for (row=0; row < image.rows; row++)
+    TIFFWriteScanline(f_out, image.data + image.row_stride*row, row, 0);
+
+  TIFFWriteDirectory(f_out);
+  TIFFClose(f_out);
+
+  return X3F_OK;
+}
+
+static void vec_double_to_float(double *a, float *b, int len)
+{
+  int i;
+
+  for (i=0; i<len; i++)
+    b[i] = a[i];
+}
+
+static int write_camera_profile_for_wb(x3f_t *x3f, TIFF *tiff, char *wb)
+{
+  double raw_to_xyz[9], xyz_to_raw[9];
+  float color_matrix1[9];
+
+  if (!get_raw_to_xyz_for_wb(x3f, wb, raw_to_xyz)) return 0;
+  x3f_3x3_inverse(raw_to_xyz, xyz_to_raw);
+
+  printf("xyz_to_raw\n");
+  x3f_3x3_print(xyz_to_raw);
+
+  vec_double_to_float(xyz_to_raw, color_matrix1, 9);
+  TIFFSetField(tiff, TIFFTAG_COLORMATRIX1, 9, color_matrix1);
+  TIFFSetField(tiff, TIFFTAG_PROFILENAME, wb);
+
+  return 1;
+}
+
+static x3f_return_t write_camera_profiles(x3f_t *x3f, TIFF *tiff)
+{
+  char **profile_names, **profile_values;
+  uint32_t *profile_offsets, profile_num, profile_num_out, profile;
+  FILE *tiff_file;
+
+  if (!get_camf_property_list(x3f, "WhiteBalanceColorCorrections",
+			      &profile_names, &profile_values, &profile_num) &&
+      !get_camf_property_list(x3f, "DP1_WhiteBalanceColorCorrections",
+			      &profile_names, &profile_values, &profile_num) &&
+      !get_camf_property_list(x3f, "WhiteBalanceIlluminants",
+			      &profile_names, &profile_values, &profile_num))
+    return X3F_ARGUMENT_ERROR;
+  profile_offsets = alloca(profile_num*sizeof(uint32_t));
+
+  TIFFFlush(tiff);
+  TIFFSetWriteOffset(tiff, 0);	/* Tell libtiff to do the next write at EOF */
+  
+  tiff_file = fdopen(dup(TIFFFileno(tiff)), "w+");
+  if (!tiff_file) return X3F_OUTFILE_ERROR;
+	
+  for (profile=0,profile_num_out=0; profile < profile_num; profile++) {
+    FILE *tmp;
+    TIFF *tmp_tiff;
+#define BUFSIZE 1024
+    char buf[BUFSIZE];
+    int offset, count;
+
+    if (!strcmp(profile_names[profile], get_wb(x3f)))
+      continue;     /* The default profile should only be in IFD 0 */
+
+    if (!(tmp = tmpfile())) {
+      fclose(tiff_file);
+      return X3F_OUTFILE_ERROR;
+    }
+    if (!(tmp_tiff = TIFFFdOpen(dup(fileno(tmp)), "", "wb"))) { /* Big endian */
+      fclose(tmp);
+      fclose(tiff_file);
+      return X3F_OUTFILE_ERROR;
+    }
+    if (!write_camera_profile_for_wb(x3f, tmp_tiff, profile_names[profile])) {
+      fprintf(stderr,
+	      "WARNING: failed to generate camera profile: %s, skipping\n",
+	      profile_names[profile]);
+      TIFFClose(tmp_tiff);
+      fclose(tmp);
+      continue;
+    }
+    TIFFWriteDirectory(tmp_tiff);
+    TIFFClose(tmp_tiff);
+    
+    fseek(tiff_file, 0, SEEK_END);
+    offset = (ftell(tiff_file)+1) & ~1; /* 2-byte alignment */
+    fseek(tiff_file, offset, SEEK_SET);
+    profile_offsets[profile_num_out++] = offset;
+
+    fputs("MMCR", tiff_file);	/* DNG camera profile magic in big endian */
+    fseek(tmp, 4, SEEK_SET);	/* Skip over the standard TIFF magic */
+
+    while((count = fread(buf, 1, BUFSIZE, tmp)))
+      fwrite(buf, 1, count, tiff_file);
+
+    fclose(tmp);
+  }
+  
+  fclose(tiff_file);
+  if (profile_num_out > 0)
+    TIFFSetField(tiff, TIFFTAG_EXTRACAMERAPROFILES, 
+		 profile_num_out, profile_offsets);
+  return X3F_OK;
+}
+
+static int get_camf_rect_as_dngrect(x3f_t *x3f, char *name, uint32_t *rect)
+{
+  uint32_t camf_rect[4];
+
+  if (!get_camf_rect(x3f, name, camf_rect))
+    return 0;
+  
+  /* Translate from Sigma's to Adobe's view on rectangles */
+  rect[0] = camf_rect[1];
+  rect[1] = camf_rect[0];
+  rect[2] = camf_rect[3] + 1;
+  rect[3] = camf_rect[2] + 1;
+
+  return 1;
+}
+
 static int write_spatial_gain(x3f_t *x3f, TIFF *tiff)
 {
   spatial_gain_corr_t corr[MAXCORR];
-  int corr_num = 0;
+  int corr_num;
   uint32_t active_area[4], keep_area[4];
   double originv, originh, scalev, scaleh;
 
@@ -3926,10 +3940,7 @@ static int write_spatial_gain(x3f_t *x3f, TIFF *tiff)
   scaleh =
     (double)(keep_area[3] - keep_area[1])/(active_area[3] - active_area[1]);
 
-  corr_num += get_interp_merrill_type_spatial_gain(x3f, 0, &corr[corr_num]);
-  if (corr_num == 0)
-    corr_num += get_classic_spatial_gain(x3f, &corr[corr_num]);
-
+  corr_num = get_spatial_gain(x3f, corr);
   if (corr_num == 0) return 0;
   
   for (i=0; i<corr_num; i++) {
