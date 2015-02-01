@@ -3489,7 +3489,7 @@ static int get_interp_merrill_type_spatial_gain(x3f_t *x3f, int hp_flag,
 
   for (i=0; i<corr_num; i++) {
     spatial_gain_corr_t *c = &corr[i];
-    int j, num = c->rows*c->cols;
+    int j, num = c->rows*c->cols*c->channels;
     
     c->gain = malloc(num*sizeof(double));
     c->malloc = 1;
@@ -3542,6 +3542,64 @@ static int get_spatial_gain(x3f_t *x3f, spatial_gain_corr_t *corr)
   return corr_num;
 }
 
+static double calc_spatial_gain(spatial_gain_corr_t *corr, int corr_num,
+				int row, int col, int chan, int rows, int cols)
+{
+  double gain = 1.0;
+  double rrel = (double)row/rows;
+  double crel = (double)col/cols;
+  int i;
+
+  for (i=0; i<corr_num; i++) {
+    spatial_gain_corr_t *c = &corr[i];
+    double rc, cc;
+    int ri, ci;
+    double rf, cf;
+    double *r1, *r2;
+    int co1, co2;
+    double gr1, gr2;
+    int ch = chan - c->chan;
+
+    if (ch < 0 || ch >= c->channels) continue;
+
+    if (row%c->rowpitch != c->rowoff) continue;
+    if (col%c->colpitch != c->coloff) continue;
+
+    rc = rrel*(c->rows-1);
+    ri = (int)floor(rc);
+    rf = rc - ri;
+
+    cc = crel*(c->cols-1);
+    ci = (int)floor(cc);
+    cf = cc - ci;
+
+    if (ri < 0)
+      r1 = r2 = &c->gain[0];
+    else if (ri >= c->rows-1)
+      r1 = r2 = &c->gain[(c->rows-1)*c->cols*c->channels];
+    else {
+      r1 = &c->gain[ri*c->cols*c->channels];
+      r2 = &c->gain[(ri+1)*c->cols*c->channels];
+    }
+
+    if (ci < 0)
+      co1 = co2 = ch;
+    if (ci >= c->cols-1)
+      co1 = co2 = (c->cols-1)*c->channels + ch;
+    else {
+      co1 = ci*c->channels + ch;
+      co2 = (ci+1)*c->channels + ch;
+    }
+
+    gr1 = r1[co1] + cf*(r1[co2]-r1[co1]);
+    gr2 = r2[co1] + cf*(r2[co2]-r2[co1]);
+ 
+    gain *= gr1 + rf*(gr2-gr1);
+  }
+  
+  return gain;
+}
+
 /* Converts the data in place */
 
 #define LUTSIZE 1024
@@ -3561,6 +3619,8 @@ static x3f_return_t convert_data(x3f_t *x3f,
   double sensor_iso, capture_iso, iso_scaling;
   double black_level[3];
   double lut[LUTSIZE];
+  spatial_gain_corr_t sgain[MAXCORR];
+  int sgain_num;
 
   if (image->channels < 3) return X3F_ARGUMENT_ERROR;
 
@@ -3626,6 +3686,10 @@ static x3f_return_t convert_data(x3f_t *x3f,
   printf("conv_matrix\n");
   x3f_3x3_print(conv_matrix);
 
+  sgain_num = get_spatial_gain(x3f, sgain);
+  if (sgain_num == 0)
+    fprintf(stderr, "WARNING: could not get spatial gain\n");
+
   for (row = 0; row < image->rows; row++) {
     for (col = 0; col < image->columns; col++) {
       uint16_t *valp[3];
@@ -3633,8 +3697,12 @@ static x3f_return_t convert_data(x3f_t *x3f,
 
       /* Get the data */
       for (color = 0; color < 3; color++) {
-	valp[color] = &image->data[image->row_stride*row + image->channels*col + color];
-	input[color] = (*valp[color] - black_level[color])/max_raw[color];
+	valp[color] = 
+	  &image->data[image->row_stride*row + image->channels*col + color];
+	input[color] = calc_spatial_gain(sgain, sgain_num,
+					 row, col, color,
+					 image->rows, image->columns) *
+	  (*valp[color] - black_level[color])/max_raw[color];
       }
 
       /* Do color conversion */
