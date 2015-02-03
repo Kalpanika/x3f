@@ -3899,6 +3899,8 @@ static int write_camera_profile_for_wb(x3f_t *x3f, TIFF *tiff, char *wb)
   vec_double_to_float(xyz_to_raw, color_matrix1, 9);
   TIFFSetField(tiff, TIFFTAG_COLORMATRIX1, 9, color_matrix1);
   TIFFSetField(tiff, TIFFTAG_PROFILENAME, wb);
+  /* Tell the raw converter to refrian from clipping the dark areas */
+  TIFFSetField(tiff, TIFFTAG_DEFAULTBLACKRENDER, 1);
 
   return 1;
 }

@@ -26,6 +26,8 @@ static void tag_extender(TIFF *tiff)
      "OpcodeList2"},
     {TIFFTAG_OPCODELIST3, -1, -1, TIFF_UNDEFINED, FIELD_CUSTOM, 1, 1,
      "OpcodeList3"},
+    {TIFFTAG_DEFAULTBLACKRENDER, 1, 1, TIFF_LONG, FIELD_CUSTOM, 1, 0,
+     "DefaultBlackRender"},
   };
 
   TIFFMergeFieldInfo(tiff, tags, sizeof(tags)/sizeof(tags[0]));
