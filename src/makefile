@@ -32,22 +32,22 @@ endif
 ifeq (windows, $(SYS))
   EXE = .exe
   CFBASE = -g -O3 -Wall
-  LDFLAGS = -lm -ltiff
+  LDFLAGS = -lm
 else
 ifeq (linux, $(SYS))
   EXE =
   CFBASE = -g -O3 -Wall
-  LDFLAGS = -lm -ltiff
+  LDFLAGS = -lm
 else
 ifeq (osx, $(SYS))
   EXE =
   ARCH = -arch i386 -arch x86_64
   CFBASE = -g -O3 -Wall $(ARCH)
-  LDFLAGS = -lm -ltiff $(ARCH)
+  LDFLAGS = -lm $(ARCH)
 else
   EXE =
   CFBASE = -g -O3 -Wall
-  LDFLAGS = -lm -ltiff
+  LDFLAGS = -lm
 endif
 endif
 endif
@@ -64,10 +64,10 @@ BINDIR = ../bin/$(SYS)
 all: $(BINDIR)/x3f_extract$(EXE) $(BINDIR)/x3f_io_test$(EXE) $(BINDIR)/x3f_matrix_test$(EXE)
 
 $(BINDIR)/x3f_extract$(EXE): $(BINDIR)/x3f_extract.o $(BINDIR)/x3f_io.o $(BINDIR)/x3f_matrix.o $(BINDIR)/x3f_dngtags.o $(BINDIR)/x3f_denoise.o $(BINDIR)/NLMeansDenoise.o $(BINDIR)/NLMDenoisingClustering.o
-	g++ $^ -o $@ $(LDFLAGS)
+	g++ $^ -o $@ $(LDFLAGS) -ltiff -ltbb
 
 $(BINDIR)/x3f_io_test$(EXE): $(BINDIR)/x3f_io_test.o $(BINDIR)/x3f_io.o $(BINDIR)/x3f_matrix.o $(BINDIR)/x3f_dngtags.o $(BINDIR)/x3f_denoise.o $(BINDIR)/NLMeansDenoise.o $(BINDIR)/NLMDenoisingClustering.o
-	g++ $^ -o $@ $(LDFLAGS)
+	g++ $^ -o $@ $(LDFLAGS) -ltiff -ltbb
 
 $(BINDIR)/x3f_extract.o: x3f_extract.c x3f_io.h $(BINDIR)/.dummy
 	gcc $(CFLAGS) $< -c -o $@
