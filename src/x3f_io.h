@@ -19,6 +19,10 @@
 #include <inttypes.h>
 #include <stdio.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define SIZE_UNIQUE_IDENTIFIER 16
 #define SIZE_WHITE_BALANCE 32
 #define NUM_EXT_DATA 32
@@ -402,6 +406,15 @@ typedef enum x3f_return_e {
   X3F_INTERNAL_ERROR=4
 } x3f_return_t;
 
+typedef struct
+{
+  uint16_t *data;
+  uint32_t rows;
+  uint32_t columns;
+  uint32_t channels; /* TODO: in practice not used. Has to be >= 3. */
+  uint32_t row_stride;
+} x3f_area_t;
+
 extern int legacy_offset;
 extern bool_t auto_legacy_offset;
 
@@ -434,13 +447,16 @@ extern x3f_return_t x3f_dump_raw_data(x3f_t *x3f, char *outfilename);
 extern x3f_return_t x3f_dump_raw_data_as_ppm(x3f_t *x3f, char *outfilename,
                                              x3f_color_encoding_t encoding,
 					     int crop,
+					     int denoise,
                                              int binary);
 
 extern x3f_return_t x3f_dump_raw_data_as_tiff(x3f_t *x3f, char *outfilename,
 					      x3f_color_encoding_t encoding,
-					      int crop);
+					      int crop,
+					      int denoise);
 
-extern x3f_return_t x3f_dump_raw_data_as_dng(x3f_t *x3f, char *outfilename);
+extern x3f_return_t x3f_dump_raw_data_as_dng(x3f_t *x3f, char *outfilename,
+					     int denoise);
 
 extern x3f_return_t x3f_dump_raw_data_as_histogram(x3f_t *x3f,
                                                    char *outfilename,
@@ -453,5 +469,9 @@ extern x3f_return_t x3f_dump_jpeg(x3f_t *x3f, char *outfilename);
 extern x3f_return_t x3f_dump_meta_data(x3f_t *x3f, char *outfilename);
 
 extern char *x3f_err(x3f_return_t err);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* X3F_IO_H */

@@ -28,6 +28,7 @@ static void usage(char *progname)
 	  "   -color <COLOR>  Convert to RGB color\n"
 	  "                   (sRGB, AdobeRGB, ProPhotoRGB)\n"
           "   -crop           Crop to active image\n"
+          "   -denoise        Denoise RAW data before futher processing \n"
 	  "\n"
 	  "STRANGE STUFF\n"
           "   -offset <OFF>   Offset for SD14 and older\n"
@@ -43,6 +44,7 @@ int main(int argc, char *argv[])
   int extract_meta = 0;
   int extract_raw = 1;
   int crop = 0;
+  int denoise = 0;
   raw_file_type_t file_type = TIFF;
   x3f_color_encoding_t color_encoding = NONE;
   int files = 0;
@@ -86,10 +88,12 @@ int main(int argc, char *argv[])
 	usage(argv[0]);
       }
     }
-
-  /* Strange Stuff */
     else if (!strcmp(argv[i], "-crop"))
       crop = 1;
+    else if (!strcmp(argv[i], "-denoise"))
+      denoise = 1;
+
+  /* Strange Stuff */
     else if ((!strcmp(argv[i], "-offset")) && (i+1)<argc)
       legacy_offset = atoi(argv[++i]), auto_legacy_offset = 0;
     else if ((!strcmp(argv[i], "-matrixmax")) && (i+1)<argc)
@@ -183,19 +187,19 @@ int main(int argc, char *argv[])
 	strcat(outfilename, ".tif");
 	printf("Dump RAW as TIFF to %s\n", outfilename);
 	ret_dump = x3f_dump_raw_data_as_tiff(x3f, outfilename,
-					     color_encoding, crop);
+					     color_encoding, crop, denoise);
 	break;
       case DNG:
 	strcat(outfilename, ".dng");
 	printf("Dump RAW as DNG to %s\n", outfilename);
-	ret_dump = x3f_dump_raw_data_as_dng(x3f, outfilename);
+	ret_dump = x3f_dump_raw_data_as_dng(x3f, outfilename, denoise);
 	break;
       case PPMP3:
       case PPMP6:
 	strcat(outfilename, ".ppm");
 	printf("Dump RAW as PPM to %s\n", outfilename);
 	ret_dump = x3f_dump_raw_data_as_ppm(x3f, outfilename,
-					    color_encoding, crop,
+					    color_encoding, crop, denoise,
                                             file_type == PPMP6);
 	break;
       case HISTOGRAM:

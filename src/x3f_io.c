@@ -8,6 +8,7 @@
 #include "x3f_io.h"
 #include "x3f_matrix.h"
 #include "x3f_dngtags.h"
+#include "x3f_denoise.h"
 
 #include <string.h>
 #include <stdlib.h>
@@ -2909,16 +2910,7 @@ static int get_max_raw(x3f_t *x3f, uint32_t *max_raw)
 				  (int32_t *)max_raw);
 }
 
-typedef struct
-{
-  uint16_t *data;
-  uint32_t rows;
-  uint32_t columns;
-  uint32_t channels; /* TODO: in practice not used. Has to be >= 3. */
-  uint32_t row_stride;
-} area_t;
-
-static int image_area(x3f_t *x3f, area_t *image)
+static int image_area(x3f_t *x3f, x3f_area_t *image)
 {
   x3f_directory_entry_t *DE = x3f_get_raw(x3f);
   x3f_directory_entry_header_t *DEH;
@@ -2951,7 +2943,7 @@ static int image_area(x3f_t *x3f, area_t *image)
   return 1;
 }
 
-static int crop_area(uint32_t *coord, area_t *image, area_t *crop)
+static int crop_area(uint32_t *coord, x3f_area_t *image, x3f_area_t *crop)
 {
   if (coord[0] > coord[2] || coord[1] > coord[3]) return 0;
   if (coord[2] >= image->columns || coord[3] >= image->rows) return 0;
@@ -3000,7 +2992,8 @@ static int get_camf_rect(x3f_t *x3f, char *name, uint32_t *rect)
  return 1;
 }
 
-static int crop_area_camf(x3f_t *x3f, char *name, area_t *image, area_t *crop)
+static int crop_area_camf(x3f_t *x3f, char *name,
+			  x3f_area_t *image, x3f_area_t *crop)
 {
   uint32_t coord[4];
 
@@ -3018,7 +3011,7 @@ static int crop_area_camf(x3f_t *x3f, char *name, area_t *image, area_t *crop)
 
 static int sum_area(x3f_t *x3f, char *name, uint64_t *sum /* in/out */)
 {
-  area_t image, area;
+  x3f_area_t image, area;
   int row, col, color;
 
   if (!image_area(x3f, &image) || image.channels < 3) return 0;
@@ -3613,7 +3606,7 @@ static double calc_spatial_gain(spatial_gain_corr_t *corr, int corr_num,
 #define LUTSIZE 1024
 
 static x3f_return_t convert_data(x3f_t *x3f,
-				 area_t *image,
+				 x3f_area_t *image,
 				 x3f_color_encoding_t encoding)
 {
   int row, col, color;
@@ -3728,20 +3721,30 @@ static x3f_return_t convert_data(x3f_t *x3f,
 }
 
 static x3f_return_t get_image(x3f_t *x3f,
-			      area_t *image,
+			      x3f_area_t *image,
 			      x3f_color_encoding_t encoding,
-			      int crop)
+			      int crop,
+			      int denoise)
 {
-  area_t original_image;
+  x3f_area_t original_image, active_area;
 
-  if(!image_area(x3f, &original_image)) return X3F_ARGUMENT_ERROR;
+  if (!image_area(x3f, &original_image)) return X3F_ARGUMENT_ERROR;
 
-  if (encoding != NONE) {
-   x3f_return_t ret = convert_data(x3f, &original_image, encoding);
-   if (ret != X3F_OK) return ret;
+  if (!crop_area_camf(x3f, "ActiveImageArea", &original_image, &active_area)) {
+    active_area = original_image;
+    fprintf(stderr, "WARNING: could not get active area, using entire image\n");
   }
 
-  if (!crop || !crop_area_camf(x3f, "ActiveImageArea", &original_image, image))
+  if (denoise)
+    x3f_denoise(&active_area);
+  if (encoding != NONE) {
+    x3f_return_t ret = convert_data(x3f, &original_image, encoding);
+    if (ret != X3F_OK) return ret;
+  }
+
+  if (crop)
+    *image = active_area;
+  else
     *image = original_image;
 
   return X3F_OK;
@@ -3789,16 +3792,17 @@ x3f_return_t x3f_dump_raw_data_as_ppm(x3f_t *x3f,
 				      char *outfilename,
 				      x3f_color_encoding_t encoding,
 				      int crop,
+				      int denoise,
 				      int binary)
 {
   x3f_return_t ret;
-  area_t image;
+  x3f_area_t image;
   FILE *f_out = fopen(outfilename, "wb");
   int row;
 
   if (f_out == NULL) return X3F_OUTFILE_ERROR;
 
-  ret = get_image(x3f, &image, encoding, crop);
+  ret = get_image(x3f, &image, encoding, crop, denoise);
   if (ret != X3F_OK) {
     fclose(f_out);
     return ret;
@@ -3840,16 +3844,17 @@ x3f_return_t x3f_dump_raw_data_as_ppm(x3f_t *x3f,
 x3f_return_t x3f_dump_raw_data_as_tiff(x3f_t *x3f,
 				       char *outfilename,
 				       x3f_color_encoding_t encoding,
-				       int crop)
+				       int crop,
+				       int denoise)
 {
   x3f_return_t ret;
-  area_t image;
+  x3f_area_t image;
   TIFF *f_out = TIFFOpen(outfilename, "w");
   int row;
 
   if (f_out == NULL) return X3F_OUTFILE_ERROR;
 
-  ret = get_image(x3f, &image, encoding, crop);
+  ret = get_image(x3f, &image, encoding, crop, denoise);
   if (ret != X3F_OK) {
     TIFFClose(f_out);
     return ret;
@@ -4074,7 +4079,9 @@ static int write_spatial_gain(x3f_t *x3f, TIFF *tiff)
 }
 
 /* extern */
-x3f_return_t x3f_dump_raw_data_as_dng(x3f_t *x3f, char *outfilename)
+x3f_return_t x3f_dump_raw_data_as_dng(x3f_t *x3f,
+				      char *outfilename,
+				      int denoise)
 {
   x3f_return_t ret;
   TIFF *f_out;
@@ -4092,7 +4099,7 @@ x3f_return_t x3f_dump_raw_data_as_dng(x3f_t *x3f, char *outfilename)
   uint32_t white_level[3];
   uint32_t active_area[4], masked_areas[8];
   int masked_areas_num = 0;
-  area_t image;
+  x3f_area_t image;
   int row;
 
   x3f_dngtags_install_extender();
@@ -4144,6 +4151,18 @@ x3f_return_t x3f_dump_raw_data_as_dng(x3f_t *x3f, char *outfilename)
   if (!image_area(x3f, &image) || image.channels != 3) {
     TIFFClose(f_out);
     return X3F_ARGUMENT_ERROR;
+  }
+
+  if (denoise) {
+    x3f_area_t active_area;
+
+    if (crop_area_camf(x3f, "ActiveImageArea", &image, &active_area)) 
+      x3f_denoise(&active_area);
+    else {
+      fprintf(stderr,
+	      "WARNING: could not get active area, using entire image\n");
+      x3f_denoise(&image);
+    }
   }
 
   TIFFSetField(f_out, TIFFTAG_SUBFILETYPE, 0);
@@ -4220,7 +4239,7 @@ x3f_return_t x3f_dump_raw_data_as_histogram(x3f_t *x3f,
 					    int log_hist)
 {
   x3f_return_t ret;
-  area_t image;
+  x3f_area_t image;
   FILE *f_out = fopen(outfilename, "wb");
   uint32_t *histogram[3];
   int color, i;
@@ -4229,7 +4248,7 @@ x3f_return_t x3f_dump_raw_data_as_histogram(x3f_t *x3f,
 
   if (f_out == NULL) return X3F_OUTFILE_ERROR;
 
-  ret = get_image(x3f, &image, encoding, crop);
+  ret = get_image(x3f, &image, encoding, crop, 0);
   if (ret != X3F_OK) {
     fclose(f_out);
     return ret;
