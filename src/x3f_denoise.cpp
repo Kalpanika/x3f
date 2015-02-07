@@ -25,7 +25,7 @@ void x3f_denoise(x3f_area_t *image)
     cout << "Denoising channel: " << ch << endl;
     NonLocalMeansDenoisingByHashPatch(in, out, NULL,
 				      image->columns, image->rows,
-				      5, 3);
+				      3, 2, 0.75);
 
     for (row=0; row < image->rows; row++)
       for (col=0; col < image->columns; col++)
