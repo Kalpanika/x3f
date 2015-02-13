@@ -1,38 +1,23 @@
 #include <iostream>
 #include <inttypes.h>
 
-using namespace std;
+#include <opencv2/core.hpp>
+#include <opencv2/photo.hpp>
 
 #include "x3f_denoise.h"
 #include "x3f_io.h"
 
-#include "NLMeansDenoise.h"
+using namespace cv;
 
 void x3f_denoise(x3f_area_t *image)
 {
-  uint16_t *in = new uint16_t[image->columns*image->rows];
-  uint16_t *out = new uint16_t[image->columns*image->rows];
-  uint32_t ch;
+  Mat in(image->rows, image->columns, CV_16UC3,
+	 image->data, 2*image->row_stride);
+  Mat out;
 
-  for (ch=0; ch < image->channels; ch++) {
-    uint32_t row, col;
-
-    for (row=0; row < image->rows; row++)
-      for (col=0; col < image->columns; col++)
-	in[row*image->columns + col] =
-	  image->data[row*image->row_stride + col*image->channels + ch];
-
-    cout << "Denoising channel: " << ch << endl;
-    NonLocalMeansDenoisingByHashPatch(in, out, NULL,
-				      image->columns, image->rows,
-				      3, 2, 0.75);
-
-    for (row=0; row < image->rows; row++)
-      for (col=0; col < image->columns; col++)
-	  image->data[row*image->row_stride + col*image->channels + ch] =
-	    out[row*image->columns + col];
-  }
-
-  delete[] in;
-  delete[] out;
+  std::cout << "BEGIN denoising\n";
+  fastNlMeansDenoising(in, out, 5.0, 7, 21);
+  std::cout << "END denoising\n";
+    
+  out.copyTo(in);
 }

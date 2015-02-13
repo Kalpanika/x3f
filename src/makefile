@@ -31,30 +31,31 @@ endif
 
 ifeq (windows, $(SYS))
   EXE = .exe
-  CFBASE = -g -O3 -Wall
-  LDFLAGS = -lm
+  CFBASE =
+  LDBASE =
 else
 ifeq (linux, $(SYS))
   EXE =
-  CFBASE = -g -O3 -Wall
-  LDFLAGS = -lm
+  CFBASE =
+  LDBASE =
 else
 ifeq (osx, $(SYS))
   EXE =
   ARCH = -arch i386 -arch x86_64
   CFBASE = -g -O3 -Wall $(ARCH)
-  LDFLAGS = -lm $(ARCH)
+  LDBASE = $(ARCH)
 else
   EXE =
-  CFBASE = -g -O3 -Wall
-  LDFLAGS = -lm
+  CFBASE =
+  LDBASE =
 endif
 endif
 endif
 
-KMEANSNLM=../../KMeansNLM/KMeansNLM
+OPENCV=../../opencv_install
 
-CFLAGS = $(CFBASE) -I$(KMEANSNLM) $(C)
+CFLAGS = $(CFBASE) -I$(OPENCV)/include -g -O3 -Wall $(C)
+LDFLAGS = $(LDBASE) -L$(OPENCV)/lib $(L)
 
 BINDIR = ../bin/$(SYS)
 
@@ -63,11 +64,11 @@ BINDIR = ../bin/$(SYS)
 
 all: $(BINDIR)/x3f_extract$(EXE) $(BINDIR)/x3f_io_test$(EXE) $(BINDIR)/x3f_matrix_test$(EXE)
 
-$(BINDIR)/x3f_extract$(EXE): $(BINDIR)/x3f_extract.o $(BINDIR)/x3f_io.o $(BINDIR)/x3f_matrix.o $(BINDIR)/x3f_dngtags.o $(BINDIR)/x3f_denoise.o $(BINDIR)/NLMeansDenoise.o $(BINDIR)/NLMDenoisingClustering.o
-	g++ $^ -o $@ $(LDFLAGS) -ltiff -ltbb
+$(BINDIR)/x3f_extract$(EXE): $(BINDIR)/x3f_extract.o $(BINDIR)/x3f_io.o $(BINDIR)/x3f_matrix.o $(BINDIR)/x3f_dngtags.o $(BINDIR)/x3f_denoise.o
+	g++ $^ -o $@ $(LDFLAGS) -lm -ltiff -lopencv_core -lopencv_photo
 
-$(BINDIR)/x3f_io_test$(EXE): $(BINDIR)/x3f_io_test.o $(BINDIR)/x3f_io.o $(BINDIR)/x3f_matrix.o $(BINDIR)/x3f_dngtags.o $(BINDIR)/x3f_denoise.o $(BINDIR)/NLMeansDenoise.o $(BINDIR)/NLMDenoisingClustering.o
-	g++ $^ -o $@ $(LDFLAGS) -ltiff -ltbb
+$(BINDIR)/x3f_io_test$(EXE): $(BINDIR)/x3f_io_test.o $(BINDIR)/x3f_io.o $(BINDIR)/x3f_matrix.o $(BINDIR)/x3f_dngtags.o $(BINDIR)/x3f_denoise.o
+	g++ $^ -o $@ $(LDFLAGS) -lm -ltiff -lopencv_core -lopencv_photo
 
 $(BINDIR)/x3f_extract.o: x3f_extract.c x3f_io.h $(BINDIR)/.dummy
 	gcc $(CFLAGS) $< -c -o $@
@@ -84,20 +85,14 @@ $(BINDIR)/x3f_matrix.o: x3f_matrix.c x3f_matrix.h $(BINDIR)/.dummy
 $(BINDIR)/x3f_dngtags.o: x3f_dngtags.c x3f_dngtags.h $(BINDIR)/.dummy
 	gcc $(CFLAGS) $< -c -o $@
 
-$(BINDIR)/x3f_denoise.o: x3f_denoise.cpp x3f_denoise.h $(KMEANSNLM)/NLMeansDenoise.h $(BINDIR)/.dummy
+$(BINDIR)/x3f_denoise.o: x3f_denoise.cpp x3f_denoise.h
 	g++ $(CFLAGS) $< -c -o $@
 
 $(BINDIR)/x3f_matrix_test.o: x3f_matrix_test.c x3f_matrix.h $(BINDIR)/.dummy
 	gcc $(CFLAGS) $< -c -o $@
 
 $(BINDIR)/x3f_matrix_test$(EXE): $(BINDIR)/x3f_matrix_test.o $(BINDIR)/x3f_matrix.o
-	gcc $^ -o $@ $(LDFLAGS)
-
-$(BINDIR)/NLMeansDenoise.o: $(KMEANSNLM)/NLMeansDenoise.cpp $(KMEANSNLM)/NLMeansDenoise.h $(KMEANSNLM)/NLMDenoisingClustering.h $(KMEANSNLM)/ParallelIncludes.h $(KMEANSNLM)/IntegralImagePatch.h $(KMEANSNLM)/ParallelImagePatch.h $(KMEANSNLM)/ImagePatch.h $(BINDIR)/.dummy
-	g++ $(CFLAGS) $< -c -o $@
-
-$(BINDIR)/NLMDenoisingClustering.o: $(KMEANSNLM)/NLMDenoisingClustering.cpp $(KMEANSNLM)/NLMDenoisingClustering.h $(KMEANSNLM)/IntegralImagePatch.h $(KMEANSNLM)/ImagePatch.h $(BINDIR)/.dummy
-	g++ $(CFLAGS) $< -c -o $@
+	gcc $^ -o $@ $(LDFLAGS) -lm
 
 # This does not work perfect on Windows
 # The file x is newer than *.o files. Why?
