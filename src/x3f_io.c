@@ -3720,34 +3720,48 @@ static x3f_return_t convert_data(x3f_t *x3f,
   return X3F_OK;
 }
 
+static int run_denoising(x3f_t *x3f)
+{
+  x3f_area_t original_image, image;
+  double gain[3];
+
+  if (!image_area(x3f, &original_image)) return 0;
+  if (!crop_area_camf(x3f, "ActiveImageArea", &original_image, &image)) {
+    image = original_image;
+    fprintf(stderr,
+	    "WARNING: could not get active area, denoising entire image\n");
+  }
+
+  /* TODO: there is more than one WBGain, which one should be used? */
+  if (!get_camf_matrix_for_wb(x3f, "WhiteBalanceGains", get_wb(x3f),
+			      3, 0, gain)) {
+    gain[0] = gain[1] = gain[2] = 1.0;
+    fprintf(stderr,
+	    "WARNING: could not get gain for denoising, assuming {%g,%g,%g}\n",
+	    gain[0], gain[1], gain[2]);
+  }
+
+  x3f_denoise(&image, gain);
+  return 1;
+}
+
 static x3f_return_t get_image(x3f_t *x3f,
 			      x3f_area_t *image,
 			      x3f_color_encoding_t encoding,
 			      int crop,
 			      int denoise)
 {
-  x3f_area_t original_image, active_area;
+  x3f_area_t original_image;
+
+  if (denoise && !run_denoising(x3f)) return X3F_ARGUMENT_ERROR;
 
   if (!image_area(x3f, &original_image)) return X3F_ARGUMENT_ERROR;
-
-  if (!crop_area_camf(x3f, "ActiveImageArea", &original_image, &active_area)) {
-    active_area = original_image;
-    fprintf(stderr, "WARNING: could not get active area, using entire image\n");
-  }
-
-  if (denoise)
-    x3f_denoise(&active_area);
-  if (encoding != NONE) {
-    x3f_return_t ret = convert_data(x3f, &original_image, encoding);
-    if (ret != X3F_OK) return ret;
-  }
-
-  if (crop)
-    *image = active_area;
-  else
+  if (!crop || !crop_area_camf(x3f, "ActiveImageArea", &original_image, image))
     *image = original_image;
 
-  return X3F_OK;
+  if (encoding == NONE) return X3F_OK;
+
+  return convert_data(x3f, &original_image, encoding);
 }
 
 /* extern */ x3f_return_t x3f_dump_raw_data(x3f_t *x3f,
@@ -4148,21 +4162,11 @@ x3f_return_t x3f_dump_raw_data_as_dng(x3f_t *x3f,
 
   TIFFWriteDirectory(f_out);
 
+  if (denoise && !run_denoising(x3f)) return X3F_ARGUMENT_ERROR;
+
   if (!image_area(x3f, &image) || image.channels != 3) {
     TIFFClose(f_out);
     return X3F_ARGUMENT_ERROR;
-  }
-
-  if (denoise) {
-    x3f_area_t active_area;
-
-    if (crop_area_camf(x3f, "ActiveImageArea", &image, &active_area)) 
-      x3f_denoise(&active_area);
-    else {
-      fprintf(stderr,
-	      "WARNING: could not get active area, using entire image\n");
-      x3f_denoise(&image);
-    }
   }
 
   TIFFSetField(f_out, TIFFTAG_SUBFILETYPE, 0);

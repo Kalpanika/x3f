@@ -7,7 +7,7 @@
 extern "C" {
 #endif
 
-extern void x3f_denoise(x3f_area_t *image);
+extern void x3f_denoise(x3f_area_t *image, double *gain);
 
 #ifdef __cplusplus
 }

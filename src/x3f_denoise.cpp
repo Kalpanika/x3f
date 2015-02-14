@@ -9,12 +9,7 @@
 
 using namespace cv;
 
-// TODO: The scale factors are Merrill-specific and could cause
-//       clipping with Quattro.
-static const int32_t S_BMT[3] = {4, 2, 1};
-
 static const int32_t O_UV = 32768; // To avoid clipping negative values in U,V
-
 
 // Matrix used to convert BMT to YUV:
 //  1  1  1
@@ -23,15 +18,15 @@ static const int32_t O_UV = 32768; // To avoid clipping negative values in U,V
 
 // TODO: This code assumes that the actual bit depth in X3F is not
 //       more than 14, otherwise clipping would occur.
-static void raw_to_YUV(x3f_area_t *image)
+static void raw_to_YUV(x3f_area_t *image, double *scale)
 {
   for (uint32_t row=0; row < image->rows; row++)
     for (uint32_t col=0; col < image->columns; col++) {
       uint16_t *p = &image->data[row*image->row_stride + col*image->channels];
 
-      int32_t B = (int32_t)p[0]*S_BMT[0];
-      int32_t M = (int32_t)p[1]*S_BMT[1];
-      int32_t T = (int32_t)p[2]*S_BMT[2];
+      int32_t B = (int32_t)(p[0]*scale[0]);
+      int32_t M = (int32_t)(p[1]*scale[1]);
+      int32_t T = (int32_t)(p[2]*scale[2]);
 
       int32_t Y =   +B   +M   +T;
       int32_t U = +2*B      -2*T;
@@ -47,7 +42,7 @@ static void raw_to_YUV(x3f_area_t *image)
 //  1/3  1/4  1/6
 //  1/3  0   -1/3
 //  1/3 -1/4  1/6
-static void YUV_to_raw(x3f_area_t *image)
+static void YUV_to_raw(x3f_area_t *image, double *scale)
 {
   for (uint32_t row=0; row < image->rows; row++)
     for (uint32_t col=0; col < image->columns; col++) {
@@ -61,17 +56,22 @@ static void YUV_to_raw(x3f_area_t *image)
       int32_t M = ( +4*Y      -4*V ) / 12;
       int32_t T = ( +4*Y -3*U +2*V ) / 12;
 
-      p[0] = saturate_cast<uint16_t>(B/S_BMT[0]);
-      p[1] = saturate_cast<uint16_t>(M/S_BMT[1]);
-      p[2] = saturate_cast<uint16_t>(T/S_BMT[2]);
+      p[0] = saturate_cast<uint16_t>((int32_t)(B/scale[0]));
+      p[1] = saturate_cast<uint16_t>((int32_t)(M/scale[1]));
+      p[2] = saturate_cast<uint16_t>((int32_t)(T/scale[2]));
     }
 }
 
-void x3f_denoise(x3f_area_t *image)
+void x3f_denoise(x3f_area_t *image, double *gain)
 {
   assert(image->channels == 3);
 
-  raw_to_YUV(image);
+  // Avoid losing precision when 1.0 > WBGain >= 0.5
+  // TODO: This would cause clipping with Quattro.
+  static const int32_t S_BMT = 2;
+  double scale[3] = {S_BMT*gain[0], S_BMT*gain[1], S_BMT*gain[2]};
+
+  raw_to_YUV(image, scale);
 
   Mat in(image->rows, image->columns, CV_16UC3,
 	 image->data, 2*image->row_stride);
@@ -84,5 +84,5 @@ void x3f_denoise(x3f_area_t *image)
   int from_to[] = { 1,1, 2,2 };
   mixChannels(&out, 1, &in, 1, from_to, 2); // Discard denoised Y
 
-  YUV_to_raw(image);
+  YUV_to_raw(image, scale);
 }
