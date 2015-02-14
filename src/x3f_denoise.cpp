@@ -15,12 +15,13 @@ static const int32_t S_BMT[3] = {4, 2, 1};
 
 static const int32_t O_UV = 32768; // To avoid clipping negative values in U,V
 
+
 // Matrix used to convert BMT to YUV:
 //  1  1  1
 //  2  0 -2
 //  1 -2  1
 
-// TODO: This codes assumes that the actual bit depth in X3F is not
+// TODO: This code assumes that the actual bit depth in X3F is not
 //       more than 14, otherwise clipping would occur.
 static void raw_to_YUV(x3f_area_t *image)
 {
@@ -77,7 +78,7 @@ void x3f_denoise(x3f_area_t *image)
   Mat out;
 
   std::cout << "BEGIN denoising\n";
-  fastNlMeansDenoising(in, out, 30.0, 7, 21);
+  fastNlMeansDenoising(in, out, 100.0, 7, 21);
   std::cout << "END denoising\n";
 
   int from_to[] = { 1,1, 2,2 };
