@@ -12,7 +12,7 @@ using namespace cv;
 static const int32_t O_UV = 32768; // To avoid clipping negative values in U,V
 
 // Matrix used to convert BMT to YUV:
-//  1  1  1
+//  0  0  4
 //  2  0 -2
 //  1 -2  1
 
@@ -28,7 +28,7 @@ static void raw_to_YUV(x3f_area_t *image, double *scale)
       int32_t M = (int32_t)(p[1]*scale[1]);
       int32_t T = (int32_t)(p[2]*scale[2]);
 
-      int32_t Y =   +B   +M   +T;
+      int32_t Y =           +4*T;
       int32_t U = +2*B      -2*T;
       int32_t V =   +B -2*M   +T;
 
@@ -39,9 +39,9 @@ static void raw_to_YUV(x3f_area_t *image, double *scale)
 }
 
 // Matrix used to convert YUV to BMT:
-//  1/3  1/4  1/6
-//  1/3  0   -1/3
-//  1/3 -1/4  1/6
+//  1/4  1/2  0
+//  1/4  1/4 -1/2
+//  1/4  0    0
 static void YUV_to_raw(x3f_area_t *image, double *scale)
 {
   for (uint32_t row=0; row < image->rows; row++)
@@ -52,9 +52,9 @@ static void YUV_to_raw(x3f_area_t *image, double *scale)
       int32_t U = (int32_t)p[1] - O_UV;
       int32_t V = (int32_t)p[2] - O_UV;
 
-      int32_t B = ( +4*Y +3*U +2*V ) / 12;
-      int32_t M = ( +4*Y      -4*V ) / 12;
-      int32_t T = ( +4*Y -3*U +2*V ) / 12;
+      int32_t B = ( +Y +2*U      ) / 4;
+      int32_t M = ( +Y   +U -2*V ) / 4;
+      int32_t T = ( +Y           ) / 4;
 
       p[0] = saturate_cast<uint16_t>((int32_t)(B/scale[0]));
       p[1] = saturate_cast<uint16_t>((int32_t)(M/scale[1]));
@@ -78,7 +78,7 @@ void x3f_denoise(x3f_area_t *image, double *gain)
   Mat out;
 
   std::cout << "BEGIN denoising\n";
-  fastNlMeansDenoising(in, out, 100.0, 7, 21);
+  fastNlMeansDenoising(in, out, 200.0, 5, 21);
   std::cout << "END denoising\n";
 
   int from_to[] = { 1,1, 2,2 };
