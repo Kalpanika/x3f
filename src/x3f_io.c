@@ -3607,8 +3607,6 @@ static int preprocess_data(x3f_t *x3f, x3f_area_t *image, char *wb)
   int row, col, color;
   uint32_t max_raw[3];
   double gain[3], scale[3], black_level[3];
-  spatial_gain_corr_t sgain[MAXCORR];
-  int sgain_num;
   
   if (image->channels < 3) return 0;
   
@@ -3631,26 +3629,17 @@ static int preprocess_data(x3f_t *x3f, x3f_area_t *image, char *wb)
     scale[color] = INTERMEDIATE_UNIT*gain[color] / 
       (max_raw[color] - black_level[color]);
   
-  sgain_num = get_spatial_gain(x3f, wb, sgain);
-  if (sgain_num == 0)
-    fprintf(stderr, "WARNING: could not get spatial gain\n");
-  
   for (row = 0; row < image->rows; row++)
     for (col = 0; col < image->columns; col++)
       for (color = 0; color < 3; color++) {
 	uint16_t *valp =
 	  &image->data[image->row_stride*row + image->channels*col + color];
-	int32_t out =
-	  (int32_t)((*valp - black_level[color]) * scale[color] *
-		    calc_spatial_gain(sgain, sgain_num,
-				      row, col, color,
-				      image->rows, image->columns));
+	int32_t out = (int32_t)(scale[color] * (*valp - black_level[color]));
+
 	if (out < 0) *valp = 0;
 	else if (out > 65535) *valp = 65535;
 	else *valp = out;
       }
-
-  cleanup_spatial_gain(sgain, sgain_num);
 
   return 1;
 }
@@ -3671,8 +3660,8 @@ static int convert_data(x3f_t *x3f, x3f_area_t *image,
   double conv_matrix[9];
   double sensor_iso, capture_iso, iso_scaling;
   double lut[LUTSIZE];
-
-  if (wb == NULL) wb = get_wb(x3f);
+  spatial_gain_corr_t sgain[MAXCORR];
+  int sgain_num;
 
   if (image->channels < 3) return X3F_ARGUMENT_ERROR;
 
@@ -3726,6 +3715,10 @@ static int convert_data(x3f_t *x3f, x3f_area_t *image,
   printf("conv_matrix\n");
   x3f_3x3_print(conv_matrix);
 
+  sgain_num = get_spatial_gain(x3f, wb, sgain);
+  if (sgain_num == 0)
+    fprintf(stderr, "WARNING: could not get spatial gain\n");
+  
   for (row = 0; row < image->rows; row++) {
     for (col = 0; col < image->columns; col++) {
       uint16_t *valp[3];
@@ -3735,7 +3728,10 @@ static int convert_data(x3f_t *x3f, x3f_area_t *image,
       for (color = 0; color < 3; color++) {
 	valp[color] = 
 	  &image->data[image->row_stride*row + image->channels*col + color];
-	input[color] = (double)*valp[color]/INTERMEDIATE_UNIT;
+	input[color] = calc_spatial_gain(sgain, sgain_num,
+					 row, col, color,
+					 image->rows, image->columns) *
+	  (double)*valp[color]/INTERMEDIATE_UNIT;
       }
 
       /* Do color conversion */
@@ -3746,6 +3742,8 @@ static int convert_data(x3f_t *x3f, x3f_area_t *image,
 	*valp[color] = x3f_LUT_lookup(lut, LUTSIZE, output[color]);
     }
   }
+
+  cleanup_spatial_gain(sgain, sgain_num);
 
   return 1;
 }
@@ -3778,6 +3776,8 @@ static x3f_return_t get_image(x3f_t *x3f,
 			      char *wb)
 {
   x3f_area_t original_image;
+
+  if (wb == NULL) wb = get_wb(x3f);
 
   if (!image_area(x3f, &original_image)) return X3F_ARGUMENT_ERROR;
   if (!preprocess_data(x3f, &original_image, wb)) return X3F_ARGUMENT_ERROR;
@@ -4044,8 +4044,7 @@ static int get_camf_rect_as_dngrect(x3f_t *x3f, char *name, uint32_t *rect)
   return 1;
 }
 
-#if 0
-static int write_spatial_gain(x3f_t *x3f, TIFF *tiff)
+static int write_spatial_gain(x3f_t *x3f, char *wb, TIFF *tiff)
 {
   spatial_gain_corr_t corr[MAXCORR];
   int corr_num;
@@ -4072,7 +4071,7 @@ static int write_spatial_gain(x3f_t *x3f, TIFF *tiff)
   scaleh =
     (double)(keep_area[3] - keep_area[1])/(active_area[3] - active_area[1]);
 
-  corr_num = get_spatial_gain(x3f, corr);
+  corr_num = get_spatial_gain(x3f, wb, corr);
   if (corr_num == 0) return 0;
   
   for (i=0; i<corr_num; i++) {
@@ -4124,7 +4123,6 @@ static int write_spatial_gain(x3f_t *x3f, TIFF *tiff)
 
   return 1;
 }
-#endif
 
 /* extern */
 x3f_return_t x3f_dump_raw_data_as_dng(x3f_t *x3f,
@@ -4170,7 +4168,7 @@ x3f_return_t x3f_dump_raw_data_as_dng(x3f_t *x3f,
   TIFFSetField(f_out, TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_RGB);
   TIFFSetField(f_out, TIFFTAG_ORIENTATION, ORIENTATION_TOPLEFT);
   TIFFSetField(f_out, TIFFTAG_DNGVERSION, "\001\004\000\000");
-  TIFFSetField(f_out, TIFFTAG_DNGBACKWARDVERSION, "\001\001\000\000");
+  TIFFSetField(f_out, TIFFTAG_DNGBACKWARDVERSION, "\001\003\000\000");
   TIFFSetField(f_out, TIFFTAG_SUBIFD, 1, sub_ifds);
   /* Prevent clipping of dark areas in DNG processing software */
   TIFFSetField(f_out, TIFFTAG_DEFAULTBLACKRENDER, 1);
@@ -4223,6 +4221,9 @@ x3f_return_t x3f_dump_raw_data_as_dng(x3f_t *x3f,
   white_level[1] = (uint32_t)(gain[1]*INTERMEDIATE_UNIT);
   white_level[2] = (uint32_t)(gain[2]*INTERMEDIATE_UNIT);
   TIFFSetField(f_out, TIFFTAG_WHITELEVEL, 3, white_level);
+
+  if (!write_spatial_gain(x3f, wb, f_out))
+    fprintf(stderr, "WARNING: could not get spatial gain\n");
 
   if (get_camf_rect_as_dngrect(x3f, "ActiveImageArea", active_area))
     TIFFSetField(f_out, TIFFTAG_ACTIVEAREA, active_area);
