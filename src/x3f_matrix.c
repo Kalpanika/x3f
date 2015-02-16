@@ -16,6 +16,16 @@
 #define M21(m) *(m+7)
 #define M22(m) *(m+8)
 
+void x3f_3x1_invert(double *a, double *ainv)
+{
+  M0(ainv) = 1.0/M0(a); M1(ainv) = 1.0/M1(a); M2(ainv) = 1.0/M2(a);
+}
+
+void x3f_3x1_comp_mul(double *a, double *b, double *c)
+{
+  M0(c) = M0(a)*M0(b); M1(c) = M1(a)*M1(b); M2(c) = M2(a)*M2(b);
+}
+
 /* Multiply a scalar with a 3x1 matrix, giving a 3x1 matrix */
 void x3f_scalar_3x1_mul(double a, double *b, double *c)
 {

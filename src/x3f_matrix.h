@@ -3,6 +3,9 @@
 
 #include <inttypes.h>
 
+extern void x3f_3x1_invert(double *a, double *ainv);
+extern void x3f_3x1_comp_mul(double *a, double *b, double *c);
+
 extern void x3f_scalar_3x1_mul(double a, double *b, double *c);
 extern void x3f_scalar_3x3_mul(double a, double *b, double *c);
 
