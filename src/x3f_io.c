@@ -4164,7 +4164,7 @@ x3f_return_t x3f_dump_raw_data_as_dng(x3f_t *x3f,
   TIFFSetField(f_out, TIFFTAG_DNGVERSION, "\001\004\000\000");
   TIFFSetField(f_out, TIFFTAG_DNGBACKWARDVERSION, "\001\001\000\000");
   TIFFSetField(f_out, TIFFTAG_SUBIFD, 1, sub_ifds);
-  /* Tell the raw converter to refrian from clipping the dark areas */
+  /* Prevent clipping of dark areas in DNG processing software */
   TIFFSetField(f_out, TIFFTAG_DEFAULTBLACKRENDER, 1);
 
   if (get_camf_float(x3f, "SensorISO", &sensor_iso) && 
@@ -4209,6 +4209,8 @@ x3f_return_t x3f_dump_raw_data_as_dng(x3f_t *x3f,
   TIFFSetField(f_out, TIFFTAG_PLANARCONFIG, PLANARCONFIG_CONTIG);
   TIFFSetField(f_out, TIFFTAG_COMPRESSION, COMPRESSION_NONE);
   TIFFSetField(f_out, TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_LINEARRAW);
+  /* Prevent further chroma denoising in DNG processing software */
+  TIFFSetField(f_out, TIFFTAG_CHROMABLURRADIUS, 0.0);
 
   white_level[0] = (uint32_t)(gain[0]*INTERMEDIATE_UNIT);
   white_level[1] = (uint32_t)(gain[1]*INTERMEDIATE_UNIT);
