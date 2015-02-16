@@ -3123,6 +3123,22 @@ static int get_bmt_to_xyz(x3f_t *x3f, char *wb, double *bmt_to_xyz)
   return 1;
 }
 
+static int get_raw_to_xyz(x3f_t *x3f, char *wb, double *raw_to_xyz)
+{
+  double bmt_to_xyz[9], gain[9], gain_mat[9];
+
+  if (!get_gain(x3f, wb, gain)) return 0;
+  if (!get_bmt_to_xyz(x3f, wb, bmt_to_xyz)) return 0;
+
+  x3f_3x3_diag(gain, gain_mat);
+  x3f_3x3_3x3_mul(bmt_to_xyz, gain_mat, raw_to_xyz);
+
+  printf("raw_to_xyz\n");
+  x3f_3x3_print(raw_to_xyz);
+
+  return 1;
+}
+
 static double lens_position(double focal_length, double object_distance)
 {
   return 1.0/(1.0/focal_length - 1.0/object_distance);
@@ -3597,16 +3613,33 @@ static double calc_spatial_gain(spatial_gain_corr_t *corr, int corr_num,
   return gain;
 }
 
-/* x3f_denoise expects a 14-bit image. Using 13 bits to avoid clipping
-   when 2.0 >= gain > 1.0 */
-#define INTERMEDIATE_DEPTH 13
+/* x3f_denoise expects a 14-bit image since rescaling by a factor of 4
+   takes place internally. */
+#define INTERMEDIATE_DEPTH 14
 #define INTERMEDIATE_UNIT ((1<<INTERMEDIATE_DEPTH) - 1)
+
+static int get_max_intermediate(x3f_t *x3f, char *wb,
+				uint32_t *max_intermediate)
+{
+  double gain[3], maxgain = 0.0;
+  int i;
+
+  if (!get_gain(x3f, wb, gain)) return 0;
+
+  /* Cap the gains to 1.0 to avoid clipping */
+  for (i=0; i<3; i++)
+    if (gain[i] > maxgain) maxgain = gain[i];
+  for (i=0; i<3; i++)
+    max_intermediate[i] = (int32_t)(gain[i]*INTERMEDIATE_UNIT/maxgain);
+
+  return 1;
+}
 
 static int preprocess_data(x3f_t *x3f, x3f_area_t *image, char *wb)
 {
   int row, col, color;
-  uint32_t max_raw[3];
-  double gain[3], scale[3], black_level[3];
+  uint32_t max_raw[3], max_intermediate[3];
+  double scale[3], black_level[3];
   
   if (image->channels < 3) return 0;
   
@@ -3616,17 +3649,19 @@ static int preprocess_data(x3f_t *x3f, x3f_area_t *image, char *wb)
   }
   printf("max_raw = {%d,%d,%d}\n", max_raw[0], max_raw[1], max_raw[2]);
   
+  if (!get_max_intermediate(x3f, wb, max_intermediate)) {
+    fprintf(stderr, "Could not get maximum intermediate level\n");
+    return 0;
+  }
+  printf("max_intermediate = {%d,%d,%d}\n",
+	 max_intermediate[0], max_intermediate[1], max_intermediate[2]);
+  
   get_black_level(x3f, black_level);
   printf("black_level = {%g,%g,%g}\n",
 	 black_level[0], black_level[1], black_level[2]);
 
-  if (!get_gain(x3f, wb, gain)) {
-    fprintf(stderr, "Could not get gain for white balance: %s\n", wb);
-    return 0;
-  }
-
   for (color = 0; color < 3; color++)
-    scale[color] = INTERMEDIATE_UNIT*gain[color] / 
+    scale[color] = (double)max_intermediate[color] /
       (max_raw[color] - black_level[color]);
   
   for (row = 0; row < image->rows; row++)
@@ -3654,12 +3689,13 @@ static int convert_data(x3f_t *x3f, x3f_area_t *image,
   int row, col, color;
   uint16_t max_out = 65535; /* TODO: should be possible to adjust */
 
-  double bmt_to_xyz[9];	/* White point for XYZ is assumed to be D65 */
+  double raw_to_xyz[9];	/* White point for XYZ is assumed to be D65 */
   double xyz_to_rgb[9];
-  double bmt_to_rgb[9];
+  double raw_to_rgb[9];
   double conv_matrix[9];
   double sensor_iso, capture_iso, iso_scaling;
   double lut[LUTSIZE];
+  uint32_t max_intermediate[3];
   spatial_gain_corr_t sgain[MAXCORR];
   int sgain_num;
 
@@ -3677,8 +3713,8 @@ static int convert_data(x3f_t *x3f, x3f_area_t *image,
 	    iso_scaling);
   }
 
-  if (!get_bmt_to_xyz(x3f, wb, bmt_to_xyz)) {
-    fprintf(stderr, "Could not get bmt_to_xyz for white balance: %s\n", wb);
+  if (!get_raw_to_xyz(x3f, wb, raw_to_xyz)) {
+    fprintf(stderr, "Could not get raw_to_xyz for white balance: %s\n", wb);
     return 0;
   }
 
@@ -3707,13 +3743,20 @@ static int convert_data(x3f_t *x3f, x3f_area_t *image,
     return X3F_ARGUMENT_ERROR;
   }
 
-  x3f_3x3_3x3_mul(xyz_to_rgb, bmt_to_xyz, bmt_to_rgb);
-  x3f_scalar_3x3_mul(iso_scaling, bmt_to_rgb, conv_matrix);
+  x3f_3x3_3x3_mul(xyz_to_rgb, raw_to_xyz, raw_to_rgb);
+  x3f_scalar_3x3_mul(iso_scaling, raw_to_rgb, conv_matrix);
 
-  printf("bmt_to_rgb\n");
-  x3f_3x3_print(bmt_to_rgb);
+  printf("raw_to_rgb\n");
+  x3f_3x3_print(raw_to_rgb);
   printf("conv_matrix\n");
   x3f_3x3_print(conv_matrix);
+
+  if (!get_max_intermediate(x3f, wb, max_intermediate)) {
+    fprintf(stderr, "Could not get maximum intermediate level\n");
+    return 0;
+  }
+  printf("max_intermediate = {%d,%d,%d}\n",
+	 max_intermediate[0], max_intermediate[1], max_intermediate[2]);
 
   sgain_num = get_spatial_gain(x3f, wb, sgain);
   if (sgain_num == 0)
@@ -3731,7 +3774,7 @@ static int convert_data(x3f_t *x3f, x3f_area_t *image,
 	input[color] = calc_spatial_gain(sgain, sgain_num,
 					 row, col, color,
 					 image->rows, image->columns) *
-	  (double)*valp[color]/INTERMEDIATE_UNIT;
+	  (double)*valp[color]/max_intermediate[color];
       }
 
       /* Do color conversion */
@@ -4136,9 +4179,9 @@ x3f_return_t x3f_dump_raw_data_as_dng(x3f_t *x3f,
   uint8_t thumbnail[3*THUMBSIZE];
 
   double sensor_iso, capture_iso;
-  double bmt_to_xyz[9], gain[3], gain_mat[9], dng_to_xyz[9], xyz_to_dng[9];
+  double raw_to_xyz[9], xyz_to_raw[9];
   float color_matrix[9];
-  double gain_inv[3];
+  double gain[3], gain_inv[3];
   float as_shot_neutral[3];
   uint32_t white_level[3];
   uint32_t active_area[4];
@@ -4179,22 +4222,20 @@ x3f_return_t x3f_dump_raw_data_as_dng(x3f_t *x3f,
     TIFFSetField(f_out, TIFFTAG_BASELINEEXPOSURE, baseline_exposure);
   }
 
-  if (!get_bmt_to_xyz(x3f, wb, bmt_to_xyz)) {
-    fprintf(stderr, "Could not get bmt_to_xyz for white balance: %s\n", wb);
+  if (!get_raw_to_xyz(x3f, wb, raw_to_xyz)) {
+    fprintf(stderr, "Could not get raw_to_xyz for white balance: %s\n", wb);
     TIFFClose(f_out);
     return X3F_ARGUMENT_ERROR;
   }
+  x3f_3x3_inverse(raw_to_xyz, xyz_to_raw);
+  vec_double_to_float(xyz_to_raw, color_matrix, 9);
+  TIFFSetField(f_out, TIFFTAG_COLORMATRIX1, 9, color_matrix);
+
   if (!get_gain(x3f, wb, gain)) {
     fprintf(stderr, "Could not get gain for white balance: %s\n", wb);
     TIFFClose(f_out);
-    return 0;
+    return X3F_ARGUMENT_ERROR;
   }
-  x3f_3x3_diag(gain, gain_mat);
-  x3f_3x3_3x3_mul(bmt_to_xyz, gain_mat, dng_to_xyz);
-  x3f_3x3_inverse(dng_to_xyz, xyz_to_dng);
-  vec_double_to_float(xyz_to_dng, color_matrix, 9);
-  TIFFSetField(f_out, TIFFTAG_COLORMATRIX1, 9, color_matrix);
-
   x3f_3x1_invert(gain, gain_inv);
   vec_double_to_float(gain_inv, as_shot_neutral, 3);
   TIFFSetField(f_out, TIFFTAG_ASSHOTNEUTRAL, 3, as_shot_neutral);
@@ -4217,9 +4258,11 @@ x3f_return_t x3f_dump_raw_data_as_dng(x3f_t *x3f,
   /* Prevent further chroma denoising in DNG processing software */
   TIFFSetField(f_out, TIFFTAG_CHROMABLURRADIUS, 0.0);
 
-  white_level[0] = (uint32_t)(gain[0]*INTERMEDIATE_UNIT);
-  white_level[1] = (uint32_t)(gain[1]*INTERMEDIATE_UNIT);
-  white_level[2] = (uint32_t)(gain[2]*INTERMEDIATE_UNIT);
+  if (!get_max_intermediate(x3f, wb, white_level)) {
+    fprintf(stderr, "Could not get maximum intermediate level\n");
+    TIFFClose(f_out);
+    return X3F_ARGUMENT_ERROR;
+  }
   TIFFSetField(f_out, TIFFTAG_WHITELEVEL, 3, white_level);
 
   if (!write_spatial_gain(x3f, wb, f_out))
