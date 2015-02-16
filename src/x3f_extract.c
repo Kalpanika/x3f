@@ -27,8 +27,9 @@ static void usage(char *progname)
           "   -loghist        Dump histogram as csv file, with log exposure\n"
 	  "   -color <COLOR>  Convert to RGB color\n"
 	  "                   (sRGB, AdobeRGB, ProPhotoRGB)\n"
-          "   -crop           Crop to active image\n"
-          "   -denoise        Denoise RAW data before futher processing \n"
+          "   -crop           Crop to active area\n"
+          "   -denoise        Denoise RAW data\n"
+          "   -wb <WB>        Select white balance preset\n"
 	  "\n"
 	  "STRANGE STUFF\n"
           "   -offset <OFF>   Offset for SD14 and older\n"
@@ -49,6 +50,7 @@ int main(int argc, char *argv[])
   x3f_color_encoding_t color_encoding = NONE;
   int files = 0;
   int log_hist = 0;
+  char *wb = NULL;
 
   int i;
 
@@ -92,6 +94,8 @@ int main(int argc, char *argv[])
       crop = 1;
     else if (!strcmp(argv[i], "-denoise"))
       denoise = 1;
+    else if ((!strcmp(argv[i], "-wb")) && (i+1)<argc)
+      wb = argv[++i];
 
   /* Strange Stuff */
     else if ((!strcmp(argv[i], "-offset")) && (i+1)<argc)
@@ -187,26 +191,26 @@ int main(int argc, char *argv[])
 	strcat(outfilename, ".tif");
 	printf("Dump RAW as TIFF to %s\n", outfilename);
 	ret_dump = x3f_dump_raw_data_as_tiff(x3f, outfilename,
-					     color_encoding, crop, denoise);
+					     color_encoding, crop, denoise, wb);
 	break;
       case DNG:
 	strcat(outfilename, ".dng");
 	printf("Dump RAW as DNG to %s\n", outfilename);
-	ret_dump = x3f_dump_raw_data_as_dng(x3f, outfilename, denoise);
+	ret_dump = x3f_dump_raw_data_as_dng(x3f, outfilename, denoise, wb);
 	break;
       case PPMP3:
       case PPMP6:
 	strcat(outfilename, ".ppm");
 	printf("Dump RAW as PPM to %s\n", outfilename);
 	ret_dump = x3f_dump_raw_data_as_ppm(x3f, outfilename,
-					    color_encoding, crop, denoise,
+					    color_encoding, crop, denoise, wb,
                                             file_type == PPMP6);
 	break;
       case HISTOGRAM:
 	strcat(outfilename, ".csv");
 	printf("Dump RAW as CSV histogram to %s\n", outfilename);
 	ret_dump = x3f_dump_raw_data_as_histogram(x3f, outfilename,
-						  color_encoding, crop,
+						  color_encoding, crop, wb,
 						  log_hist);
 	break;
       }

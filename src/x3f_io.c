@@ -3496,11 +3496,12 @@ static int get_interp_merrill_type_spatial_gain(x3f_t *x3f, int hp_flag,
   return corr_num;
 }
 
-static int get_classic_spatial_gain(x3f_t *x3f, spatial_gain_corr_t *corr)
+static int get_classic_spatial_gain(x3f_t *x3f, char *wb,
+				    spatial_gain_corr_t *corr)
 {
   char *gain_name;
   
-  if ((get_camf_property(x3f, "SpatialGainTables", get_wb(x3f), &gain_name) &&
+  if ((get_camf_property(x3f, "SpatialGainTables", wb, &gain_name) &&
        get_camf_matrix_var(x3f, gain_name,
 			   &corr->rows, &corr->cols, &corr->channels, M_FLOAT,
 			   (void **)&corr->gain)) ||
@@ -3519,13 +3520,13 @@ static int get_classic_spatial_gain(x3f_t *x3f, spatial_gain_corr_t *corr)
   return 0;
 }
 
-static int get_spatial_gain(x3f_t *x3f, spatial_gain_corr_t *corr)
+static int get_spatial_gain(x3f_t *x3f, char *wb, spatial_gain_corr_t *corr)
 {
   int corr_num = 0;
 
   corr_num += get_interp_merrill_type_spatial_gain(x3f, 0, &corr[corr_num]);
   if (corr_num == 0)
-    corr_num += get_classic_spatial_gain(x3f, &corr[corr_num]);
+    corr_num += get_classic_spatial_gain(x3f, wb, &corr[corr_num]);
 
   return corr_num;
 }
@@ -3630,7 +3631,7 @@ static int preprocess_data(x3f_t *x3f, x3f_area_t *image, char *wb)
     scale[color] = INTERMEDIATE_UNIT*gain[color] / 
       (max_raw[color] - black_level[color]);
   
-  sgain_num = get_spatial_gain(x3f, sgain);
+  sgain_num = get_spatial_gain(x3f, wb, sgain);
   if (sgain_num == 0)
     fprintf(stderr, "WARNING: could not get spatial gain\n");
   
@@ -3670,6 +3671,8 @@ static int convert_data(x3f_t *x3f, x3f_area_t *image,
   double conv_matrix[9];
   double sensor_iso, capture_iso, iso_scaling;
   double lut[LUTSIZE];
+
+  if (wb == NULL) wb = get_wb(x3f);
 
   if (image->channels < 3) return X3F_ARGUMENT_ERROR;
 
@@ -3832,6 +3835,7 @@ x3f_return_t x3f_dump_raw_data_as_ppm(x3f_t *x3f,
 				      x3f_color_encoding_t encoding,
 				      int crop,
 				      int denoise,
+				      char *wb,
 				      int binary)
 {
   x3f_return_t ret;
@@ -3841,7 +3845,7 @@ x3f_return_t x3f_dump_raw_data_as_ppm(x3f_t *x3f,
 
   if (f_out == NULL) return X3F_OUTFILE_ERROR;
 
-  ret = get_image(x3f, &image, encoding, crop, denoise, get_wb(x3f));
+  ret = get_image(x3f, &image, encoding, crop, denoise, wb);
   if (ret != X3F_OK) {
     fclose(f_out);
     return ret;
@@ -3884,7 +3888,8 @@ x3f_return_t x3f_dump_raw_data_as_tiff(x3f_t *x3f,
 				       char *outfilename,
 				       x3f_color_encoding_t encoding,
 				       int crop,
-				       int denoise)
+				       int denoise,
+				       char *wb)
 {
   x3f_return_t ret;
   x3f_area_t image;
@@ -3893,7 +3898,7 @@ x3f_return_t x3f_dump_raw_data_as_tiff(x3f_t *x3f,
 
   if (f_out == NULL) return X3F_OUTFILE_ERROR;
 
-  ret = get_image(x3f, &image, encoding, crop, denoise, get_wb(x3f));
+  ret = get_image(x3f, &image, encoding, crop, denoise, wb);
   if (ret != X3F_OK) {
     TIFFClose(f_out);
     return ret;
@@ -4124,7 +4129,8 @@ static int write_spatial_gain(x3f_t *x3f, TIFF *tiff)
 /* extern */
 x3f_return_t x3f_dump_raw_data_as_dng(x3f_t *x3f,
 				      char *outfilename,
-				      int denoise)
+				      int denoise,
+				      char *wb)
 {
   TIFF *f_out;
   uint64_t sub_ifds[1] = {0};
@@ -4141,11 +4147,13 @@ x3f_return_t x3f_dump_raw_data_as_dng(x3f_t *x3f,
   x3f_area_t image;
   int row;
 
+  if (wb == NULL) wb = get_wb(x3f);
+
   x3f_dngtags_install_extender();
 
   if (!image_area(x3f, &image) || image.channels != 3)
     return X3F_ARGUMENT_ERROR;
-  if (!preprocess_data(x3f, &image, get_wb(x3f))) return X3F_ARGUMENT_ERROR;
+  if (!preprocess_data(x3f, &image, wb)) return X3F_ARGUMENT_ERROR;
   if (denoise && !run_denoising(x3f)) return X3F_ARGUMENT_ERROR;
   
   f_out = TIFFOpen(outfilename, "w");
@@ -4173,14 +4181,13 @@ x3f_return_t x3f_dump_raw_data_as_dng(x3f_t *x3f,
     TIFFSetField(f_out, TIFFTAG_BASELINEEXPOSURE, baseline_exposure);
   }
 
-  if (!get_bmt_to_xyz(x3f, get_wb(x3f), bmt_to_xyz)) {
-    fprintf(stderr, "Could not get bmt_to_xyz for white balance: %s\n",
-	    get_wb(x3f));
+  if (!get_bmt_to_xyz(x3f, wb, bmt_to_xyz)) {
+    fprintf(stderr, "Could not get bmt_to_xyz for white balance: %s\n", wb);
     TIFFClose(f_out);
     return X3F_ARGUMENT_ERROR;
   }
-  if (!get_gain(x3f, get_wb(x3f), gain)) {
-    fprintf(stderr, "Could not get gain for white balance: %s\n", get_wb(x3f));
+  if (!get_gain(x3f, wb, gain)) {
+    fprintf(stderr, "Could not get gain for white balance: %s\n", wb);
     TIFFClose(f_out);
     return 0;
   }
@@ -4254,6 +4261,7 @@ x3f_return_t x3f_dump_raw_data_as_histogram(x3f_t *x3f,
 					    char *outfilename,
 					    x3f_color_encoding_t encoding,
 					    int crop,
+					    char *wb,
 					    int log_hist)
 {
   x3f_return_t ret;
@@ -4266,7 +4274,7 @@ x3f_return_t x3f_dump_raw_data_as_histogram(x3f_t *x3f,
 
   if (f_out == NULL) return X3F_OUTFILE_ERROR;
 
-  ret = get_image(x3f, &image, encoding, crop, 0, get_wb(x3f));
+  ret = get_image(x3f, &image, encoding, crop, 0, wb);
   if (ret != X3F_OK) {
     fclose(f_out);
     return ret;
