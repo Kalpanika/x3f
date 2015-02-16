@@ -3596,10 +3596,10 @@ static double calc_spatial_gain(spatial_gain_corr_t *corr, int corr_num,
   return gain;
 }
 
-#define INTERMEDIATE_DEPTH 14	/* x3f_denoise expects a 14-bit image */
-#define INTERMEDIATE_SHIFT 1    /* Avoid cliping when 1.0 < gain <= 2.0 */
-#define INTERMEDIATE_MAX ((1<<INTERMEDIATE_DEPTH) - 1)
-#define INTERMEDIATE_UNIT ((1<<(INTERMEDIATE_DEPTH - INTERMEDIATE_SHIFT)) - 1)
+/* x3f_denoise expects a 14-bit image. Using 13 bits to avoid clipping
+   when 2.0 >= gain > 1.0 */
+#define INTERMEDIATE_DEPTH 13
+#define INTERMEDIATE_UNIT ((1<<INTERMEDIATE_DEPTH) - 1)
 
 static int preprocess_data(x3f_t *x3f, x3f_area_t *image, char *wb)
 {
@@ -3627,7 +3627,8 @@ static int preprocess_data(x3f_t *x3f, x3f_area_t *image, char *wb)
   }
 
   for (color = 0; color < 3; color++)
-    scale[color] = INTERMEDIATE_UNIT*gain[color]/max_raw[color];
+    scale[color] = INTERMEDIATE_UNIT*gain[color] / 
+      (max_raw[color] - black_level[color]);
   
   sgain_num = get_spatial_gain(x3f, sgain);
   if (sgain_num == 0)
@@ -3644,7 +3645,7 @@ static int preprocess_data(x3f_t *x3f, x3f_area_t *image, char *wb)
 				      row, col, color,
 				      image->rows, image->columns));
 	if (out < 0) *valp = 0;
-	else if (out > INTERMEDIATE_MAX) *valp = INTERMEDIATE_MAX;
+	else if (out > 65535) *valp = 65535;
 	else *valp = out;
       }
 
@@ -4130,12 +4131,12 @@ x3f_return_t x3f_dump_raw_data_as_dng(x3f_t *x3f,
 #define THUMBSIZE 100
   uint8_t thumbnail[3*THUMBSIZE];
 
-  double sensor_iso, capture_iso, iso_scaling, baseline_exposure;
-  float as_shot_neutral[3] = {1.0, 1.0, 1.0};
-  double bmt_to_xyz[9], xyz_to_bmt[9];
+  double sensor_iso, capture_iso;
+  double bmt_to_xyz[9], gain[3], gain_mat[9], dng_to_xyz[9], xyz_to_dng[9];
   float color_matrix[9];
-  uint32_t white_level[3] =
-    {INTERMEDIATE_MAX, INTERMEDIATE_MAX, INTERMEDIATE_MAX};
+  double gain_inv[3];
+  float as_shot_neutral[3];
+  uint32_t white_level[3];
   uint32_t active_area[4];
   x3f_area_t image;
   int row;
@@ -4163,18 +4164,14 @@ x3f_return_t x3f_dump_raw_data_as_dng(x3f_t *x3f,
   TIFFSetField(f_out, TIFFTAG_DNGVERSION, "\001\004\000\000");
   TIFFSetField(f_out, TIFFTAG_DNGBACKWARDVERSION, "\001\001\000\000");
   TIFFSetField(f_out, TIFFTAG_SUBIFD, 1, sub_ifds);
-
-  TIFFSetField(f_out, TIFFTAG_ASSHOTNEUTRAL, 3, as_shot_neutral);
   /* Tell the raw converter to refrian from clipping the dark areas */
   TIFFSetField(f_out, TIFFTAG_DEFAULTBLACKRENDER, 1);
 
   if (get_camf_float(x3f, "SensorISO", &sensor_iso) && 
-      get_camf_float(x3f, "CaptureISO", &capture_iso))
-    iso_scaling = capture_iso/sensor_iso;
-  else
-    iso_scaling = 1.0;
-  baseline_exposure = log2(iso_scaling) + INTERMEDIATE_SHIFT;
-  TIFFSetField(f_out, TIFFTAG_BASELINEEXPOSURE, baseline_exposure);
+      get_camf_float(x3f, "CaptureISO", &capture_iso)) {
+    double baseline_exposure = log2(capture_iso/sensor_iso);
+    TIFFSetField(f_out, TIFFTAG_BASELINEEXPOSURE, baseline_exposure);
+  }
 
   if (!get_bmt_to_xyz(x3f, get_wb(x3f), bmt_to_xyz)) {
     fprintf(stderr, "Could not get bmt_to_xyz for white balance: %s\n",
@@ -4182,9 +4179,20 @@ x3f_return_t x3f_dump_raw_data_as_dng(x3f_t *x3f,
     TIFFClose(f_out);
     return X3F_ARGUMENT_ERROR;
   }
-  x3f_3x3_inverse(bmt_to_xyz, xyz_to_bmt);
-  vec_double_to_float(xyz_to_bmt, color_matrix, 9);
+  if (!get_gain(x3f, get_wb(x3f), gain)) {
+    fprintf(stderr, "Could not get gain for white balance: %s\n", get_wb(x3f));
+    TIFFClose(f_out);
+    return 0;
+  }
+  x3f_3x3_diag(gain, gain_mat);
+  x3f_3x3_3x3_mul(bmt_to_xyz, gain_mat, dng_to_xyz);
+  x3f_3x3_inverse(dng_to_xyz, xyz_to_dng);
+  vec_double_to_float(xyz_to_dng, color_matrix, 9);
   TIFFSetField(f_out, TIFFTAG_COLORMATRIX1, 9, color_matrix);
+
+  x3f_3x1_invert(gain, gain_inv);
+  vec_double_to_float(gain_inv, as_shot_neutral, 3);
+  TIFFSetField(f_out, TIFFTAG_ASSHOTNEUTRAL, 3, as_shot_neutral);
 
   memset(thumbnail, 0, 3*THUMBSIZE); /* TODO: Thumbnail is all black */
   for (row=0; row < 100; row++)
@@ -4201,6 +4209,10 @@ x3f_return_t x3f_dump_raw_data_as_dng(x3f_t *x3f,
   TIFFSetField(f_out, TIFFTAG_PLANARCONFIG, PLANARCONFIG_CONTIG);
   TIFFSetField(f_out, TIFFTAG_COMPRESSION, COMPRESSION_NONE);
   TIFFSetField(f_out, TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_LINEARRAW);
+
+  white_level[0] = (uint32_t)(gain[0]*INTERMEDIATE_UNIT);
+  white_level[1] = (uint32_t)(gain[1]*INTERMEDIATE_UNIT);
+  white_level[2] = (uint32_t)(gain[2]*INTERMEDIATE_UNIT);
   TIFFSetField(f_out, TIFFTAG_WHITELEVEL, 3, white_level);
 
   if (get_camf_rect_as_dngrect(x3f, "ActiveImageArea", active_area))
