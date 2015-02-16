@@ -3749,6 +3749,8 @@ static int convert_data(x3f_t *x3f, x3f_area_t *image,
 static int run_denoising(x3f_t *x3f)
 {
   x3f_area_t original_image, image;
+  x3f_denoise_type_t type = X3F_DENOISE_STD;
+  char *sensorid;
 
   if (!image_area(x3f, &original_image)) return 0;
   if (!crop_area_camf(x3f, "ActiveImageArea", &original_image, &image)) {
@@ -3757,7 +3759,10 @@ static int run_denoising(x3f_t *x3f)
 	    "WARNING: could not get active area, denoising entire image\n");
   }
 
-  x3f_denoise(&image);
+  if (get_prop_entry(x3f, "SENSORID", &sensorid) && !strcmp(sensorid, "F20"))
+    type = X3F_DENOISE_F20;
+
+  x3f_denoise(&image, type);
   return 1;
 }
 
