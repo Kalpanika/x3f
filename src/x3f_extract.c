@@ -210,7 +210,8 @@ int main(int argc, char *argv[])
 	strcat(outfilename, ".csv");
 	printf("Dump RAW as CSV histogram to %s\n", outfilename);
 	ret_dump = x3f_dump_raw_data_as_histogram(x3f, outfilename,
-						  color_encoding, crop, wb,
+						  color_encoding,
+						  crop, denoise, wb,
 						  log_hist);
 	break;
       }

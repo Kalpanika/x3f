@@ -4294,6 +4294,7 @@ x3f_return_t x3f_dump_raw_data_as_histogram(x3f_t *x3f,
 					    char *outfilename,
 					    x3f_color_encoding_t encoding,
 					    int crop,
+					    int denoise,
 					    char *wb,
 					    int log_hist)
 {
@@ -4306,7 +4307,8 @@ x3f_return_t x3f_dump_raw_data_as_histogram(x3f_t *x3f,
 
   if (f_out == NULL) return X3F_OUTFILE_ERROR;
 
-  if (!get_image(x3f, &image, encoding, crop, 0, wb) || image.channels < 3) {
+  if (!get_image(x3f, &image, encoding, crop, denoise, wb) ||
+      image.channels < 3) {
     fclose(f_out);
     return X3F_ARGUMENT_ERROR;
   }
