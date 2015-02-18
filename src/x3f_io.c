@@ -1866,7 +1866,7 @@ static void x3f_load_true(x3f_info_t *I,
   TRU->x3rgb16.columns = ID->columns;
   TRU->x3rgb16.rows = ID->rows;
   TRU->x3rgb16.channels = 3;
-  TRU->x3rgb16.row_stride = ID->columns;
+  TRU->x3rgb16.row_stride = ID->columns * 3;
   TRU->x3rgb16.data =
     (uint16_t *)malloc(sizeof(uint16_t)*size);
 
@@ -1944,7 +1944,7 @@ static void x3f_load_huffman(x3f_info_t *I,
     HUF->x3rgb16.columns = ID->columns;
     HUF->x3rgb16.rows = ID->rows;
     HUF->x3rgb16.channels = 3;
-    HUF->x3rgb16.row_stride = ID->columns;
+    HUF->x3rgb16.row_stride = ID->columns * 3;
     HUF->x3rgb16.data =
       (uint16_t *)malloc(sizeof(uint16_t)*size);
     break;
@@ -1953,7 +1953,7 @@ static void x3f_load_huffman(x3f_info_t *I,
     HUF->rgb8.columns = ID->columns;
     HUF->rgb8.columns = ID->rows;
     HUF->rgb8.channels = 3;
-    HUF->rgb8.row_stride = ID->columns;
+    HUF->rgb8.row_stride = ID->columns * 3;
     HUF->rgb8.data =
       (uint8_t *)malloc(sizeof(uint8_t)*size);
     break;
