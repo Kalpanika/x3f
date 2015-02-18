@@ -3811,28 +3811,27 @@ static int run_denoising(x3f_t *x3f)
   return 1;
 }
 
-static x3f_return_t get_image(x3f_t *x3f,
-			      x3f_area_t *image,
-			      x3f_color_encoding_t encoding,
-			      int crop,
-			      int denoise,
-			      char *wb)
+static int get_image(x3f_t *x3f,
+		     x3f_area_t *image,
+		     x3f_color_encoding_t encoding,
+		     int crop,
+		     int denoise,
+		     char *wb)
 {
   x3f_area_t original_image;
 
   if (wb == NULL) wb = get_wb(x3f);
 
-  if (!image_area(x3f, &original_image)) return X3F_ARGUMENT_ERROR;
-  if (!preprocess_data(x3f, &original_image, wb)) return X3F_ARGUMENT_ERROR;
-  if (denoise && !run_denoising(x3f)) return X3F_ARGUMENT_ERROR;
+  if (!image_area(x3f, &original_image)) return 0;
+  if (!preprocess_data(x3f, &original_image, wb)) return 0;
+  if (denoise && !run_denoising(x3f)) return 0;
 
   if (!crop || !crop_area_camf(x3f, "ActiveImageArea", &original_image, image))
     *image = original_image;
 
-  if (encoding != NONE && !convert_data(x3f, image, encoding, wb))
-      return X3F_ARGUMENT_ERROR;
+  if (encoding != NONE && !convert_data(x3f, image, encoding, wb)) return 0;
 
-  return X3F_OK;
+  return 1;
 }
 
 /* extern */ x3f_return_t x3f_dump_raw_data(x3f_t *x3f,
@@ -3881,19 +3880,14 @@ x3f_return_t x3f_dump_raw_data_as_ppm(x3f_t *x3f,
 				      char *wb,
 				      int binary)
 {
-  x3f_return_t ret;
   x3f_area_t image;
   FILE *f_out = fopen(outfilename, "wb");
   int row;
 
   if (f_out == NULL) return X3F_OUTFILE_ERROR;
 
-  ret = get_image(x3f, &image, encoding, crop, denoise, wb);
-  if (ret != X3F_OK) {
-    fclose(f_out);
-    return ret;
-  }
-  if (image.channels < 3) {
+  if (!get_image(x3f, &image, encoding, crop, denoise, wb) ||
+      image.channels < 3) {
     fclose(f_out);
     return X3F_ARGUMENT_ERROR;
   }
@@ -3934,17 +3928,15 @@ x3f_return_t x3f_dump_raw_data_as_tiff(x3f_t *x3f,
 				       int denoise,
 				       char *wb)
 {
-  x3f_return_t ret;
   x3f_area_t image;
   TIFF *f_out = TIFFOpen(outfilename, "w");
   int row;
 
   if (f_out == NULL) return X3F_OUTFILE_ERROR;
 
-  ret = get_image(x3f, &image, encoding, crop, denoise, wb);
-  if (ret != X3F_OK) {
+  if (!get_image(x3f, &image, encoding, crop, denoise, wb)) {
     TIFFClose(f_out);
-    return ret;
+    return X3F_ARGUMENT_ERROR;
   }
 
   TIFFSetField(f_out, TIFFTAG_IMAGEWIDTH, image.columns);
@@ -4189,14 +4181,11 @@ x3f_return_t x3f_dump_raw_data_as_dng(x3f_t *x3f,
   int row;
 
   if (wb == NULL) wb = get_wb(x3f);
+  if (!get_image(x3f, &image, NONE, 0, denoise, wb) || image.channels != 3)
+    return X3F_ARGUMENT_ERROR;
 
   x3f_dngtags_install_extender();
 
-  if (!image_area(x3f, &image) || image.channels != 3)
-    return X3F_ARGUMENT_ERROR;
-  if (!preprocess_data(x3f, &image, wb)) return X3F_ARGUMENT_ERROR;
-  if (denoise && !run_denoising(x3f)) return X3F_ARGUMENT_ERROR;
-  
   f_out = TIFFOpen(outfilename, "w");
   if (f_out == NULL) return X3F_OUTFILE_ERROR;
 
@@ -4308,7 +4297,6 @@ x3f_return_t x3f_dump_raw_data_as_histogram(x3f_t *x3f,
 					    char *wb,
 					    int log_hist)
 {
-  x3f_return_t ret;
   x3f_area_t image;
   FILE *f_out = fopen(outfilename, "wb");
   uint32_t *histogram[3];
@@ -4318,12 +4306,7 @@ x3f_return_t x3f_dump_raw_data_as_histogram(x3f_t *x3f,
 
   if (f_out == NULL) return X3F_OUTFILE_ERROR;
 
-  ret = get_image(x3f, &image, encoding, crop, 0, wb);
-  if (ret != X3F_OK) {
-    fclose(f_out);
-    return ret;
-  }
-  if (image.channels < 3) {
+  if (!get_image(x3f, &image, encoding, crop, 0, wb) || image.channels < 3) {
     fclose(f_out);
     return X3F_ARGUMENT_ERROR;
   }
