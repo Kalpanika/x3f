@@ -134,7 +134,7 @@ void x3f_denoise(x3f_area_t *image, x3f_denoise_type_t type)
   Mat out;
 
   std::cout << "BEGIN denoising\n";
-  fastNlMeansDenoising(in, out, d->h, 5, 21);
+  fastNlMeansDenoisingAbs(in, out, d->h, 5, 21);
   std::cout << "END denoising\n";
 
   int from_to[] = { 1,1, 2,2 };
