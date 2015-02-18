@@ -211,7 +211,7 @@ static void cleanup_true(x3f_true_t **TRUP)
   FREE(TRU->table.element);
   FREE(TRU->plane_size.element);
   cleanup_huffman_tree(&TRU->tree);
-  FREE(TRU->x3rgb16.element);
+  FREE(TRU->x3rgb16.data);
 
   FREE(TRU);
 
@@ -229,8 +229,7 @@ static x3f_true_t *new_true(x3f_true_t **TRUP)
   TRU->plane_size.size = 0;
   TRU->plane_size.element = NULL;
   TRU->tree.nodes = NULL;
-  TRU->x3rgb16.size = 0;
-  TRU->x3rgb16.element = NULL;
+  TRU->x3rgb16.data = NULL;
 
   *TRUP = TRU;
 
@@ -287,8 +286,8 @@ static void cleanup_huffman(x3f_huffman_t **HUFP)
   FREE(HUF->table.element);
   cleanup_huffman_tree(&HUF->tree);
   FREE(HUF->row_offsets.element);
-  FREE(HUF->rgb8.element);
-  FREE(HUF->x3rgb16.element);
+  FREE(HUF->rgb8.data);
+  FREE(HUF->x3rgb16.data);
   FREE(HUF);
 
   *HUFP = NULL;
@@ -308,10 +307,8 @@ static x3f_huffman_t *new_huffman(x3f_huffman_t **HUFP)
   HUF->tree.nodes = NULL;
   HUF->row_offsets.size = 0;
   HUF->row_offsets.element = NULL;
-  HUF->rgb8.size = 0;
-  HUF->rgb8.element = NULL;
-  HUF->x3rgb16.size = 0;
-  HUF->x3rgb16.element = NULL;
+  HUF->rgb8.data = NULL;
+  HUF->x3rgb16.data = NULL;
 
   *HUFP = HUF;
 
@@ -931,10 +928,10 @@ static void print_prop_meta_data(FILE *f_out, x3f_t *x3f)
 	       HUF->tree.free_node_index, HUF->tree.nodes);
         printf("          row_offsets = %x %p\n",
                HUF->row_offsets.size, HUF->row_offsets.element);
-        printf("          rgb8        = %x %p\n",
-               HUF->rgb8.size, HUF->rgb8.element);
-        printf("          x3rgb16     = %x %p\n",
-               HUF->x3rgb16.size, HUF->x3rgb16.element);
+        printf("          rgb8        = %x %x %p\n",
+               HUF->rgb8.columns, HUF->rgb8.rows, HUF->rgb8.data);
+        printf("          x3rgb16     = %x %x %p\n",
+               HUF->x3rgb16.columns, HUF->x3rgb16.rows, HUF->x3rgb16.data);
       }
 
       if (TRU == NULL) {
@@ -960,8 +957,8 @@ static void print_prop_meta_data(FILE *f_out, x3f_t *x3f)
 	printf(" )\n");
 	printf("          tree        = %d %p\n",
 	       TRU->tree.free_node_index, TRU->tree.nodes);
-        printf("          x3rgb16     = %x %p\n",
-               TRU->x3rgb16.size, TRU->x3rgb16.element);
+        printf("          x3rgb16     = %x %x %p\n",
+               TRU->x3rgb16.columns, TRU->x3rgb16.rows, TRU->x3rgb16.data);
       }
 
       if (Q == NULL) {
@@ -1450,7 +1447,7 @@ static void true_decode_one_color(x3f_image_data_t *ID, int color)
   uint32_t out_cols = ID->columns;
   bool_t quattro_modified = 0;
 
-  uint16_t *dst = TRU->x3rgb16.element + color;
+  uint16_t *dst = TRU->x3rgb16.data + color;
 
   printf("TRUE decode one color (%d) rows=%d cols=%d\n",
 	 color, rows, cols);
@@ -1505,7 +1502,7 @@ static void true_decode_one_color(x3f_image_data_t *ID, int color)
     /* The pixels in the layers with lower resolution are duplicated
        to four values. This is done in place, therefore done backwards */
 
-    uint16_t *base = TRU->x3rgb16.element + color;
+    uint16_t *base = TRU->x3rgb16.data + color;
 
     printf("Expand Quattro layer %d\n", color);
 
@@ -1598,10 +1595,10 @@ static void huffman_decode_row(x3f_info_t *I,
       switch (ID->type_format) {
       case X3F_IMAGE_RAW_HUFFMAN_X530:
       case X3F_IMAGE_RAW_HUFFMAN_10BIT:
-        HUF->x3rgb16.element[3*(row*ID->columns + col) + color] = (uint16_t)c_fix;
+        HUF->x3rgb16.data[3*(row*ID->columns + col) + color] = (uint16_t)c_fix;
         break;
       case X3F_IMAGE_THUMB_HUFFMAN:
-        HUF->rgb8.element[3*(row*ID->columns + col) + color] = (uint8_t)c_fix;
+        HUF->rgb8.data[3*(row*ID->columns + col) + color] = (uint8_t)c_fix;
         break;
       default:
         fprintf(stderr, "Unknown huffman image type\n");
@@ -1693,12 +1690,12 @@ static void simple_decode_row(x3f_info_t *I,
       case X3F_IMAGE_RAW_HUFFMAN_10BIT:
         c_fix = (int16_t)c[color] > 0 ? c[color] : 0;
 
-        HUF->x3rgb16.element[3*(row*ID->columns + col) + color] = c_fix;
+        HUF->x3rgb16.data[3*(row*ID->columns + col) + color] = c_fix;
         break;
       case X3F_IMAGE_THUMB_HUFFMAN:
         c_fix = (int8_t)c[color] > 0 ? c[color] : 0;
 
-        HUF->rgb8.element[3*(row*ID->columns + col) + color] = c_fix;
+        HUF->rgb8.data[3*(row*ID->columns + col) + color] = c_fix;
         break;
       default:
         fprintf(stderr, "Unknown huffman image type\n");
@@ -1865,9 +1862,13 @@ static void x3f_load_true(x3f_info_t *I,
       TRU->plane_address[i-1] +
       (((TRU->plane_size.element[i-1] + 15) / 16) * 16);
 
-  TRU->x3rgb16.size = ID->columns * ID->rows * 3;
-  TRU->x3rgb16.element =
-    (uint16_t *)malloc(sizeof(uint16_t)*TRU->x3rgb16.size);
+  uint32_t size = ID->columns * ID->rows * 3;
+  TRU->x3rgb16.columns = ID->columns;
+  TRU->x3rgb16.rows = ID->rows;
+  TRU->x3rgb16.channels = 3;
+  TRU->x3rgb16.row_stride = ID->columns;
+  TRU->x3rgb16.data =
+    (uint16_t *)malloc(sizeof(uint16_t)*size);
 
   true_decode(I, DE);
 }
@@ -1928,6 +1929,7 @@ static void x3f_load_huffman(x3f_info_t *I,
   x3f_directory_entry_header_t *DEH = &DE->header;
   x3f_image_data_t *ID = &DEH->data_subsection.image_data;
   x3f_huffman_t *HUF = new_huffman(&ID->huffman);
+  uint32_t size;
 
   if (use_map_table) {
     int table_size = 1<<bits;
@@ -1938,14 +1940,22 @@ static void x3f_load_huffman(x3f_info_t *I,
   switch (ID->type_format) {
   case X3F_IMAGE_RAW_HUFFMAN_X530:
   case X3F_IMAGE_RAW_HUFFMAN_10BIT:
-    HUF->x3rgb16.size = ID->columns * ID->rows * 3;
-    HUF->x3rgb16.element =
-      (uint16_t *)malloc(sizeof(uint16_t)*HUF->x3rgb16.size);
+    size = ID->columns * ID->rows * 3;
+    HUF->x3rgb16.columns = ID->columns;
+    HUF->x3rgb16.rows = ID->rows;
+    HUF->x3rgb16.channels = 3;
+    HUF->x3rgb16.row_stride = ID->columns;
+    HUF->x3rgb16.data =
+      (uint16_t *)malloc(sizeof(uint16_t)*size);
     break;
   case X3F_IMAGE_THUMB_HUFFMAN:
-    HUF->rgb8.size = ID->columns * ID->rows * 3;
-    HUF->rgb8.element =
-      (uint8_t *)malloc(sizeof(uint8_t)*HUF->rgb8.size);
+    size = ID->columns * ID->rows * 3;
+    HUF->rgb8.columns = ID->columns;
+    HUF->rgb8.columns = ID->rows;
+    HUF->rgb8.channels = 3;
+    HUF->rgb8.row_stride = ID->columns;
+    HUF->rgb8.data =
+      (uint8_t *)malloc(sizeof(uint8_t)*size);
     break;
   default:
     fprintf(stderr, "Unknown huffman image type\n");
@@ -2910,7 +2920,7 @@ static int get_max_raw(x3f_t *x3f, uint32_t *max_raw)
 				  (int32_t *)max_raw);
 }
 
-static int image_area(x3f_t *x3f, x3f_area_t *image)
+static int image_area(x3f_t *x3f, x3f_area16_t *image)
 {
   x3f_directory_entry_t *DE = x3f_get_raw(x3f);
   x3f_directory_entry_header_t *DEH;
@@ -2927,10 +2937,10 @@ static int image_area(x3f_t *x3f, x3f_area_t *image)
   TRU = ID->tru;
 
   if (HUF != NULL)
-    data = HUF->x3rgb16.element;
+    data = HUF->x3rgb16.data;
 
   if (TRU != NULL)
-    data = TRU->x3rgb16.element;
+    data = TRU->x3rgb16.data;
 
   if (!data) return 0;
 
@@ -2943,7 +2953,7 @@ static int image_area(x3f_t *x3f, x3f_area_t *image)
   return 1;
 }
 
-static int crop_area(uint32_t *coord, x3f_area_t *image, x3f_area_t *crop)
+static int crop_area(uint32_t *coord, x3f_area16_t *image, x3f_area16_t *crop)
 {
   if (coord[0] > coord[2] || coord[1] > coord[3]) return 0;
   if (coord[2] >= image->columns || coord[3] >= image->rows) return 0;
@@ -2993,7 +3003,7 @@ static int get_camf_rect(x3f_t *x3f, char *name, uint32_t *rect)
 }
 
 static int crop_area_camf(x3f_t *x3f, char *name,
-			  x3f_area_t *image, x3f_area_t *crop)
+			  x3f_area16_t *image, x3f_area16_t *crop)
 {
   uint32_t coord[4];
 
@@ -3011,7 +3021,7 @@ static int crop_area_camf(x3f_t *x3f, char *name,
 
 static int sum_area(x3f_t *x3f, char *name, uint64_t *sum /* in/out */)
 {
-  x3f_area_t image, area;
+  x3f_area16_t image, area;
   int row, col, color;
 
   if (!image_area(x3f, &image) || image.channels < 3) return 0;
@@ -3635,7 +3645,7 @@ static int get_max_intermediate(x3f_t *x3f, char *wb,
   return 1;
 }
 
-static int preprocess_data(x3f_t *x3f, x3f_area_t *image, char *wb)
+static int preprocess_data(x3f_t *x3f, x3f_area16_t *image, char *wb)
 {
   int row, col, color;
   uint32_t max_raw[3], max_intermediate[3];
@@ -3683,7 +3693,7 @@ static int preprocess_data(x3f_t *x3f, x3f_area_t *image, char *wb)
 
 #define LUTSIZE 1024
 
-static int convert_data(x3f_t *x3f, x3f_area_t *image,
+static int convert_data(x3f_t *x3f, x3f_area16_t *image,
 			x3f_color_encoding_t encoding, char *wb)
 {
   int row, col, color;
@@ -3793,7 +3803,7 @@ static int convert_data(x3f_t *x3f, x3f_area_t *image,
 
 static int run_denoising(x3f_t *x3f)
 {
-  x3f_area_t original_image, image;
+  x3f_area16_t original_image, image;
   x3f_denoise_type_t type = X3F_DENOISE_STD;
   char *sensorid;
 
@@ -3812,13 +3822,13 @@ static int run_denoising(x3f_t *x3f)
 }
 
 static int get_image(x3f_t *x3f,
-		     x3f_area_t *image,
+		     x3f_area16_t *image,
 		     x3f_color_encoding_t encoding,
 		     int crop,
 		     int denoise,
 		     char *wb)
 {
-  x3f_area_t original_image;
+  x3f_area16_t original_image;
 
   if (wb == NULL) wb = get_wb(x3f);
 
@@ -3880,7 +3890,7 @@ x3f_return_t x3f_dump_raw_data_as_ppm(x3f_t *x3f,
 				      char *wb,
 				      int binary)
 {
-  x3f_area_t image;
+  x3f_area16_t image;
   FILE *f_out = fopen(outfilename, "wb");
   int row;
 
@@ -3928,7 +3938,7 @@ x3f_return_t x3f_dump_raw_data_as_tiff(x3f_t *x3f,
 				       int denoise,
 				       char *wb)
 {
-  x3f_area_t image;
+  x3f_area16_t image;
   TIFF *f_out = TIFFOpen(outfilename, "w");
   int row;
 
@@ -4177,7 +4187,7 @@ x3f_return_t x3f_dump_raw_data_as_dng(x3f_t *x3f,
   float as_shot_neutral[3];
   uint32_t white_level[3];
   uint32_t active_area[4];
-  x3f_area_t image;
+  x3f_area16_t image;
   int row;
 
   if (wb == NULL) wb = get_wb(x3f);
@@ -4298,7 +4308,7 @@ x3f_return_t x3f_dump_raw_data_as_histogram(x3f_t *x3f,
 					    char *wb,
 					    int log_hist)
 {
-  x3f_area_t image;
+  x3f_area16_t image;
   FILE *f_out = fopen(outfilename, "wb");
   uint32_t *histogram[3];
   int color, i;

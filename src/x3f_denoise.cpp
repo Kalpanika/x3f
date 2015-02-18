@@ -9,7 +9,7 @@
 
 using namespace cv;
 
-typedef void (*conv_t)(x3f_area_t *image);
+typedef void (*conv_t)(x3f_area16_t *image);
 
 typedef struct {
   double h;
@@ -23,7 +23,7 @@ static const int32_t O_UV = 32768; // To avoid clipping negative values in U,V
 //  0    0    4
 //  2    0   -2
 //  1   -2    1
-static void BMT_to_YUV_F20(x3f_area_t *image)
+static void BMT_to_YUV_F20(x3f_area16_t *image)
 {
   for (uint32_t row=0; row < image->rows; row++)
     for (uint32_t col=0; col < image->columns; col++) {
@@ -47,7 +47,7 @@ static void BMT_to_YUV_F20(x3f_area_t *image)
 //  1/4  1/2  0
 //  1/4  1/4 -1/2
 //  1/4  0    0
-static void YUV_to_BMT_F20(x3f_area_t *image)
+static void YUV_to_BMT_F20(x3f_area16_t *image)
 {
   for (uint32_t row=0; row < image->rows; row++)
     for (uint32_t col=0; col < image->columns; col++) {
@@ -71,7 +71,7 @@ static void YUV_to_BMT_F20(x3f_area_t *image)
 //  4/3  4/3  4/3
 //  2    0   -2
 //  1   -2    1
-static void BMT_to_YUV_STD(x3f_area_t *image)
+static void BMT_to_YUV_STD(x3f_area16_t *image)
 {
   for (uint32_t row=0; row < image->rows; row++)
     for (uint32_t col=0; col < image->columns; col++) {
@@ -95,7 +95,7 @@ static void BMT_to_YUV_STD(x3f_area_t *image)
 //  1/4  1/4  1/6
 //  1/4  0   -1/3
 //  1/4 -1/4  1/6
-static void YUV_to_BMT_STD(x3f_area_t *image)
+static void YUV_to_BMT_STD(x3f_area16_t *image)
 {
   for (uint32_t row=0; row < image->rows; row++)
     for (uint32_t col=0; col < image->columns; col++) {
@@ -120,7 +120,7 @@ static const denoise_desc_t denoise_types[] = {
   {120.0, BMT_to_YUV_F20, YUV_to_BMT_F20},
 };
 
-void x3f_denoise(x3f_area_t *image, x3f_denoise_type_t type)
+void x3f_denoise(x3f_area16_t *image, x3f_denoise_type_t type)
 {
   assert(image->channels == 3);
   assert(type < sizeof(denoise_types)/sizeof(denoise_desc_t));
