@@ -130,6 +130,24 @@ typedef struct x3f_table32_s {
   uint32_t *element;
 } x3f_table32_t;
 
+typedef struct
+{
+  uint8_t *data;
+  uint32_t rows;
+  uint32_t columns;
+  uint32_t channels;
+  uint32_t row_stride;
+} x3f_area8_t;
+
+typedef struct
+{
+  uint16_t *data;
+  uint32_t rows;
+  uint32_t columns;
+  uint32_t channels;
+  uint32_t row_stride;
+} x3f_area16_t;
+
 #define UNDEFINED_LEAF 0xffffffff
 
 typedef struct x3f_huffnode_s {
@@ -165,7 +183,7 @@ typedef struct x3f_true_s {
   x3f_table32_t plane_size;	/* Size of the 3 planes */
   uint8_t *plane_address[TRUE_PLANES]; /* computed offset to the planes */
   x3f_hufftree_t tree;		/* Coding tree */
-  x3f_table16_t x3rgb16;        /* 3x16 bit X3-RGB data */
+  x3f_area16_t x3rgb16;		/* 3x16 bit X3-RGB data */
 } x3f_true_t;
 
 typedef struct x3f_quattro_s {
@@ -181,8 +199,8 @@ typedef struct x3f_huffman_s {
   x3f_table32_t table;          /* Coding Table */
   x3f_hufftree_t tree;		/* Coding tree */
   x3f_table32_t row_offsets;    /* Row offsets */
-  x3f_table8_t rgb8;            /* 3x8 bit RGB data */
-  x3f_table16_t x3rgb16;        /* 3x16 bit X3-RGB data */
+  x3f_area8_t rgb8;		/* 3x8 bit RGB data */
+  x3f_area16_t x3rgb16;		/* 3x16 bit X3-RGB data */
 } x3f_huffman_t;
 
 typedef struct x3f_image_data_s {
@@ -405,15 +423,6 @@ typedef enum x3f_return_e {
   X3F_OUTFILE_ERROR=3,
   X3F_INTERNAL_ERROR=4
 } x3f_return_t;
-
-typedef struct
-{
-  uint16_t *data;
-  uint32_t rows;
-  uint32_t columns;
-  uint32_t channels; /* TODO: in practice not used. Has to be >= 3. */
-  uint32_t row_stride;
-} x3f_area_t;
 
 extern int legacy_offset;
 extern bool_t auto_legacy_offset;
