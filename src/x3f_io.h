@@ -192,6 +192,9 @@ typedef struct x3f_quattro_s {
     uint16_t rows;
   } plane[TRUE_PLANES];
   uint32_t unknown;
+
+  bool_t quattro_layout;
+  x3f_area16_t top16;		/* Container for the bigger top layer */
 } x3f_quattro_t;
 
 typedef struct x3f_huffman_s {
