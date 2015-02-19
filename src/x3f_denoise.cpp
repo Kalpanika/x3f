@@ -3,6 +3,7 @@
 
 #include <opencv2/core.hpp>
 #include <opencv2/photo.hpp>
+#include <opencv2/imgproc.hpp>
 
 #include "x3f_denoise.h"
 #include "x3f_io.h"
@@ -117,7 +118,7 @@ static void YUV_to_BMT_STD(x3f_area_t *image)
 
 static const denoise_desc_t denoise_types[] = {
   {80.0, BMT_to_YUV_STD, YUV_to_BMT_STD},
-  {120.0, BMT_to_YUV_F20, YUV_to_BMT_F20},
+  {160.0, BMT_to_YUV_F20, YUV_to_BMT_F20},
 };
 
 void x3f_denoise(x3f_area_t *image, x3f_denoise_type_t type)
@@ -134,8 +135,18 @@ void x3f_denoise(x3f_area_t *image, x3f_denoise_type_t type)
   Mat out;
 
   std::cout << "BEGIN denoising\n";
-  fastNlMeansDenoisingAbs(in, out, d->h, 5, 21);
+  fastNlMeansDenoisingAbs(in, out, d->h, 5, 11);
   std::cout << "END denoising\n";
+
+  std::cout << "BEGIN low-frequency denoising\n";
+  Mat sub, sub_dn, sub_res, res;
+
+  resize(out, sub, Size(), 0.25, 0.25, INTER_AREA);
+  fastNlMeansDenoisingAbs(sub, sub_dn, 0.25*d->h, 5, 21);
+  subtract(sub, sub_dn, sub_res, noArray(), CV_16S);
+  resize(sub_res, res, out.size(), 0.0, 0.0, INTER_CUBIC);
+  subtract(out, res, out, noArray(), CV_16U);
+  std::cout << "END low-frequency denoising\n";
 
   int from_to[] = { 1,1, 2,2 };
   mixChannels(&out, 1, &in, 1, from_to, 2); // Discard denoised Y
