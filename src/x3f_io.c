@@ -3871,13 +3871,15 @@ static int get_image(x3f_t *x3f,
 
   if (wb == NULL) wb = get_wb(x3f);
 
-  if (!preprocess_data(x3f, wb)) return 0;
-  if (denoise && !run_denoising(x3f)) return 0;
-
   if (!image_area(x3f, &original_image)) return 0;
   if (!crop || !crop_area_camf(x3f, "ActiveImageArea", &original_image, 1,
 			       image))
     *image = original_image;
+
+  if (encoding == UNPROCESSED) return 1;
+
+  if (!preprocess_data(x3f, wb)) return 0;
+  if (denoise && !run_denoising(x3f)) return 0;
 
   if (encoding != NONE && !convert_data(x3f, &original_image, encoding, wb))
     return 0;

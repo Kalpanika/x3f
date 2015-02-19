@@ -27,6 +27,7 @@ static void usage(char *progname)
           "   -loghist        Dump histogram as csv file, with log exposure\n"
 	  "   -color <COLOR>  Convert to RGB color\n"
 	  "                   (sRGB, AdobeRGB, ProPhotoRGB)\n"
+          "   -unprocessed    Dump RAW without any preprocessing\n"
           "   -crop           Crop to active area\n"
           "   -denoise        Denoise RAW data\n"
           "   -wb <WB>        Select white balance preset\n"
@@ -90,6 +91,8 @@ int main(int argc, char *argv[])
 	usage(argv[0]);
       }
     }
+    else if (!strcmp(argv[i], "-unprocessed"))
+      color_encoding = UNPROCESSED;
     else if (!strcmp(argv[i], "-crop"))
       crop = 1;
     else if (!strcmp(argv[i], "-denoise"))

@@ -410,10 +410,11 @@ typedef struct x3f_s {
 } x3f_t;
 
 typedef enum x3f_color_encoding_e {
-  NONE=0,
-  SRGB=1,
-  ARGB=2,
-  PPRGB=3
+  NONE=0,		 /* Preprocessed but unconverted data */
+  SRGB=1,		 /* Preproccesed and convered to sRGB */
+  ARGB=2,		 /* Preproccesed and convered to Adobee RGB */
+  PPRGB=3,		 /* Preproccesed and convered to ProPhoto RGB */
+  UNPROCESSED=4,	 /* RAW data without any preprocessing */
 } x3f_color_encoding_t;
 
 typedef enum x3f_return_e {
