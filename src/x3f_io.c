@@ -3879,7 +3879,8 @@ static int get_image(x3f_t *x3f,
 			       image))
     *image = original_image;
 
-  if (encoding != NONE && !convert_data(x3f, image, encoding, wb)) return 0;
+  if (encoding != NONE && !convert_data(x3f, &original_image, encoding, wb))
+    return 0;
 
   return 1;
 }
