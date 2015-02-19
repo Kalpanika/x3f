@@ -3048,31 +3048,40 @@ static int crop_area_camf(x3f_t *x3f, char *name,
   return 1;
 }
 
-static int sum_area(x3f_t *x3f, char *name, uint64_t *sum /* in/out */)
+static int sum_area(x3f_t *x3f, char *name,
+		    x3f_area16_t *image, int rescale, int colors,
+		    uint64_t *sum /* in/out */)
 {
-  x3f_area16_t image, area;
+  x3f_area16_t area;
   int row, col, color;
 
-  if (!image_area(x3f, &image) || image.channels < 3) return 0;
-  if (!crop_area_camf(x3f, name, &image, 1, &area)) return 0;
+  if (image->channels < colors) return 0;
+  if (!crop_area_camf(x3f, name, image, rescale, &area)) return 0;
 
   for (row = 0; row < area.rows; row++)
     for (col = 0; col < area.columns; col++)
-      for (color = 0; color < 3; color++)
+      for (color = 0; color < colors; color++)
 	sum[color] += (uint64_t)area.data[area.row_stride*row +
 					  area.channels*col + color];
 
   return area.columns*area.rows;
 }
 
-static void get_black_level(x3f_t *x3f, double *black_level)
+static void get_black_level(x3f_t *x3f,
+			    x3f_area16_t *image, int rescale, int colors,
+			    double *black_level)
 {
-  uint64_t black_sum[3] = {0,0,0};
+  uint64_t *black_sum;
   int black_pixels = 0;
   int i;
   
-  black_pixels += sum_area(x3f, "DarkShieldTop", black_sum);
-  black_pixels += sum_area(x3f, "DarkShieldBottom", black_sum);
+  black_sum = alloca(colors*sizeof(uint64_t));
+  memset(black_sum, 0, colors*sizeof(uint64_t));
+
+  black_pixels += sum_area(x3f, "DarkShieldTop", image, rescale, colors,
+			   black_sum);
+  black_pixels += sum_area(x3f, "DarkShieldBottom", image, rescale, colors,
+			   black_sum);
 
   if (black_pixels == 0) {
     black_level[0] = black_level[1] = black_level[2] = 0.0;
@@ -3674,13 +3683,14 @@ static int get_max_intermediate(x3f_t *x3f, char *wb,
   return 1;
 }
 
-static int preprocess_data(x3f_t *x3f, x3f_area16_t *image, char *wb)
+static int preprocess_data(x3f_t *x3f, char *wb)
 {
+  x3f_area16_t image;
   int row, col, color;
   uint32_t max_raw[3], max_intermediate[3];
   double scale[3], black_level[3];
   
-  if (image->channels < 3) return 0;
+  if (!image_area(x3f, &image) || image.channels < 3) return 0;
   
   if (!get_max_raw(x3f, max_raw)) {
     fprintf(stderr, "Could not get maximum RAW level\n");
@@ -3695,7 +3705,7 @@ static int preprocess_data(x3f_t *x3f, x3f_area16_t *image, char *wb)
   printf("max_intermediate = {%d,%d,%d}\n",
 	 max_intermediate[0], max_intermediate[1], max_intermediate[2]);
   
-  get_black_level(x3f, black_level);
+  get_black_level(x3f, &image, 1, 3, black_level);
   printf("black_level = {%g,%g,%g}\n",
 	 black_level[0], black_level[1], black_level[2]);
 
@@ -3703,11 +3713,11 @@ static int preprocess_data(x3f_t *x3f, x3f_area16_t *image, char *wb)
     scale[color] = (double)max_intermediate[color] /
       (max_raw[color] - black_level[color]);
   
-  for (row = 0; row < image->rows; row++)
-    for (col = 0; col < image->columns; col++)
+  for (row = 0; row < image.rows; row++)
+    for (col = 0; col < image.columns; col++)
       for (color = 0; color < 3; color++) {
 	uint16_t *valp =
-	  &image->data[image->row_stride*row + image->channels*col + color];
+	  &image.data[image.row_stride*row + image.channels*col + color];
 	int32_t out = (int32_t)(scale[color] * (*valp - black_level[color]));
 
 	if (out < 0) *valp = 0;
@@ -3861,10 +3871,10 @@ static int get_image(x3f_t *x3f,
 
   if (wb == NULL) wb = get_wb(x3f);
 
-  if (!image_area(x3f, &original_image)) return 0;
-  if (!preprocess_data(x3f, &original_image, wb)) return 0;
+  if (!preprocess_data(x3f, wb)) return 0;
   if (denoise && !run_denoising(x3f)) return 0;
 
+  if (!image_area(x3f, &original_image)) return 0;
   if (!crop || !crop_area_camf(x3f, "ActiveImageArea", &original_image, 1,
 			       image))
     *image = original_image;
