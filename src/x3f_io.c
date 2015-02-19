@@ -265,6 +265,8 @@ static x3f_quattro_t *new_quattro(x3f_quattro_t **QP)
 
   Q->unknown = 0;
 
+  Q->top16.data = NULL;
+
   *QP = Q;
 
   return Q;
@@ -1435,6 +1437,7 @@ static int32_t get_true_diff(bit_state_t *BS, x3f_hufftree_t *HTP)
 static void true_decode_one_color(x3f_image_data_t *ID, int color)
 {
   x3f_true_t *TRU = ID->tru;
+  x3f_quattro_t *Q = ID->quattro;
   uint32_t seed = TRU->seed[color]; /* TODO : Is this correct ? */
   int row;
 
@@ -1444,13 +1447,8 @@ static void true_decode_one_color(x3f_image_data_t *ID, int color)
   int32_t row_start_acc[2][2];
   uint32_t rows = ID->rows;
   uint32_t cols = ID->columns;
-  uint32_t out_cols = ID->columns;
-  bool_t quattro_modified = 0;
-
   uint16_t *dst = TRU->x3rgb16.data + color;
-
-  printf("TRUE decode one color (%d) rows=%d cols=%d\n",
-	 color, rows, cols);
+  uint32_t planes = 3;
 
   set_bit_state(&BS, TRU->plane_address[color]);
 
@@ -1459,18 +1457,20 @@ static void true_decode_one_color(x3f_image_data_t *ID, int color)
   row_start_acc[1][0] = seed;
   row_start_acc[1][1] = seed;
 
-  if (ID->type_format == X3F_IMAGE_RAW_QUATTRO) {
-    uint32_t qrows = ID->quattro->plane[color].rows;
-    uint32_t qcols = ID->quattro->plane[color].columns;
+  if (ID->type_format == X3F_IMAGE_RAW_QUATTRO &&
+      Q->quattro_layout) {
+    rows = Q->plane[color].rows;
+    cols = Q->plane[color].columns;
 
-    if (qcols != cols) { /* Strange test, due to X3F file format uses
-			    the same type_format for binned data. */
-      rows = qrows;
-      cols = qcols;
-      quattro_modified = 1;
-      printf("Quattro modified decode one color (%d) rows=%d cols=%d\n",
-	     color, rows, cols);
+    if (color == 2) {
+      planes = 1;
+      dst = Q->top16.data;
     }
+    printf("Quattro decode one color (%d) rows=%d cols=%d\n",
+	   color, rows, cols);
+  } else {
+    printf("TRUE decode one color (%d) rows=%d cols=%d\n",
+	   color, rows, cols);
   }
 
   for (row = 0; row < rows; row++) {
@@ -1490,39 +1490,10 @@ static void true_decode_one_color(x3f_image_data_t *ID, int color)
       if (col < 2)
 	row_start_acc[odd_row][odd_col] = value;
 
-      if (col < out_cols) { /* For quattro the input may be larger
-			       than the output */
-	*dst = value;
-	dst += 3;
-      }
+      *dst = value;
+      dst += planes;
     }
   }
-
-  if (quattro_modified && (color < 2)) {
-    /* The pixels in the layers with lower resolution are duplicated
-       to four values. This is done in place, therefore done backwards */
-
-    uint16_t *base = TRU->x3rgb16.data + color;
-
-    printf("Expand Quattro layer %d\n", color);
-
-    for (row = rows-1; row >= 0; row--) {
-      int col;
-
-      for (col = cols-1; col >= 0; col--) {
-	uint16_t val = base[3*(cols*row + col)];
-
-	base[3*(2*cols*(2*row+1) + 2*col+1)] = val;
-	base[3*(2*cols*(2*row+1) + 2*col+0)] = val;
-	base[3*(2*cols*(2*row+0) + 2*col+1)] = val;
-	base[3*(2*cols*(2*row+0) + 2*col+0)] = val;
-      }
-    }
-
-    printf("Expanded\n");
-  }
-
-  /* TODO - here should really non square binning be expanded */
 }
 
 static void true_decode(x3f_info_t *I,
@@ -1824,6 +1795,17 @@ static void x3f_load_true(x3f_info_t *I,
       GET2(Q->plane[i].columns);
       GET2(Q->plane[i].rows);
     }
+
+    if (Q->plane[0].rows == ID->rows/2) {
+      printf("Binned Quattro\n");
+      Q->quattro_layout = 1;
+    } else if (Q->plane[0].rows == ID->rows) {
+      printf("Quattro layout\n");
+      Q->quattro_layout = 0;
+    } else {
+      fprintf(stderr, "Quattro file with unknown layer size\n");
+      assert(0);
+    }
   }
 
   printf("Load TRUE\n");
@@ -1862,13 +1844,41 @@ static void x3f_load_true(x3f_info_t *I,
       TRU->plane_address[i-1] +
       (((TRU->plane_size.element[i-1] + 15) / 16) * 16);
 
-  uint32_t size = ID->columns * ID->rows * 3;
-  TRU->x3rgb16.columns = ID->columns;
-  TRU->x3rgb16.rows = ID->rows;
-  TRU->x3rgb16.channels = 3;
-  TRU->x3rgb16.row_stride = ID->columns * 3;
-  TRU->x3rgb16.data =
-    (uint16_t *)malloc(sizeof(uint16_t)*size);
+  if (ID->type_format == X3F_IMAGE_RAW_QUATTRO &&
+      Q->quattro_layout) {
+    uint32_t columns = Q->plane[0].columns;
+    uint32_t rows = Q->plane[0].rows;
+    uint32_t channels = 3;
+    uint32_t size = columns * rows * channels;
+
+    TRU->x3rgb16.columns = columns;
+    TRU->x3rgb16.rows = rows;
+    TRU->x3rgb16.channels = channels;
+    TRU->x3rgb16.row_stride = columns * channels;
+    TRU->x3rgb16.data =
+      (uint16_t *)malloc(sizeof(uint16_t)*size);
+
+    columns = Q->plane[2].columns;
+    rows = Q->plane[2].rows;
+    channels = 1;
+    size = columns * rows * channels;
+
+    Q->top16.columns = columns;
+    Q->top16.rows = rows;
+    Q->top16.channels = channels;
+    Q->top16.row_stride = columns * channels;
+    Q->top16.data =
+      (uint16_t *)malloc(sizeof(uint16_t)*size);
+  } else {
+    uint32_t size = ID->columns * ID->rows * 3;
+
+    TRU->x3rgb16.columns = ID->columns;
+    TRU->x3rgb16.rows = ID->rows;
+    TRU->x3rgb16.channels = 3;
+    TRU->x3rgb16.row_stride = ID->columns * 3;
+    TRU->x3rgb16.data =
+      (uint16_t *)malloc(sizeof(uint16_t)*size);
+  }
 
   true_decode(I, DE);
 }
@@ -2927,6 +2937,7 @@ static int image_area(x3f_t *x3f, x3f_area16_t *image)
   x3f_image_data_t *ID;
   x3f_huffman_t *HUF;
   x3f_true_t *TRU;
+  x3f_area16_t *area = NULL;
   uint16_t *data = NULL;
 
   if (!DE) return 0;
@@ -2937,18 +2948,20 @@ static int image_area(x3f_t *x3f, x3f_area16_t *image)
   TRU = ID->tru;
 
   if (HUF != NULL)
-    data = HUF->x3rgb16.data;
+    area = &HUF->x3rgb16;
 
   if (TRU != NULL)
-    data = TRU->x3rgb16.data;
+    area = &TRU->x3rgb16;
+
+  data = area->data;
 
   if (!data) return 0;
 
-  image->data = data;
-  image->columns = ID->columns;
-  image->rows = ID->rows;
-  image->channels = 3;
-  image->row_stride = ID->columns * image->channels;
+  image->data = area->data;
+  image->columns = area->columns;
+  image->rows = area->rows;
+  image->channels = area->channels;
+  image->row_stride = area->row_stride;
 
   return 1;
 }
