@@ -136,7 +136,7 @@ static void denoise(const Mat& in, Mat& out, double h)
 static const denoise_desc_t denoise_types[] = {
   {120.0, BMT_to_YUV_STD, YUV_to_BMT_STD},
   {120.0, BMT_to_YUV_YisT, YUV_to_BMT_YisT},
-  {120.0, BMT_to_YUV_YisT, YUV_to_BMT_YisT},
+  {200.0, BMT_to_YUV_YisT, YUV_to_BMT_YisT},
 };
 
 void x3f_denoise(x3f_area16_t *image, x3f_denoise_type_t type)
@@ -160,8 +160,7 @@ void x3f_denoise(x3f_area16_t *image, x3f_denoise_type_t type)
 
 // NOTE: Active has to be a subara of image, i.e. they have to share
 //       the same data area.
-// NOTE: image, active and qtop will be destuctively modified in
-//       place, only expanded should be used afterwards
+// NOTE: image and active will be destuctively modified in place.
 void x3f_expand_quattro(x3f_area16_t *image, x3f_area16_t *active,
 			x3f_area16_t *qtop, x3f_area16_t *expanded)
 {
@@ -189,8 +188,7 @@ void x3f_expand_quattro(x3f_area16_t *image, x3f_area16_t *active,
   }
   
   std::cout << "BEGIN Quattro expansion\n";
-  resize(img, exp, exp.size(), 0.0, 0.0, INTER_LINEAR);
-  qt *= 4;
+  resize(img, exp, exp.size(), 0.0, 0.0, INTER_CUBIC);
   int from_to[] = { 0,0 };
   mixChannels(&qt, 1, &exp, 1, from_to, 1);
   std::cout << "END Quattro expansion\n";

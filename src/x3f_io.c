@@ -3983,7 +3983,7 @@ static int get_image(x3f_t *x3f,
   if (!preprocess_data(x3f, wb)) return 0;
 
   if (expand_quattro(x3f, denoise, &expanded)) {
-    /* NOTE: expand_quattro destroys the data of original_image and qtop */
+    /* NOTE: expand_quattro destroys the data of original_image */
     if (!crop || !crop_area_camf(x3f, "ActiveImageArea", &expanded, 0, image))
       *image = expanded;
     original_image = expanded;
