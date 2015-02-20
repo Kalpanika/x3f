@@ -1797,10 +1797,10 @@ static void x3f_load_true(x3f_info_t *I,
     }
 
     if (Q->plane[0].rows == ID->rows/2) {
-      printf("Binned Quattro\n");
+      printf("Quattro layout\n");
       Q->quattro_layout = 1;
     } else if (Q->plane[0].rows == ID->rows) {
-      printf("Quattro layout\n");
+      printf("Binned Quattro\n");
       Q->quattro_layout = 0;
     } else {
       fprintf(stderr, "Quattro file with unknown layer size\n");
