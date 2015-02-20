@@ -242,10 +242,9 @@ static void cleanup_quattro(x3f_quattro_t **QP)
 
   if (Q == NULL) return;
 
-  printf("Cleanup/Free Quattro\n");
+  printf("Cleanup Quattro\n");
 
-  /* Here is a place where you can clean up stuff */
-
+  FREE(Q->top16.data);
   FREE(Q);
 
   *QP = NULL;
