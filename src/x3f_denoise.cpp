@@ -24,7 +24,7 @@ static const int32_t O_UV = 32768; // To avoid clipping negative values in U,V
 //  0    0    4
 //  2    0   -2
 //  1   -2    1
-static void BMT_to_YUV_F20(x3f_area16_t *image)
+static void BMT_to_YUV_YisT(x3f_area16_t *image)
 {
   for (uint32_t row=0; row < image->rows; row++)
     for (uint32_t col=0; col < image->columns; col++) {
@@ -48,7 +48,7 @@ static void BMT_to_YUV_F20(x3f_area16_t *image)
 //  1/4  1/2  0
 //  1/4  1/4 -1/2
 //  1/4  0    0
-static void YUV_to_BMT_F20(x3f_area16_t *image)
+static void YUV_to_BMT_YisT(x3f_area16_t *image)
 {
   for (uint32_t row=0; row < image->rows; row++)
     for (uint32_t col=0; col < image->columns; col++) {
@@ -116,16 +116,33 @@ static void YUV_to_BMT_STD(x3f_area16_t *image)
     }
 }
 
+static void denoise(const Mat& in, Mat& out, double h)
+{
+  std::cout << "BEGIN denoising\n";
+  fastNlMeansDenoisingAbs(in, out, h, 5, 11);
+  std::cout << "END denoising\n";
+
+  std::cout << "BEGIN low-frequency denoising\n";
+  Mat sub, sub_dn, sub_res, res;
+
+  resize(out, sub, Size(), 1.0/4, 1.0/4, INTER_AREA);
+  fastNlMeansDenoisingAbs(sub, sub_dn, h/4, 5, 21);
+  subtract(sub, sub_dn, sub_res, noArray(), CV_16S);
+  resize(sub_res, res, out.size(), 0.0, 0.0, INTER_CUBIC);
+  subtract(out, res, out, noArray(), CV_16U);
+  std::cout << "END low-frequency denoising\n";
+}
+
 static const denoise_desc_t denoise_types[] = {
   {120.0, BMT_to_YUV_STD, YUV_to_BMT_STD},
-  {160.0, BMT_to_YUV_F20, YUV_to_BMT_F20},
+  {160.0, BMT_to_YUV_YisT, YUV_to_BMT_YisT},
+  {120.0, BMT_to_YUV_YisT, YUV_to_BMT_YisT},
 };
 
 void x3f_denoise(x3f_area16_t *image, x3f_denoise_type_t type)
 {
   assert(image->channels == 3);
   assert(type < sizeof(denoise_types)/sizeof(denoise_desc_t));
-  
   const denoise_desc_t *d = &denoise_types[type];
 
   d->BMT_to_YUV(image);
@@ -134,20 +151,7 @@ void x3f_denoise(x3f_area16_t *image, x3f_denoise_type_t type)
 	 image->data, 2*image->row_stride);
   Mat out;
 
-  std::cout << "BEGIN denoising\n";
-  fastNlMeansDenoisingAbs(in, out, d->h, 5, 11);
-  std::cout << "END denoising\n";
-
-  std::cout << "BEGIN low-frequency denoising\n";
-  Mat sub, sub_dn, sub_res, res;
-
-  resize(out, sub, Size(), 0.25, 0.25, INTER_AREA);
-  fastNlMeansDenoisingAbs(sub, sub_dn, 0.25*d->h, 5, 21);
-  subtract(sub, sub_dn, sub_res, noArray(), CV_16S);
-  resize(sub_res, res, out.size(), 0.0, 0.0, INTER_CUBIC);
-  subtract(out, res, out, noArray(), CV_16U);
-  std::cout << "END low-frequency denoising\n";
-
+  denoise(in, out, d->h);
   int from_to[] = { 1,1, 2,2 };
   mixChannels(&out, 1, &in, 1, from_to, 2); // Discard denoised Y
 

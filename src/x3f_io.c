@@ -3767,7 +3767,7 @@ static int preprocess_data(x3f_t *x3f, char *wb)
 	  &qtop.data[qtop.row_stride*(2*row+1) + qtop.channels*2*col];
 	uint32_t sum =
 	  row1[0] + row1[qtop.channels] + row2[0] + row2[qtop.channels];
-	int32_t out = (int32_t)(scale[2] * (sum - 4*black_level[2])/4.0);
+	int32_t out = (int32_t)(scale[2] * (sum/4.0 - black_level[2]));
 
 	if (out < 0) *outp = 0;
 	else if (out > 65535) *outp = 65535;
