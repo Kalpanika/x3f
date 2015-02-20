@@ -160,7 +160,7 @@ void x3f_denoise(x3f_area16_t *image, x3f_denoise_type_t type)
 
 // NOTE: active has to be a subaera of image, i.e. they have to share
 //       the same data area.
-// NOTE: image and active will be destuctively modified in place.
+// NOTE: image and active will be destructively modified in place.
 void x3f_expand_quattro(x3f_area16_t *image, x3f_area16_t *active,
 			x3f_area16_t *qtop, x3f_area16_t *expanded)
 {
