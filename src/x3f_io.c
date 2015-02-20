@@ -3288,13 +3288,13 @@ typedef struct {
   int rowoff, coloff, rowpitch, colpitch;
   int chan, channels;
 
-  spatial_gain_corr_merrill_t mgain[4]; /* raw merril type gains */
+  spatial_gain_corr_merrill_t mgain[4]; /* raw Merrill-type gains */
   int mgain_num;
 } spatial_gain_corr_t;
 
-static int get_merril_type_gains_table(x3f_t *x3f, char *name, char *chan,
-				       uint32_t **mgain, int *rows, int *cols,
-				       double *mingain, double *delta)
+static int get_merrill_type_gains_table(x3f_t *x3f, char *name, char *chan,
+					uint32_t **mgain, int *rows, int *cols,
+					double *mingain, double *delta)
 {
   char table[32], *val;
   int rows_tmp, cols_tmp;
@@ -3542,9 +3542,9 @@ static int get_merrill_type_spatial_gain(x3f_t *x3f, int hp_flag,
       spatial_gain_corr_merrill_t *m = &c->mgain[c->mgain_num++];
 
       m->weight = q_weight[i];
-      if (!get_merril_type_gains_table(x3f, name, channels[j],
-				       &m->gain, &c->rows, &c->cols,
-				       &m->mingain, &m->delta))
+      if (!get_merrill_type_gains_table(x3f, name, channels[j],
+					&m->gain, &c->rows, &c->cols,
+					&m->mingain, &m->delta))
 	return 0;
     }    
   }

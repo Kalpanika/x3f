@@ -158,7 +158,7 @@ void x3f_denoise(x3f_area16_t *image, x3f_denoise_type_t type)
   d->YUV_to_BMT(image);
 }
 
-// NOTE: Active has to be a subara of image, i.e. they have to share
+// NOTE: active has to be a subaera of image, i.e. they have to share
 //       the same data area.
 // NOTE: image and active will be destuctively modified in place.
 void x3f_expand_quattro(x3f_area16_t *image, x3f_area16_t *active,
@@ -172,7 +172,7 @@ void x3f_expand_quattro(x3f_area16_t *image, x3f_area16_t *active,
   d->BMT_to_YUV(image);
 
   Mat img(image->rows, image->columns, CV_16UC3,
-	 image->data, sizeof(uint16_t)*image->row_stride);
+	  image->data, sizeof(uint16_t)*image->row_stride);
   Mat qt(qtop->rows, qtop->columns, CV_16U,
 	 qtop->data, sizeof(uint16_t)*qtop->row_stride);
   Mat exp(expanded->rows, expanded->columns, CV_16UC3,
