@@ -3705,6 +3705,38 @@ static int get_max_intermediate(x3f_t *x3f, char *wb,
   return 1;
 }
 
+static void interpolate_highlight_pixels(x3f_t *x3f,
+					 x3f_area16_t *image, int colors)
+{
+  int row, col, color;
+  uint32_t hpinfo[4];
+
+  if (!get_camf_matrix(x3f, "HighlightPixelsInfo", 2, 2, 0, M_UINT, hpinfo))
+    return;
+
+  for (row = hpinfo[1]; row < image->rows; row += hpinfo[3])
+    for (col = hpinfo[0]; col < image->columns; col += hpinfo[2]) {
+      uint16_t *outp =
+	&image->data[row*image->row_stride + col*image->channels];
+      uint16_t *inp1 =
+	&image->data[row*image->row_stride +
+		     (col > 0 ? col-1 : col+1)*image->channels];
+      uint16_t *inp2 =
+	&image->data[row*image->row_stride +
+		     (col < image->columns-1 ? col+1 : col-1)*image->channels];
+      uint16_t *inp3 =
+	&image->data[(row > 0 ? row-1 : row+1)*image->row_stride +
+		     col*image->channels];
+      uint16_t *inp4 =
+	&image->data[(row < image->rows-1 ? row+1 : row-1)*image->row_stride +
+		     col*image->channels];
+
+      for (color=0; color < colors; color++)
+	outp[color] =
+	  (inp1[color] + inp2[color] + inp3[color] + inp4[color] + 2)/4;
+    }
+}
+
 static int preprocess_data(x3f_t *x3f, char *wb)
 {
   x3f_area16_t image, qtop;
@@ -3785,6 +3817,10 @@ static int preprocess_data(x3f_t *x3f, char *wb)
 	else *valp = out;
       }
   }
+
+  /* TODO: should those really be interpolated over, or should they be
+     rescaled instead? */
+  interpolate_highlight_pixels(x3f, &image, 3);
 
   return 1;
 }
