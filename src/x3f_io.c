@@ -3108,10 +3108,9 @@ static void get_black_level(x3f_t *x3f,
 			   black_sum);
 
   if (black_pixels == 0) {
-    black_level[0] = black_level[1] = black_level[2] = 0.0;
+    memset(black_level, 0, colors*sizeof(double));
     fprintf(stderr,
-	    "WARNING: could not calculate black level, assuming {%g,%g,%g}\n",
-	    black_level[0], black_level[1], black_level[2]);
+	    "WARNING: could not calculate black level, assuming 0.0\n");;
     return;
   }
 
@@ -3709,13 +3708,18 @@ static int get_max_intermediate(x3f_t *x3f, char *wb,
 
 static int preprocess_data(x3f_t *x3f, char *wb)
 {
-  x3f_area16_t image;
+  x3f_area16_t image, qtop;
   int row, col, color;
   uint32_t max_raw[3], max_intermediate[3];
   double scale[3], black_level[3];
+  int quattro = image_area_qtop(x3f, &qtop);
+  int colors_in = quattro ? 2 : 3;
   
   if (!image_area(x3f, &image) || image.channels < 3) return 0;
-  
+  if (quattro && (qtop.channels < 1 ||
+		  qtop.rows < 2*image.rows || qtop.columns < 2*image.columns))
+    return 0;
+
   if (!get_max_raw(x3f, max_raw)) {
     fprintf(stderr, "Could not get maximum RAW level\n");
     return 0;
@@ -3729,7 +3733,8 @@ static int preprocess_data(x3f_t *x3f, char *wb)
   printf("max_intermediate = {%d,%d,%d}\n",
 	 max_intermediate[0], max_intermediate[1], max_intermediate[2]);
   
-  get_black_level(x3f, &image, 1, 3, black_level);
+  get_black_level(x3f, &image, 1, colors_in, black_level);
+  if (quattro) get_black_level(x3f, &qtop, 0, 1, &black_level[2]);
   printf("black_level = {%g,%g,%g}\n",
 	 black_level[0], black_level[1], black_level[2]);
 
@@ -3737,9 +3742,10 @@ static int preprocess_data(x3f_t *x3f, char *wb)
     scale[color] = (double)max_intermediate[color] /
       (max_raw[color] - black_level[color]);
   
+  /* Preprocess image data (HUF/TRU->x3rgb16) */
   for (row = 0; row < image.rows; row++)
     for (col = 0; col < image.columns; col++)
-      for (color = 0; color < 3; color++) {
+      for (color = 0; color < colors_in; color++) {
 	uint16_t *valp =
 	  &image.data[image.row_stride*row + image.channels*col + color];
 	int32_t out = (int32_t)(scale[color] * (*valp - black_level[color]));
@@ -3748,6 +3754,37 @@ static int preprocess_data(x3f_t *x3f, char *wb)
 	else if (out > 65535) *valp = 65535;
 	else *valp = out;
       }
+
+  if (quattro) {
+    /* Preprocess and downsample Quattro top layer (Q->top16) */
+    for (row = 0; row < image.rows; row++)
+      for (col = 0; col < image.columns; col++) {
+	uint16_t *outp =
+	  &image.data[image.row_stride*row + image.channels*col + 2];
+	uint16_t *row1 =
+	  &qtop.data[qtop.row_stride*2*row + qtop.channels*2*col];
+	uint16_t *row2 =
+	  &qtop.data[qtop.row_stride*(2*row+1) + qtop.channels*2*col];
+	uint32_t sum =
+	  row1[0] + row1[qtop.channels] + row2[0] + row2[qtop.channels];
+	int32_t out = (int32_t)(scale[2] * (sum - 4*black_level[2])/4.0);
+
+	if (out < 0) *outp = 0;
+	else if (out > 65535) *outp = 65535;
+	else *outp = out;
+      }
+
+    /* Preprocess Quattro top layer (Q->top16) at full resolution */
+    for (row = 0; row < qtop.rows; row++)
+      for (col = 0; col < qtop.columns; col++) {
+	uint16_t *valp = &qtop.data[qtop.row_stride*row + qtop.channels*col];
+	int32_t out = (int32_t)(scale[2] * (*valp - black_level[2]));
+
+	if (out < 0) *valp = 0;
+	else if (out > 65535) *valp = 65535;
+	else *valp = out;
+      }
+  }
 
   return 1;
 }
