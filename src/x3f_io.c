@@ -3114,7 +3114,7 @@ static void get_black_level(x3f_t *x3f,
     return;
   }
 
-  for (i=0; i<3; i++)
+  for (i=0; i<colors; i++)
     black_level[i] = (double)black_sum[i]/black_pixels;
 }
 
@@ -3921,6 +3921,37 @@ static int run_denoising(x3f_t *x3f)
   return 1;
 }
 
+static int expand_quattro(x3f_t *x3f, int denoise, x3f_area16_t *expanded)
+{
+  x3f_area16_t image, active, qtop, qtop_crop;
+  uint32_t rect[4];
+
+  if (!image_area_qtop(x3f, &qtop)) return 0;
+  if (!image_area(x3f, &image)) return 0;
+  if (denoise && !crop_area_camf(x3f, "ActiveImageArea", &image, 1, &active)) {
+    active = image;
+    fprintf(stderr,
+	    "WARNING: could not get active area, denoising entire image\n");
+  }
+
+  rect[0] = 0;
+  rect[1] = 0;
+  rect[2] = 2*image.columns - 1;
+  rect[3] = 2*image.rows - 1;
+  if (!crop_area(rect, &qtop, &qtop_crop)) return 0;
+
+  expanded->columns = qtop_crop.columns;
+  expanded->rows = qtop_crop.rows;
+  expanded->channels = 3;
+  expanded->row_stride = expanded->columns*expanded->channels;
+  /* TODO: This has to be freed !!!! */
+  expanded->data = malloc(expanded->rows*expanded->row_stride*sizeof(uint16_t));
+
+  x3f_expand_quattro(&image, denoise ? &active : NULL, &qtop_crop, expanded);
+
+  return 1;
+}
+
 static int get_image(x3f_t *x3f,
 		     x3f_area16_t *image,
 		     x3f_color_encoding_t encoding,
@@ -3928,7 +3959,7 @@ static int get_image(x3f_t *x3f,
 		     int denoise,
 		     char *wb)
 {
-  x3f_area16_t original_image;
+  x3f_area16_t original_image, expanded;
 
   if (wb == NULL) wb = get_wb(x3f);
 
@@ -3950,7 +3981,14 @@ static int get_image(x3f_t *x3f,
   if (encoding == UNPROCESSED) return 1;
 
   if (!preprocess_data(x3f, wb)) return 0;
-  if (denoise && !run_denoising(x3f)) return 0;
+
+  if (expand_quattro(x3f, denoise, &expanded)) {
+    /* NOTE: expand_quattro destroys the data of original_image and qtop */
+    if (!crop || !crop_area_camf(x3f, "ActiveImageArea", &expanded, 0, image))
+      *image = expanded;
+    original_image = expanded;
+  }
+  else if (denoise && !run_denoising(x3f)) return 0;
 
   if (encoding != NONE && !convert_data(x3f, &original_image, encoding, wb))
     return 0;

@@ -14,6 +14,8 @@ typedef enum {
 } x3f_denoise_type_t;
 
 extern void x3f_denoise(x3f_area16_t *image, x3f_denoise_type_t type);
+extern void x3f_expand_quattro(x3f_area16_t *image, x3f_area16_t *active,
+			       x3f_area16_t *qtop, x3f_area16_t *expanded);
 
 #ifdef __cplusplus
 }
