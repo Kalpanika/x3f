@@ -117,7 +117,7 @@ static void YUV_to_BMT_STD(x3f_area16_t *image)
 }
 
 static const denoise_desc_t denoise_types[] = {
-  {80.0, BMT_to_YUV_STD, YUV_to_BMT_STD},
+  {120.0, BMT_to_YUV_STD, YUV_to_BMT_STD},
   {160.0, BMT_to_YUV_F20, YUV_to_BMT_F20},
 };
 
