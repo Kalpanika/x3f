@@ -21,7 +21,7 @@ typedef struct {
 static const int32_t O_UV = 32768; // To avoid clipping negative values in U,V
 
 // Matrix used to convert BMT to YUV:
-//  0    0    4
+//  0    0    1
 //  2    0   -2
 //  1   -2    1
 static void BMT_to_YUV_YisT(x3f_area16_t *image)
@@ -34,7 +34,7 @@ static void BMT_to_YUV_YisT(x3f_area16_t *image)
       int32_t M = (int32_t)p[1];
       int32_t T = (int32_t)p[2];
 
-      int32_t Y =             +4*T;
+      int32_t Y =               +T;
       int32_t U =   +2*B      -2*T;
       int32_t V =     +B -2*M   +T;
 
@@ -45,9 +45,9 @@ static void BMT_to_YUV_YisT(x3f_area16_t *image)
 }
 
 // Matrix used to convert YUV to BMT:
-//  1/4  1/2  0
-//  1/4  1/4 -1/2
-//  1/4  0    0
+//  1    1/2  0
+//  1    1/4 -1/2
+//  1    0    0
 static void YUV_to_BMT_YisT(x3f_area16_t *image)
 {
   for (uint32_t row=0; row < image->rows; row++)
@@ -58,9 +58,9 @@ static void YUV_to_BMT_YisT(x3f_area16_t *image)
       int32_t U = (int32_t)p[1] - O_UV;
       int32_t V = (int32_t)p[2] - O_UV;
 
-      int32_t B = (   +Y +2*U      ) / 4;
-      int32_t M = (   +Y   +U -2*V ) / 4;
-      int32_t T = (   +Y           ) / 4;
+      int32_t B = ( +2*Y   +U      ) / 2;
+      int32_t M = ( +4*Y   +U -2*V ) / 4;
+      int32_t T = (   +Y           )    ;
 
       p[0] = saturate_cast<uint16_t>(B);
       p[1] = saturate_cast<uint16_t>(M);
@@ -69,7 +69,7 @@ static void YUV_to_BMT_YisT(x3f_area16_t *image)
 }
 
 // Matrix used to convert BMT to YUV:
-//  4/3  4/3  4/3
+//  1/3  1/3  1/3
 //  2    0   -2
 //  1   -2    1
 static void BMT_to_YUV_STD(x3f_area16_t *image)
@@ -82,7 +82,7 @@ static void BMT_to_YUV_STD(x3f_area16_t *image)
       int32_t M = (int32_t)p[1];
       int32_t T = (int32_t)p[2];
 
-      int32_t Y = ( +4*B +4*M +4*T ) / 3;
+      int32_t Y = (   +B   +M   +T ) / 3;
       int32_t U =   +2*B      -2*T;
       int32_t V =     +B -2*M   +T;
 
@@ -93,9 +93,9 @@ static void BMT_to_YUV_STD(x3f_area16_t *image)
 }
 
 // Matrix used to convert YUV to BMT:
-//  1/4  1/4  1/6
-//  1/4  0   -1/3
-//  1/4 -1/4  1/6
+//  1    1/4  1/6
+//  1    0   -1/3
+//  1   -1/4  1/6
 static void YUV_to_BMT_STD(x3f_area16_t *image)
 {
   for (uint32_t row=0; row < image->rows; row++)
@@ -106,9 +106,9 @@ static void YUV_to_BMT_STD(x3f_area16_t *image)
       int32_t U = (int32_t)p[1] - O_UV;
       int32_t V = (int32_t)p[2] - O_UV;
 
-      int32_t B = ( +3*Y +3*U +2*V ) / 12;
-      int32_t M = ( +3*Y      -4*V ) / 12;
-      int32_t T = ( +3*Y -3*U +2*V ) / 12;
+      int32_t B = ( +12*Y +3*U +2*V ) / 12;
+      int32_t M = (  +3*Y        -V ) /  3;
+      int32_t T = ( +12*Y -3*U +2*V ) / 12;
 
       p[0] = saturate_cast<uint16_t>(B);
       p[1] = saturate_cast<uint16_t>(M);
@@ -135,8 +135,8 @@ static void denoise(const Mat& in, Mat& out, double h)
 
 static const denoise_desc_t denoise_types[] = {
   {120.0, BMT_to_YUV_STD, YUV_to_BMT_STD},
-  {160.0, BMT_to_YUV_YisT, YUV_to_BMT_YisT},
-  {160.0, BMT_to_YUV_YisT, YUV_to_BMT_YisT},
+  {120.0, BMT_to_YUV_YisT, YUV_to_BMT_YisT},
+  {120.0, BMT_to_YUV_YisT, YUV_to_BMT_YisT},
 };
 
 void x3f_denoise(x3f_area16_t *image, x3f_denoise_type_t type)
