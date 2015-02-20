@@ -418,6 +418,7 @@ typedef enum x3f_color_encoding_e {
   ARGB=2,		 /* Preproccesed and convered to Adobee RGB */
   PPRGB=3,		 /* Preproccesed and convered to ProPhoto RGB */
   UNPROCESSED=4,	 /* RAW data without any preprocessing */
+  QTOP=5,		 /* Quattro top layer without any preprocessing */
 } x3f_color_encoding_t;
 
 typedef enum x3f_return_e {

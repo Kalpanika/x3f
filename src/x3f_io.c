@@ -2938,7 +2938,6 @@ static int image_area(x3f_t *x3f, x3f_area16_t *image)
   x3f_huffman_t *HUF;
   x3f_true_t *TRU;
   x3f_area16_t *area = NULL;
-  uint16_t *data = NULL;
 
   if (!DE) return 0;
 
@@ -2953,15 +2952,27 @@ static int image_area(x3f_t *x3f, x3f_area16_t *image)
   if (TRU != NULL)
     area = &TRU->x3rgb16;
 
-  data = area->data;
+  if (!area || !area->data) return 0;
+  *image = *area;
 
-  if (!data) return 0;
+  return 1;
+}
 
-  image->data = area->data;
-  image->columns = area->columns;
-  image->rows = area->rows;
-  image->channels = area->channels;
-  image->row_stride = area->row_stride;
+static int image_area_qtop(x3f_t *x3f, x3f_area16_t *image)
+{
+  x3f_directory_entry_t *DE = x3f_get_raw(x3f);
+  x3f_directory_entry_header_t *DEH;
+  x3f_image_data_t *ID;
+  x3f_quattro_t *Q;
+
+  if (!DE) return 0;
+
+  DEH = &DE->header;
+  ID = &DEH->data_subsection.image_data;
+  Q = ID->quattro;
+
+  if (!Q || !Q->top16.data) return 0;
+  *image = Q->top16;
 
   return 1;
 }
@@ -3884,6 +3895,16 @@ static int get_image(x3f_t *x3f,
 
   if (wb == NULL) wb = get_wb(x3f);
 
+  if (encoding == QTOP) {
+    x3f_area16_t qtop;
+
+    if (!image_area_qtop(x3f, &qtop)) return 0;
+    if (!crop || !crop_area_camf(x3f, "ActiveImageArea", &qtop, 0, image))
+      *image = qtop;
+
+    return 1;
+  }
+
   if (!image_area(x3f, &original_image)) return 0;
   if (!crop || !crop_area_camf(x3f, "ActiveImageArea", &original_image, 1,
 			       image))
@@ -4012,7 +4033,8 @@ x3f_return_t x3f_dump_raw_data_as_tiff(x3f_t *x3f,
   TIFFSetField(f_out, TIFFTAG_BITSPERSAMPLE, 16);
   TIFFSetField(f_out, TIFFTAG_PLANARCONFIG, PLANARCONFIG_CONTIG);
   TIFFSetField(f_out, TIFFTAG_COMPRESSION, COMPRESSION_NONE);
-  TIFFSetField(f_out, TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_RGB);
+  TIFFSetField(f_out, TIFFTAG_PHOTOMETRIC, image.channels == 1 ?
+	       PHOTOMETRIC_MINISBLACK : PHOTOMETRIC_RGB);
   TIFFSetField(f_out, TIFFTAG_ORIENTATION, ORIENTATION_TOPLEFT);
   TIFFSetField(f_out, TIFFTAG_XRESOLUTION, 72.0);
   TIFFSetField(f_out, TIFFTAG_YRESOLUTION, 72.0);
