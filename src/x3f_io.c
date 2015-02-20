@@ -3700,7 +3700,7 @@ static int get_max_intermediate(x3f_t *x3f, char *wb,
   for (i=0; i<3; i++)
     if (gain[i] > maxgain) maxgain = gain[i];
   for (i=0; i<3; i++)
-    max_intermediate[i] = (int32_t)(gain[i]*INTERMEDIATE_UNIT/maxgain);
+    max_intermediate[i] = (int32_t)round(gain[i]*INTERMEDIATE_UNIT/maxgain);
 
   return 1;
 }
@@ -3747,7 +3747,8 @@ static int preprocess_data(x3f_t *x3f, char *wb)
       for (color = 0; color < colors_in; color++) {
 	uint16_t *valp =
 	  &image.data[image.row_stride*row + image.channels*col + color];
-	int32_t out = (int32_t)(scale[color] * (*valp - black_level[color]));
+	int32_t out =
+	  (int32_t)round(scale[color] * (*valp - black_level[color]));
 
 	if (out < 0) *valp = 0;
 	else if (out > 65535) *valp = 65535;
@@ -3766,7 +3767,7 @@ static int preprocess_data(x3f_t *x3f, char *wb)
 	  &qtop.data[qtop.row_stride*(2*row+1) + qtop.channels*2*col];
 	uint32_t sum =
 	  row1[0] + row1[qtop.channels] + row2[0] + row2[qtop.channels];
-	int32_t out = (int32_t)(scale[2] * (sum/4.0 - black_level[2]));
+	int32_t out = (int32_t)round(scale[2] * (sum/4.0 - black_level[2]));
 
 	if (out < 0) *outp = 0;
 	else if (out > 65535) *outp = 65535;
@@ -3777,7 +3778,7 @@ static int preprocess_data(x3f_t *x3f, char *wb)
     for (row = 0; row < qtop.rows; row++)
       for (col = 0; col < qtop.columns; col++) {
 	uint16_t *valp = &qtop.data[qtop.row_stride*row + qtop.channels*col];
-	int32_t out = (int32_t)(scale[2] * (*valp - black_level[2]));
+	int32_t out = (int32_t)round(scale[2] * (*valp - black_level[2]));
 
 	if (out < 0) *valp = 0;
 	else if (out > 65535) *valp = 65535;
