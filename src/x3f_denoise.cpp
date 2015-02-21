@@ -133,6 +133,111 @@ static void denoise(const Mat& in, Mat& out, double h)
   std::cout << "END low-frequency denoising\n";
 }
 
+static inline float determine_pixel_difference(float* ptr1, float* ptr2)
+{ //assumes 3 channels for now, may be a bad assumption
+  //also doing the exp version rather than the other technique
+  //since the diff is symmetric, can precalc these and cut down on processing time by a factor of 2
+  return 1.0f - exp(-1.0f * ((fabs(*ptr1 - *ptr2) + fabs(*(ptr1 + 1) - *(ptr2 + 1)) + fabs(*(ptr1 + 2) - *(ptr2 + 2))))/3.0f);
+}
+
+//crude denoising.  Ignores boundary conditions by being super lazy.
+static void denoise_aniso(const uint32_t& in_rows, const uint32_t& in_columns, float* image)
+{
+  uint32_t row, col;
+  const uint32_t jump = 3;
+  const uint32_t num_rows = in_rows;
+  const uint32_t row_stride = num_rows * jump;
+  const uint32_t edgeless_rows = num_rows - 1;
+  const uint32_t num_cols = in_columns;
+  const uint32_t edgeless_cols = in_columns - 1;  //used for boundaries
+  float* in_ptr;
+  float* out_ptr;
+  float* out_image = new float[in_rows * in_columns * jump];
+  float coeff_fwd, coeff_bkwd, coeff_up, coeff_down;
+  int i;
+  float out_val = 0;
+  
+  for (row=1; row < edgeless_rows; row++)
+  {
+    for (col=1,  //gonna do this with pointers, because I like them
+         in_ptr = (image + row * num_cols + jump),
+         out_ptr = (out_image + row * num_cols + jump);
+         col < edgeless_cols; col++, in_ptr += jump, out_ptr += jump)
+    {
+      
+      coeff_fwd = determine_pixel_difference(in_ptr, (in_ptr + jump));
+      coeff_bkwd = determine_pixel_difference(in_ptr, (in_ptr - jump));
+      coeff_up = determine_pixel_difference(in_ptr, (in_ptr - row_stride));
+      coeff_down = determine_pixel_difference(in_ptr, (in_ptr + row_stride));
+      if (row == 1000 && col == 1000){
+        std::cout << "coeff_fwd " << coeff_fwd << std::endl;
+        std::cout << "coeff_bkwd " << coeff_bkwd << std::endl;
+        std::cout << "coeff_up " << coeff_up << std::endl;
+        std::cout << "coeff_down " << coeff_down << std::endl;
+        std::cout << "pixels " << *in_ptr << " " << *(in_ptr + 1) << " " << *(in_ptr + 2) << std::endl;
+        std::cout << "actual coeff " << coeff_fwd * *(in_ptr + jump) << std::endl;
+      }
+      for (i = 0; i < 3; i++) //could unroll this, I suppose
+      {
+        out_val = 4.0f * float(*(in_ptr + i)) - coeff_fwd * float(*(in_ptr + jump + i))
+                                              - coeff_bkwd * float(*(in_ptr - jump + i))
+                                              - coeff_up * float(*(in_ptr - row_stride + i))
+                                              - coeff_down * float(*(in_ptr + row_stride + i));
+        if (out_val < 0) out_val = 0;
+        if (out_val > 1.0f) out_val = 1.0f; //clamping
+        *(out_ptr + i) = out_val;
+        if (row == 1000 && col == 1000){
+          std::cout << "start value: " << *(in_ptr + i) << " actual new value: " << *(out_ptr + i) << std::endl;
+        }
+      }
+    }
+  }
+  memcpy(image, out_image, in_rows * in_columns * jump * sizeof(float));
+  delete [] out_image;
+}
+
+static float* convert_to_float_image(x3f_area16_t *image)
+{
+  uint32_t x, y, i;
+  const uint32_t num_rows = image->rows;
+  const uint32_t num_cols = image->columns;
+  const uint32_t jump = image->channels;
+  float* outImage = new float[num_cols * num_rows * jump];
+  float* out_ptr = outImage;
+  uint16_t* in_ptr;
+  for (y = 0; y < num_rows; y++)
+  {
+    for (x = 0, in_ptr = (image->data + y * image->row_stride); x < num_cols; x++, in_ptr+=jump)
+    {
+      for (i = 0; i < jump; i++, out_ptr++)
+      {
+        *out_ptr = *(in_ptr + i);
+      }
+    }
+  }
+  return out_ptr;
+}
+
+static void convert_from_float_image(x3f_area16_t *image, float* in_float_image)
+{
+  uint32_t x, y, i;
+  const uint32_t num_rows = image->rows;
+  const uint32_t num_cols = image->columns;
+  const uint32_t jump = image->channels;
+  float* in_float_ptr = in_float_image;
+  uint16_t* in_ptr;
+  for (y = 0; y < num_rows; y++)
+  {
+    for (x = 0, in_ptr = (image->data + y * image->row_stride); x < num_cols; x++, in_ptr+=jump)
+    {
+      for (i = 0; i < jump; i++, in_float_ptr++)
+      {
+        *(in_ptr + i) = *in_float_ptr;
+      }
+    }
+  }
+}
+
 static const denoise_desc_t denoise_types[] = {
   {120.0, BMT_to_YUV_STD, YUV_to_BMT_STD},
   {120.0, BMT_to_YUV_YisT, YUV_to_BMT_YisT},
@@ -146,7 +251,8 @@ void x3f_denoise(x3f_area16_t *image, x3f_denoise_type_t type)
   const denoise_desc_t *d = &denoise_types[type];
 
   d->BMT_to_YUV(image);
-
+  
+#ifdef NLM
   Mat in(image->rows, image->columns, CV_16UC3,
 	 image->data, sizeof(uint16_t)*image->row_stride);
   Mat out;
@@ -154,8 +260,17 @@ void x3f_denoise(x3f_area16_t *image, x3f_denoise_type_t type)
   denoise(in, out, d->h);
   int from_to[] = { 1,1, 2,2 };
   mixChannels(&out, 1, &in, 1, from_to, 2); // Discard denoised Y
-
+#else
+  float* float_image = convert_to_float_image(image);
+  for (int i = 0; i < 5; i++){
+    denoise_aniso(image->rows, image->columns, float_image);
+  }
+  convert_from_float_image(image, float_image);
+  delete [] float_image;
+#endif //NLM
+  
   d->YUV_to_BMT(image);
+
 }
 
 // NOTE: active has to be a subaera of image, i.e. they have to share
