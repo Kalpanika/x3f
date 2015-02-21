@@ -131,6 +131,7 @@ static void denoise(const Mat& in, Mat& out, double h)
   resize(sub_res, res, out.size(), 0.0, 0.0, INTER_CUBIC);
   subtract(out, res, out, noArray(), CV_16U);
   std::cout << "END low-frequency denoising\n";
+ 
 }
 
 static inline float determine_pixel_difference(const float& v1_1, const float& v1_2, const float& v1_3,
@@ -139,12 +140,12 @@ static inline float determine_pixel_difference(const float& v1_1, const float& v
   //also doing the exp version rather than the other technique
   //since the diff is symmetric, can precalc these and cut down on processing time by a factor of 2
   const float c1 = (v1_1 - v2_1);
-  const float c2 = (v1_2 - v2_2)*4.0f;
+  const float c2 = (v1_2 - v2_2);
   const float c3 = (v1_3 - v2_3);
   const float K = 0.0000050f;
-  const float l2norm = sqrt(c1 * c1 + c2 * c2 + c3 * c3)/K;
-  //return exp(-1.0f * l2norm*l2norm);
-  return -1.0f/(1.0f - l2norm*l2norm);
+  const float l2norm = sqrt(c1 * c1 + c2 * c2 + c3 * c3);
+  return exp(-1.0f * l2norm*l2norm/K);
+  //return -1.0f/(1.0f - l2norm*l2norm/K);
 }
 
 //crude denoising.  Ignores boundary conditions by being super lazy.
@@ -168,7 +169,7 @@ static void denoise_aniso(const uint32_t& in_rows, const uint32_t& in_columns, f
          x < edgeless_cols;
          x++, out_ptr += jump, in_ptr += jump){
       
-      coeff_fwd = determine_pixel_difference(*in_ptr, *(in_ptr+1), *(in_ptr+2),
+      /*coeff_fwd = determine_pixel_difference(*in_ptr, *(in_ptr+1), *(in_ptr+2),
                                              *(in_ptr + jump), *(in_ptr + jump + 1), *(in_ptr + jump + 2));
       coeff_bkwd = determine_pixel_difference(*in_ptr, *(in_ptr+1), *(in_ptr+2),
                                              *(in_ptr - jump), *(in_ptr - jump + 1), *(in_ptr - jump + 2));
@@ -176,11 +177,12 @@ static void denoise_aniso(const uint32_t& in_rows, const uint32_t& in_columns, f
                                              *(in_ptr + row_stride), *(in_ptr + row_stride + 1), *(in_ptr + row_stride + 2));
       coeff_up = determine_pixel_difference(*in_ptr, *(in_ptr+1), *(in_ptr+2),
                                             *(in_ptr - row_stride), *(in_ptr - row_stride + 1), *(in_ptr - row_stride + 2));
-      
+       */
+      coeff_fwd = coeff_up = coeff_down = coeff_bkwd = -1.0f;
       lambda1 = coeff_fwd + coeff_bkwd + coeff_down + coeff_up;
       lambda2 = fabs(lambda1);
        
-      h = 100.0f;
+      h = 5.0f;
       for (i = 0; i < jump; i++)
       {
         //independent channels, just to check
@@ -195,10 +197,11 @@ static void denoise_aniso(const uint32_t& in_rows, const uint32_t& in_columns, f
         
         lambda1 = coeff_fwd + coeff_bkwd + coeff_down + coeff_up;
         lambda2 = fabs(lambda1);*/
+        if (i == 0) h = 1.0f;
         *(out_ptr + i) = *(in_ptr + i) - (lambda2 * *(in_ptr + i) + coeff_fwd * *(in_ptr + jump + i)
                                            + coeff_bkwd * *(in_ptr - jump + i)
                                            + coeff_down * *(in_ptr + row_stride + i)
-                                           + coeff_up * *(in_ptr - row_stride + i))/h;
+                                           + coeff_up * *(in_ptr - row_stride + i))/(h *lambda2);
 
       }
     }
@@ -251,7 +254,10 @@ static void convert_from_float_image(x3f_area16_t *image, float* in_float_image)
   {
     for (x = 0, in_ptr = (image->data + y * image->row_stride); x < num_cols; x++)
     {
-      for (i = 0; i < jump; i++, in_ptr++, in_float_ptr++)
+      //skipping the first channel, leaving that behind
+      in_ptr++;
+      in_float_ptr++;
+      for (i = 1; i < jump; i++, in_ptr++, in_float_ptr++)
       {
         new_val = *in_float_ptr;
         if (new_val < 0) new_val = 0;
@@ -275,7 +281,7 @@ void x3f_denoise(x3f_area16_t *image, x3f_denoise_type_t type)
   const denoise_desc_t *d = &denoise_types[type];
 
   d->BMT_to_YUV(image);
-  
+//#define NLM
 #ifdef NLM
   Mat in(image->rows, image->columns, CV_16UC3,
 	 image->data, sizeof(uint16_t)*image->row_stride);
