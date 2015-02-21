@@ -141,10 +141,10 @@ static inline float determine_pixel_difference(const float& v1_1, const float& v
   const float c1 = (v1_1 - v2_1);
   const float c2 = (v1_2 - v2_2);
   const float c3 = (v1_3 - v2_3);
-  const float K = 0.0000010f;
+  const float K = 0.0000050f;
   const float l2norm = sqrt(c1 * c1 + c2 * c2 + c3 * c3)/K;
   //return exp(-1.0f * l2norm*l2norm);
-  return 1.0f/(1.0f - l2norm*l2norm);
+  return -1.0f/(1.0f - l2norm*l2norm);
 }
 
 //crude denoising.  Ignores boundary conditions by being super lazy.
@@ -159,7 +159,7 @@ static void denoise_aniso(const uint32_t& in_rows, const uint32_t& in_columns, f
   float* in_ptr;
   float* out_ptr;
   float* out_image = new float[in_rows * in_columns * jump];
-  float coeff_fwd, coeff_bkwd, coeff_up, coeff_down, lambda1, lambda2;
+  float coeff_fwd, coeff_bkwd, coeff_up, coeff_down, lambda1, lambda2, h;
   
   for (y = 1; y < edgeless_rows; y++){
     for (x = 1,
@@ -167,6 +167,7 @@ static void denoise_aniso(const uint32_t& in_rows, const uint32_t& in_columns, f
          in_ptr = (image + y * row_stride + jump);
          x < edgeless_cols;
          x++, out_ptr += jump, in_ptr += jump){
+      /*
       coeff_fwd = determine_pixel_difference(*in_ptr, *(in_ptr+1), *(in_ptr+2),
                                              *(in_ptr + jump), *(in_ptr + jump + 1), *(in_ptr + jump + 2));
       coeff_bkwd = determine_pixel_difference(*in_ptr, *(in_ptr+1), *(in_ptr+2),
@@ -175,14 +176,17 @@ static void denoise_aniso(const uint32_t& in_rows, const uint32_t& in_columns, f
                                              *(in_ptr + row_stride), *(in_ptr + row_stride + 1), *(in_ptr + row_stride + 2));
       coeff_up = determine_pixel_difference(*in_ptr, *(in_ptr+1), *(in_ptr+2),
                                             *(in_ptr - row_stride), *(in_ptr - row_stride + 1), *(in_ptr - row_stride + 2));
+      
       lambda1 = coeff_fwd + coeff_bkwd + coeff_down + coeff_up;
-      lambda2 = lambda1;
+      lambda2 = fabs(lambda1);
+       */
+      h = 10.0f;
       for (i = 0; i < jump; i++)
       {
-        *(out_ptr + i) = (lambda2 * *(in_ptr + i) - coeff_fwd * *(in_ptr + jump + i)
-                                           - coeff_bkwd * *(in_ptr - jump + i)
-                                           - coeff_down * *(in_ptr + row_stride + i)
-                                           - coeff_up * *(in_ptr - row_stride + i))/(lambda2 + lambda1);
+        *(out_ptr + i) = *(in_ptr + i) - (lambda2 * *(in_ptr + i) + coeff_fwd * *(in_ptr + jump + i)
+                                           + coeff_bkwd * *(in_ptr - jump + i)
+                                           + coeff_down * *(in_ptr + row_stride + i)
+                                           + coeff_up * *(in_ptr - row_stride + i))/h;
 
       }
     }
@@ -270,7 +274,7 @@ void x3f_denoise(x3f_area16_t *image, x3f_denoise_type_t type)
   mixChannels(&out, 1, &in, 1, from_to, 2); // Discard denoised Y
 #else
   float* float_image = convert_to_float_image(image);
-  for (int i = 0; i < 1; i++){
+  for (int i = 0; i < 10; i++){
     denoise_aniso(image->rows, image->columns, float_image);
   }
   convert_from_float_image(image, float_image);
