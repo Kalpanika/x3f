@@ -52,7 +52,7 @@ endif
 endif
 endif
 
-OPENCV=../opencv_install
+OPENCV=../../opencv_install
 OPENCV_LIBS = -lopencv_core -lopencv_photo -lopencv_imgproc
 
 CFLAGS = $(CFBASE) -I$(OPENCV)/include -g -O3 -Wall $(C)
