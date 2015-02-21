@@ -3959,7 +3959,7 @@ static int run_denoising(x3f_t *x3f)
 
 static int expand_quattro(x3f_t *x3f, int denoise, x3f_area16_t *expanded)
 {
-  x3f_area16_t image, active, qtop, qtop_crop;
+  x3f_area16_t image, active, qtop, qtop_crop, active_exp;
   uint32_t rect[4];
 
   if (!image_area_qtop(x3f, &qtop)) return 0;
@@ -3983,7 +3983,15 @@ static int expand_quattro(x3f_t *x3f, int denoise, x3f_area16_t *expanded)
   /* TODO: This has to be freed !!!! */
   expanded->data = malloc(expanded->rows*expanded->row_stride*sizeof(uint16_t));
 
-  x3f_expand_quattro(&image, denoise ? &active : NULL, &qtop_crop, expanded);
+  if (denoise && !crop_area_camf(x3f, "ActiveImageArea", expanded, 0,
+				 &active_exp)) {
+    active_exp = *expanded;
+    fprintf(stderr,
+	    "WARNING: could not get active area, denoising entire image\n");
+  }
+
+  x3f_expand_quattro(&image, denoise ? &active : NULL, &qtop_crop,
+		     expanded, denoise ? &active_exp : NULL);
 
   return 1;
 }
