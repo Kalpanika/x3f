@@ -121,7 +121,7 @@ static void denoise(const Mat& in, Mat& out, double h)
   std::cout << "BEGIN denoising\n";
   fastNlMeansDenoisingAbs(in, out, h, 5, 11);
   std::cout << "END denoising\n";
-
+/*
   std::cout << "BEGIN low-frequency denoising\n";
   Mat sub, sub_dn, sub_res, res;
 
@@ -131,7 +131,7 @@ static void denoise(const Mat& in, Mat& out, double h)
   resize(sub_res, res, out.size(), 0.0, 0.0, INTER_CUBIC);
   subtract(out, res, out, noArray(), CV_16U);
   std::cout << "END low-frequency denoising\n";
- 
+ */
 }
 
 static inline float determine_pixel_difference(const float& v1_1, const float& v1_2, const float& v1_3,
@@ -281,7 +281,7 @@ void x3f_denoise(x3f_area16_t *image, x3f_denoise_type_t type)
   const denoise_desc_t *d = &denoise_types[type];
 
   d->BMT_to_YUV(image);
-//#define NLM
+#define NLM
 #ifdef NLM
   Mat in(image->rows, image->columns, CV_16UC3,
 	 image->data, sizeof(uint16_t)*image->row_stride);
