@@ -133,70 +133,61 @@ static void denoise(const Mat& in, Mat& out, double h)
   std::cout << "END low-frequency denoising\n";
 }
 
-static inline float determine_pixel_difference(float* ptr1, float* ptr2)
+static inline float determine_pixel_difference(const float& v1_1, const float& v1_2, const float& v1_3,
+                                               const float& v2_1, const float& v2_2, const float& v2_3)
 { //assumes 3 channels for now, may be a bad assumption
   //also doing the exp version rather than the other technique
   //since the diff is symmetric, can precalc these and cut down on processing time by a factor of 2
-  return 1.0f - exp(-1.0f * ((fabs(*ptr1 - *ptr2) + fabs(*(ptr1 + 1) - *(ptr2 + 1)) + fabs(*(ptr1 + 2) - *(ptr2 + 2))))/3.0f);
+  const float c1 = (v1_1 - v2_1);
+  const float c2 = (v1_2 - v2_2);
+  const float c3 = (v1_3 - v2_3);
+  const float K = 0.0000010f;
+  const float l2norm = sqrt(c1 * c1 + c2 * c2 + c3 * c3)/K;
+  //return exp(-1.0f * l2norm*l2norm);
+  return 1.0f/(1.0f - l2norm*l2norm);
 }
 
 //crude denoising.  Ignores boundary conditions by being super lazy.
 static void denoise_aniso(const uint32_t& in_rows, const uint32_t& in_columns, float* image)
 {
-  uint32_t row, col, i;
+  uint32_t x, y, i;
   const uint32_t jump = 3;
   const uint32_t num_rows = in_rows;
   const uint32_t row_stride = in_columns * jump;
   const uint32_t edgeless_rows = num_rows - 1;
-  const uint32_t num_cols = in_columns;
   const uint32_t edgeless_cols = in_columns - 1;  //used for boundaries
   float* in_ptr;
   float* out_ptr;
   float* out_image = new float[in_rows * in_columns * jump];
-  float coeff_fwd, coeff_bkwd, coeff_up, coeff_down;
-  float out_val = 0;
+  float coeff_fwd, coeff_bkwd, coeff_up, coeff_down, lambda1, lambda2;
   
-  for (row=1; row < edgeless_rows; row++)
-  {
-    for (col=1,  //gonna do this with pointers, because I like them
-         in_ptr = (image + row * row_stride + jump),
-         out_ptr = (out_image + row * row_stride + jump);
-         col < edgeless_cols; col++, in_ptr += jump, out_ptr += jump)
-    {
-      
-      if (row == 1000 && col == 1000){
-        float *ptr1 = in_ptr;
-        float *ptr2 = in_ptr + jump;
-        std::cout << "diff 1: " << float(abs(*ptr1 - *ptr2)) << std::endl;
-        std::cout << "ptr1: " << *ptr1 << " ptr2: " << *ptr2 << " diff 2: " << *ptr1 - *ptr2 << std::endl;
-        std::cout << "diff 3: " << float(abs(*(ptr1+2) - *(ptr2+2))) << std::endl;
-      }
-      
-      coeff_fwd = determine_pixel_difference(in_ptr, (in_ptr + jump));
-      coeff_bkwd = determine_pixel_difference(in_ptr, (in_ptr - jump));
-      coeff_up = determine_pixel_difference(in_ptr, (in_ptr - row_stride));
-      coeff_down = determine_pixel_difference(in_ptr, (in_ptr + row_stride));
-      if (row == 1000 && col == 1000){
-        std::cout << "coeff_fwd " << coeff_fwd << std::endl;
-        std::cout << "coeff_bkwd " << coeff_bkwd << std::endl;
-        std::cout << "coeff_up " << coeff_up << std::endl;
-        std::cout << "coeff_down " << coeff_down << std::endl;
-        std::cout << "pixels " << *in_ptr << " " << *(in_ptr + 1) << " " << *(in_ptr + 2) << std::endl;
-        std::cout << "actual coeff " << coeff_fwd * *(in_ptr + jump) << std::endl;
-      }
-      for (i = 0; i < jump; i++) //could unroll this, I suppose
+  for (y = 1; y < edgeless_rows; y++){
+    for (x = 1,
+         out_ptr = (out_image + y * row_stride + jump),
+         in_ptr = (image + y * row_stride + jump);
+         x < edgeless_cols;
+         x++, out_ptr += jump, in_ptr += jump){
+      coeff_fwd = determine_pixel_difference(*in_ptr, *(in_ptr+1), *(in_ptr+2),
+                                             *(in_ptr + jump), *(in_ptr + jump + 1), *(in_ptr + jump + 2));
+      coeff_bkwd = determine_pixel_difference(*in_ptr, *(in_ptr+1), *(in_ptr+2),
+                                             *(in_ptr - jump), *(in_ptr - jump + 1), *(in_ptr - jump + 2));
+      coeff_down = determine_pixel_difference(*in_ptr, *(in_ptr+1), *(in_ptr+2),
+                                             *(in_ptr + row_stride), *(in_ptr + row_stride + 1), *(in_ptr + row_stride + 2));
+      coeff_up = determine_pixel_difference(*in_ptr, *(in_ptr+1), *(in_ptr+2),
+                                            *(in_ptr - row_stride), *(in_ptr - row_stride + 1), *(in_ptr - row_stride + 2));
+      lambda1 = coeff_fwd + coeff_bkwd + coeff_down + coeff_up;
+      lambda2 = lambda1;
+      for (i = 0; i < jump; i++)
       {
-        out_val = 4.0f * float(*(in_ptr + i)) - coeff_fwd * float(*(in_ptr + jump + i))
-                                              - coeff_bkwd * float(*(in_ptr - jump + i))
-                                              - coeff_up * float(*(in_ptr - row_stride + i))
-                                              - coeff_down * float(*(in_ptr + row_stride + i));
-        *(out_ptr + i) = out_val;
-        if (row == 1000 && col == 1000){
-          std::cout << "start value: " << *(in_ptr + i) << " actual new value: " << *(out_ptr + i) << std::endl;
-        }
+        *(out_ptr + i) = (lambda2 * *(in_ptr + i) - coeff_fwd * *(in_ptr + jump + i)
+                                           - coeff_bkwd * *(in_ptr - jump + i)
+                                           - coeff_down * *(in_ptr + row_stride + i)
+                                           - coeff_up * *(in_ptr - row_stride + i))/(lambda2 + lambda1);
+
       }
     }
   }
+  
   memcpy(image, out_image, in_rows * in_columns * jump * sizeof(float));
   delete [] out_image;
 }
@@ -215,20 +206,20 @@ static float* convert_to_float_image(x3f_area16_t *image)
     for (x = 0, in_ptr = (image->data + y * image->row_stride); x < num_cols; x++)
     {
       
-      if (y == 1000 && x == 1000){
-        std::cout << "pixels during conversion: " << float(*in_ptr)/65535.0f << " " << float(*(in_ptr+1))/65535.0f << " " << float(*(in_ptr+2))/65535.0f << std::endl;
-      }
+      //if (y == 1000 && x == 1000){
+        //std::cout << "pixels during conversion: " << float(*in_ptr)/65535.0f << " " << float(*(in_ptr+1))/65535.0f << " " << float(*(in_ptr+2))/65535.0f << std::endl;
+      //}
       for (i = 0; i < jump; i++, out_ptr++, in_ptr++)
       {
         *out_ptr = float(*in_ptr)/65535.0f;
       }
       
-      if (y == 1000 && x == 1000){
-        std::cout << "pixels after conversion: " << *(out_ptr-3) << " " << *(out_ptr-2) << " " << *(out_ptr-1) << std::endl;
-      }
+      //if (y == 1000 && x == 1000){
+        //std::cout << "pixels after conversion: " << *(out_ptr-3) << " " << *(out_ptr-2) << " " << *(out_ptr-1) << std::endl;
+      //}
     }
   }
-  return out_ptr;
+  return outImage;
 }
 
 static void convert_from_float_image(x3f_area16_t *image, float* in_float_image)
@@ -279,7 +270,7 @@ void x3f_denoise(x3f_area16_t *image, x3f_denoise_type_t type)
   mixChannels(&out, 1, &in, 1, from_to, 2); // Discard denoised Y
 #else
   float* float_image = convert_to_float_image(image);
-  for (int i = 0; i < 5; i++){
+  for (int i = 0; i < 1; i++){
     denoise_aniso(image->rows, image->columns, float_image);
   }
   convert_from_float_image(image, float_image);
