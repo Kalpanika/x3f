@@ -3,10 +3,10 @@
 
 $script = <<SCRIPT
 apt-get install -y build-essential
-apt-get install -y libavformat-dev
-apt-get install -y x264 v4l-utils ffmpeg
-apt-get install - y libcv2.3 libcvaux2.3 libhighgui2.3 python-opencv opencv-doc libcv-dev libcvaux-dev libhighgui-dev
 apt-get install -y libtbb-dev
+apt-get install -y libtiff5-dev
+apt-get install -y git
+apt-get install -y cmake
 SCRIPT
 
 VAGRANTFILE_API_VERSION = "2"
