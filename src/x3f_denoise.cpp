@@ -119,7 +119,7 @@ static void YUV_to_BMT_STD(x3f_area16_t *image)
 static void denoise(const Mat& in, Mat& out, double h)
 {
   std::cout << "BEGIN denoising\n";
-  fastNlMeansDenoisingAbs(in, out, h, 5, 11);
+  fastNlMeansDenoisingAbs(in, out, h, 3, 11);
   std::cout << "END denoising\n";
 
   std::cout << "BEGIN low-frequency denoising\n";
@@ -135,8 +135,8 @@ static void denoise(const Mat& in, Mat& out, double h)
 
 static const denoise_desc_t denoise_types[] = {
   {120.0, BMT_to_YUV_STD, YUV_to_BMT_STD},
-  {120.0, BMT_to_YUV_YisT, YUV_to_BMT_YisT},
-  {200.0, BMT_to_YUV_YisT, YUV_to_BMT_YisT},
+  {140.0, BMT_to_YUV_YisT, YUV_to_BMT_YisT},
+  {240.0, BMT_to_YUV_YisT, YUV_to_BMT_YisT},
 };
 
 void x3f_denoise(x3f_area16_t *image, x3f_denoise_type_t type)
@@ -162,7 +162,8 @@ void x3f_denoise(x3f_area16_t *image, x3f_denoise_type_t type)
 //       the same data area.
 // NOTE: image and active will be destructively modified in place.
 void x3f_expand_quattro(x3f_area16_t *image, x3f_area16_t *active,
-			x3f_area16_t *qtop, x3f_area16_t *expanded)
+			x3f_area16_t *qtop,
+			x3f_area16_t *expanded, x3f_area16_t *active_exp)
 {
   assert(image->channels == 3);
   assert(qtop->channels == 1);
@@ -186,12 +187,26 @@ void x3f_expand_quattro(x3f_area16_t *image, x3f_area16_t *active,
 	    active->data, sizeof(uint16_t)*active->row_stride);
     denoise(act, act, d->h);
   }
-  
-  std::cout << "BEGIN Quattro expansion\n";
-  resize(img, exp, exp.size(), 0.0, 0.0, INTER_CUBIC);
+
+  resize(img, exp, exp.size(), 0.0, 0.0, INTER_LANCZOS4);
+
+  if (active_exp) {
+    assert(active_exp->channels == 3);
+    Mat act_exp(active_exp->rows, active_exp->columns, CV_16UC3,
+		active_exp->data, sizeof(uint16_t)*active_exp->row_stride);
+
+    qt *= 4;
+    int from_to[] = { 0,0 };
+    mixChannels(&qt, 1, &exp, 1, from_to, 1);
+    qt /= 4;
+
+    std::cout << "BEGIN Quattro full-resolution denoising\n";
+    fastNlMeansDenoisingAbs(act_exp, act_exp, d->h*4, 3, 11);
+    std::cout << "END Quattro full-resolution denoising\n";
+  }
+
   int from_to[] = { 0,0 };
   mixChannels(&qt, 1, &exp, 1, from_to, 1);
-  std::cout << "END Quattro expansion\n";
-  
+
   d->YUV_to_BMT(expanded);
 }
