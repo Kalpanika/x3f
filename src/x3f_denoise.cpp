@@ -139,7 +139,7 @@ static inline float determine_pixel_difference(const float& v1_1, const float& v
   //also doing the exp version rather than the other technique
   //since the diff is symmetric, can precalc these and cut down on processing time by a factor of 2
   const float c1 = (v1_1 - v2_1);
-  const float c2 = (v1_2 - v2_2);
+  const float c2 = (v1_2 - v2_2)*4.0f;
   const float c3 = (v1_3 - v2_3);
   const float K = 0.0000050f;
   const float l2norm = sqrt(c1 * c1 + c2 * c2 + c3 * c3)/K;
@@ -167,7 +167,7 @@ static void denoise_aniso(const uint32_t& in_rows, const uint32_t& in_columns, f
          in_ptr = (image + y * row_stride + jump);
          x < edgeless_cols;
          x++, out_ptr += jump, in_ptr += jump){
-      /*
+      
       coeff_fwd = determine_pixel_difference(*in_ptr, *(in_ptr+1), *(in_ptr+2),
                                              *(in_ptr + jump), *(in_ptr + jump + 1), *(in_ptr + jump + 2));
       coeff_bkwd = determine_pixel_difference(*in_ptr, *(in_ptr+1), *(in_ptr+2),
@@ -179,10 +179,22 @@ static void denoise_aniso(const uint32_t& in_rows, const uint32_t& in_columns, f
       
       lambda1 = coeff_fwd + coeff_bkwd + coeff_down + coeff_up;
       lambda2 = fabs(lambda1);
-       */
-      h = 10.0f;
+       
+      h = 100.0f;
       for (i = 0; i < jump; i++)
       {
+        //independent channels, just to check
+        /*coeff_fwd = determine_pixel_difference(*(in_ptr+i), 0, 0,
+                                               *(in_ptr+i + jump), 0, 0);
+        coeff_bkwd = determine_pixel_difference(*(in_ptr+i), 0, 0,
+                                                *(in_ptr+i - jump), 0, 0);
+        coeff_down = determine_pixel_difference(*(in_ptr+i), 0, 0,
+                                                *(in_ptr+i + row_stride), 0, 0);
+        coeff_up = determine_pixel_difference(*(in_ptr+i), 0, 0,
+                                              *(in_ptr+i - row_stride), 0, 0);
+        
+        lambda1 = coeff_fwd + coeff_bkwd + coeff_down + coeff_up;
+        lambda2 = fabs(lambda1);*/
         *(out_ptr + i) = *(in_ptr + i) - (lambda2 * *(in_ptr + i) + coeff_fwd * *(in_ptr + jump + i)
                                            + coeff_bkwd * *(in_ptr - jump + i)
                                            + coeff_down * *(in_ptr + row_stride + i)
@@ -276,6 +288,7 @@ void x3f_denoise(x3f_area16_t *image, x3f_denoise_type_t type)
   float* float_image = convert_to_float_image(image);
   for (int i = 0; i < 10; i++){
     denoise_aniso(image->rows, image->columns, float_image);
+    std::cout << "iteration: " << i << std::endl;
   }
   convert_from_float_image(image, float_image);
   delete [] float_image;
