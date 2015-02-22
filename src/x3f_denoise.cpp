@@ -164,19 +164,7 @@ static void median_filter(x3f_area16_t *image)
   uint16_t* scratch = new uint16_t[rows * cols * jump];
   float avg;
   
-  
-  //memcpy is faster, but it's buggy right now
-  //for (y = 1; y < edgeless_rows; y++){
-  //  memcpy(scratch + y * stride + jump, image->data + y*stride + jump, edgeless_cols * jump * sizeof(uint16_t));
-  //}
   memcpy(scratch, image->data, rows*cols*jump*sizeof(uint16_t));
-  //for (y = 1; y < edgeless_rows; y++){
-  //  for (x = 1; x < edgeless_cols; x++) {
-  //    for (i = 0; i < jump; i++){
-  //      scratch[y*stride + x*jump + i] = image->data[y*stride + x*jump + i];
-  //    }
-  //  }
-  //}
   
   for (y = 1; y < edgeless_rows; y++){
     for (x = 1; x < edgeless_cols; x++) {
@@ -208,31 +196,11 @@ static void median_filter(x3f_area16_t *image)
             scratch[y*stride + x*jump + j] = avg/8.0f; //should be int cast when put back in
           }
         }
-        
-        //if (x == 2000 && y == 2000){
-        //  std::cout << "current: " << image->data[y*stride + x*jump + i] << " median: " << scratch[y*stride + x*jump + i] << std::endl;
-        //  for (int j = 0; j < 9; j++){
-        //    std::cout << "current " << j << " " << current_set[j] << std::endl;
-        //  }
-        //}
       }
     }
   }
   //copy from scratch back into the image
-  //remember leaving edges as they were
-  //the memcpy may be buggy, but it's definitely faster
-  //for (y = 1; y < edgeless_rows; y++){
-  //  memcpy(image->data + y*stride + jump, scratch + y * stride + jump, edgeless_cols * jump * sizeof(uint16_t));
-  //}
-  
   memcpy(image->data, scratch, rows*cols*jump*sizeof(uint16_t));
-  //for (y = 1; y < edgeless_rows; y++){
-  //  for (x = 1; x < edgeless_cols; x++) {
-  //    for (i = 0; i < jump; i++){
-  //      image->data[y*stride + x*jump + i] = scratch[y*stride + x*jump + i];
-  //    }
-  //  }
-  //}
   
   
   delete [] scratch;
@@ -294,26 +262,13 @@ static void denoise_aniso(const uint32_t& in_rows, const uint32_t& in_columns, f
       coeff_up = determine_pixel_difference(*in_ptr, *(in_ptr+1), *(in_ptr+2),
                                             *(in_ptr - row_stride), *(in_ptr - row_stride + 1), *(in_ptr - row_stride + 2));
       
-      //note that, right now, this is just the isotropic heat equation, just to see how it does.
-      //not badly, it seems.
+      //uncomment out this line to do isotropic noise reduction
       //coeff_fwd = coeff_up = coeff_down = coeff_bkwd = -1.0f;
       lambda1 = coeff_fwd + coeff_bkwd + coeff_down + coeff_up;
       lambda2 = fabs(lambda1);
       
       for (i = 0; i < jump; i++)
       {
-        //independent channels, just to check
-        /*coeff_fwd = determine_pixel_difference(*(in_ptr+i), 0, 0,
-                                               *(in_ptr+i + jump), 0, 0);
-        coeff_bkwd = determine_pixel_difference(*(in_ptr+i), 0, 0,
-                                                *(in_ptr+i - jump), 0, 0);
-        coeff_down = determine_pixel_difference(*(in_ptr+i), 0, 0,
-                                                *(in_ptr+i + row_stride), 0, 0);
-        coeff_up = determine_pixel_difference(*(in_ptr+i), 0, 0,
-                                              *(in_ptr+i - row_stride), 0, 0);
-        
-        lambda1 = coeff_fwd + coeff_bkwd + coeff_down + coeff_up;
-        lambda2 = fabs(lambda1);*/
         *(out_ptr + i) = *(in_ptr + i) - (lambda2 * *(in_ptr + i) + coeff_fwd * *(in_ptr + jump + i)
                                            + coeff_bkwd * *(in_ptr - jump + i)
                                            + coeff_down * *(in_ptr + row_stride + i)
