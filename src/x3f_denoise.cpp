@@ -8,7 +8,7 @@
 #include "x3f_denoise.h"
 #include "x3f_io.h"
 
-#define NLM //turn this off to get aniso denoising
+//#define NLM //turn this off to get aniso denoising
 
 using namespace cv;
 
@@ -147,8 +147,9 @@ static inline float determine_pixel_difference(const float& v1_1, const float& v
   const float c2 = (v1_2 - v2_2);
   const float c3 = (v1_3 - v2_3);
   const float K = 0.0000050f;
-  const float l2norm = sqrt(c1 * c1 + c2 * c2 + c3 * c3);
-  return exp(-1.0f * l2norm*l2norm/K);
+  const float l2norm = (c1 * c1 + c2 * c2 + c3 * c3); //should be sqrt'd to be mathy, but it's immediately squared
+  return -1.0f * exp(-1.0f * l2norm/K); //not the lack of squaring of l2
+  //return -1.0f * exp(-1.0f * l2norm*l2norm/K);  //expensive but better
   //return -1.0f/(1.0f - l2norm*l2norm/K);
 }
 
@@ -164,7 +165,17 @@ static void denoise_aniso(const uint32_t& in_rows, const uint32_t& in_columns, f
   float* in_ptr;
   float* out_ptr;
   float* out_image = new float[in_rows * in_columns * jump];
-  float coeff_fwd, coeff_bkwd, coeff_up, coeff_down, lambda1, lambda2, h;
+  float coeff_fwd, coeff_bkwd, coeff_up, coeff_down, lambda1, lambda2;
+  //do the memcpy to keep the boundaries as they were before processing
+  //not ideal, because there will be noise there, but it should avoid the green boundary problem.
+  //there are a number of ways to solve boundary problems, but none of them are efficient.
+  memcpy(out_image, image, in_rows * in_columns * jump * sizeof(float));
+  
+  //diffusion for the first channel is different, to prevent color bleed
+  float* h = new float[jump];
+  h[0] = 5.0f;
+  h[1] = 1.0f;
+  h[2] = 1.0f;
   
   for (y = 1; y < edgeless_rows; y++){
     for (x = 1,
@@ -173,7 +184,7 @@ static void denoise_aniso(const uint32_t& in_rows, const uint32_t& in_columns, f
          x < edgeless_cols;
          x++, out_ptr += jump, in_ptr += jump){
       
-      /*coeff_fwd = determine_pixel_difference(*in_ptr, *(in_ptr+1), *(in_ptr+2),
+      coeff_fwd = determine_pixel_difference(*in_ptr, *(in_ptr+1), *(in_ptr+2),
                                              *(in_ptr + jump), *(in_ptr + jump + 1), *(in_ptr + jump + 2));
       coeff_bkwd = determine_pixel_difference(*in_ptr, *(in_ptr+1), *(in_ptr+2),
                                              *(in_ptr - jump), *(in_ptr - jump + 1), *(in_ptr - jump + 2));
@@ -181,14 +192,13 @@ static void denoise_aniso(const uint32_t& in_rows, const uint32_t& in_columns, f
                                              *(in_ptr + row_stride), *(in_ptr + row_stride + 1), *(in_ptr + row_stride + 2));
       coeff_up = determine_pixel_difference(*in_ptr, *(in_ptr+1), *(in_ptr+2),
                                             *(in_ptr - row_stride), *(in_ptr - row_stride + 1), *(in_ptr - row_stride + 2));
-       */
+      
       //note that, right now, this is just the isotropic heat equation, just to see how it does.
       //not badly, it seems.
-      coeff_fwd = coeff_up = coeff_down = coeff_bkwd = -1.0f;
+      //coeff_fwd = coeff_up = coeff_down = coeff_bkwd = -1.0f;
       lambda1 = coeff_fwd + coeff_bkwd + coeff_down + coeff_up;
       lambda2 = fabs(lambda1);
-       
-      h = 5.0f;
+      
       for (i = 0; i < jump; i++)
       {
         //independent channels, just to check
@@ -203,11 +213,10 @@ static void denoise_aniso(const uint32_t& in_rows, const uint32_t& in_columns, f
         
         lambda1 = coeff_fwd + coeff_bkwd + coeff_down + coeff_up;
         lambda2 = fabs(lambda1);*/
-        if (i == 0) h = 1.0f;
         *(out_ptr + i) = *(in_ptr + i) - (lambda2 * *(in_ptr + i) + coeff_fwd * *(in_ptr + jump + i)
                                            + coeff_bkwd * *(in_ptr - jump + i)
                                            + coeff_down * *(in_ptr + row_stride + i)
-                                           + coeff_up * *(in_ptr - row_stride + i))/(h *lambda2);
+                                           + coeff_up * *(in_ptr - row_stride + i))/(h[i] *lambda2);
 
       }
     }
@@ -215,6 +224,7 @@ static void denoise_aniso(const uint32_t& in_rows, const uint32_t& in_columns, f
   
   memcpy(image, out_image, in_rows * in_columns * jump * sizeof(float));
   delete [] out_image;
+  delete [] h;
 }
 
 static float* convert_to_float_image(x3f_area16_t *image)
@@ -226,6 +236,7 @@ static float* convert_to_float_image(x3f_area16_t *image)
   float* outImage = new float[num_cols * num_rows * jump];
   float* out_ptr = outImage;
   uint16_t* in_ptr;
+  
   for (y = 0; y < num_rows; y++)
   {
     for (x = 0, in_ptr = (image->data + y * image->row_stride); x < num_cols; x++)
@@ -236,7 +247,7 @@ static float* convert_to_float_image(x3f_area16_t *image)
       //}
       for (i = 0; i < jump; i++, out_ptr++, in_ptr++)
       {
-        *out_ptr = float(*in_ptr)/65535.0f;
+        *out_ptr = (float(*in_ptr)/65535.0f);
       }
       
       //if (y == 1000 && x == 1000){
