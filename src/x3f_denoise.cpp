@@ -8,6 +8,8 @@
 #include "x3f_denoise.h"
 #include "x3f_io.h"
 
+#define NLM //turn this off to get aniso denoising
+
 using namespace cv;
 
 typedef void (*conv_t)(x3f_area16_t *image);
@@ -134,6 +136,8 @@ static void denoise(const Mat& in, Mat& out, double h)
 
 }
 
+
+#ifndef NLM
 static inline float determine_pixel_difference(const float& v1_1, const float& v1_2, const float& v1_3,
                                                const float& v2_1, const float& v2_2, const float& v2_3)
 { //assumes 3 channels for now, may be a bad assumption
@@ -269,6 +273,7 @@ static void convert_from_float_image(x3f_area16_t *image, float* in_float_image)
     }
   }
 }
+#endif //NLM
 
 static const denoise_desc_t denoise_types[] = {
   {120.0, BMT_to_YUV_STD, YUV_to_BMT_STD},
@@ -283,7 +288,6 @@ void x3f_denoise(x3f_area16_t *image, x3f_denoise_type_t type)
   const denoise_desc_t *d = &denoise_types[type];
 
   d->BMT_to_YUV(image);
-#define NLM
 #ifdef NLM
   Mat in(image->rows, image->columns, CV_16UC3,
 	 image->data, sizeof(uint16_t)*image->row_stride);
