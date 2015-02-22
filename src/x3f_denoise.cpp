@@ -297,18 +297,10 @@ static float* convert_to_float_image(x3f_area16_t *image)
   {
     for (x = 0, in_ptr = (image->data + y * image->row_stride); x < num_cols; x++)
     {
-      
-      //if (y == 1000 && x == 1000){
-        //std::cout << "pixels during conversion: " << float(*in_ptr)/65535.0f << " " << float(*(in_ptr+1))/65535.0f << " " << float(*(in_ptr+2))/65535.0f << std::endl;
-      //}
       for (i = 0; i < jump; i++, out_ptr++, in_ptr++)
       {
         *out_ptr = (float(*in_ptr)/65535.0f);
       }
-      
-      //if (y == 1000 && x == 1000){
-        //std::cout << "pixels after conversion: " << *(out_ptr-3) << " " << *(out_ptr-2) << " " << *(out_ptr-1) << std::endl;
-      //}
     }
   }
   return outImage;
