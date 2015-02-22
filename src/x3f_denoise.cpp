@@ -157,9 +157,9 @@ static void median_filter(x3f_area16_t *image)
   uint16_t* current_set = new uint16_t[9];
   memset(current_set, 0, sizeof(uint16_t)*9);
   uint16_t* current_ptr;
-  uint16_t median, current_val;
+  float median, current_val; //so we can have negatives
   uint16_t thresh = 2000;
-  uint16_t background_thresh = 100;
+  uint16_t background_thresh = 100;  //entirely arbitrarily chosen
   //gonna do median filtering by channel for now, to start with.
   uint16_t* scratch = new uint16_t[rows * cols * jump];
   float avg;
@@ -169,14 +169,14 @@ static void median_filter(x3f_area16_t *image)
   //for (y = 1; y < edgeless_rows; y++){
   //  memcpy(scratch + y * stride + jump, image->data + y*stride + jump, edgeless_cols * jump * sizeof(uint16_t));
   //}
-  
-  for (y = 1; y < edgeless_rows; y++){
-    for (x = 1; x < edgeless_cols; x++) {
-      for (i = 0; i < jump; i++){
-        scratch[y*stride + x*jump + i] = image->data[y*stride + x*jump + i];
-      }
-    }
-  }
+  memcpy(scratch, image->data, rows*cols*jump*sizeof(uint16_t));
+  //for (y = 1; y < edgeless_rows; y++){
+  //  for (x = 1; x < edgeless_cols; x++) {
+  //    for (i = 0; i < jump; i++){
+  //      scratch[y*stride + x*jump + i] = image->data[y*stride + x*jump + i];
+  //    }
+  //  }
+  //}
   
   for (y = 1; y < edgeless_rows; y++){
     for (x = 1; x < edgeless_cols; x++) {
@@ -193,7 +193,7 @@ static void median_filter(x3f_area16_t *image)
         //then replace.  'very very different' means 'more than 50% of the dynamic
         //range of the image away' or 'zero'
         median = current_set[4];
-        if (current_val < background_thresh)
+        if (fabs(current_val - median) < thresh || current_val < background_thresh)
         {
           //replace with the local average in this channel
           //scratch[y*stride + x*jump + i] = median;
@@ -225,13 +225,14 @@ static void median_filter(x3f_area16_t *image)
   //  memcpy(image->data + y*stride + jump, scratch + y * stride + jump, edgeless_cols * jump * sizeof(uint16_t));
   //}
   
-  for (y = 1; y < edgeless_rows; y++){
-    for (x = 1; x < edgeless_cols; x++) {
-      for (i = 0; i < jump; i++){
-        image->data[y*stride + x*jump + i] = scratch[y*stride + x*jump + i];
-      }
-    }
-  }
+  memcpy(image->data, scratch, rows*cols*jump*sizeof(uint16_t));
+  //for (y = 1; y < edgeless_rows; y++){
+  //  for (x = 1; x < edgeless_cols; x++) {
+  //    for (i = 0; i < jump; i++){
+  //      image->data[y*stride + x*jump + i] = scratch[y*stride + x*jump + i];
+  //    }
+  //  }
+  //}
   
   
   delete [] scratch;
