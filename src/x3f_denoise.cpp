@@ -158,7 +158,7 @@ static void median_filter(x3f_area16_t *image)
   memset(current_set, 0, sizeof(uint16_t)*9);
   uint16_t* current_ptr;
   float median, current_val; //so we can have negatives
-  uint16_t thresh = 2000;
+  uint16_t thresh = 1000;
   uint16_t background_thresh = 100;  //entirely arbitrarily chosen
   //gonna do median filtering by channel for now, to start with.
   uint16_t* scratch = new uint16_t[rows * cols * jump];
@@ -193,7 +193,7 @@ static void median_filter(x3f_area16_t *image)
         //then replace.  'very very different' means 'more than 50% of the dynamic
         //range of the image away' or 'zero'
         median = current_set[4];
-        if (fabs(current_val - median) < thresh || current_val < background_thresh)
+        if (fabs(current_val - median) > thresh || current_val < background_thresh)
         {
           //replace with the local average in this channel
           //scratch[y*stride + x*jump + i] = median;
