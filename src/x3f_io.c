@@ -3705,36 +3705,116 @@ static int get_max_intermediate(x3f_t *x3f, char *wb,
   return 1;
 }
 
-static void interpolate_highlight_pixels(x3f_t *x3f,
-					 x3f_area16_t *image, int colors)
+#define _PN(_c, _r, _cs) ((_r)*(_cs) + (_c))
+
+#define MARK_PIX(_vec, _c, _r, _cs, _rs)				\
+do {									\
+  assert((_c) >= 0 && (_c) < (_cs) && (_r) >= 0 && (_r) < (_rs));	\
+  _vec[_PN((_c), (_r), (_cs)) >> 5] |= 1 << (_PN((_c), (_r), (_cs)) & 0x1f); \
+ } while (0)
+
+#define CLEAR_PIX(_vec, _c, _r, _cs, _rs)				\
+do {									\
+  assert((_c) >= 0 && (_c) < (_cs) && (_r) >= 0 && (_r) < (_rs));	\
+  _vec[_PN((_c), (_r), (_cs)) >> 5] &= ~(1 << (_PN((_c), (_r), (_cs)) & 0x1f));\
+ } while (0)
+
+#define TEST_PIX(_vec, _c, _r, _cs, _rs)				\
+((_c) >= 0 && (_c) < (_cs) && (_r) >= 0 && (_r) < (_rs) ?		\
+ _vec[_PN((_c), (_r), (_cs)) >> 5] & 1 << (_PN((_c), (_r), (_cs)) & 0x1f) : 1)
+
+static void interpolate_bad_pixels(x3f_t *x3f, x3f_area16_t *image, int colors)
 {
+  int vec_num = (image->rows*image->columns + 31)/32;
+  uint32_t *vec = calloc(vec_num, sizeof(uint32_t));
+  uint32_t *tmp = malloc(vec_num*sizeof(uint32_t));
+  
   int row, col, color;
-  uint32_t hpinfo[4];
+  uint32_t hpinfo[4], *bpf20;
+  int bpf20_rows, bpf20_cols;
+  int pass = 0, left, fix_corn = 0;
+  
+  /* NOTE: the numbers of rows and cols in this matrix are
+     interchanged due to bug in camera firmware */
+  if (get_camf_matrix_var(x3f, "BadPixelsF20", &bpf20_cols, &bpf20_rows, NULL,
+			  M_UINT, (void **)&bpf20)) {
+    assert(bpf20_cols == 3);
+    for (row=0; row<bpf20_rows; row++)
+      MARK_PIX(vec, bpf20[3*row + 1], bpf20[3*row + 0],
+	       image->columns, image->rows);
+  }
+  
+  /* NOTE: the numbers of rows and cols in this matrix are
+     interchanged due to bug in camera firmware
+     TODO: should Jpeg_BadClutersF20 really be used foe RAW? It works
+     though. */
+  if (get_camf_matrix_var(x3f, "Jpeg_BadClusters",
+			  &bpf20_cols, &bpf20_rows, NULL,
+			  M_UINT, (void **)&bpf20)) {
+    assert(bpf20_cols == 3);
+    for (row=0; row<bpf20_rows; row++)
+      MARK_PIX(vec, bpf20[3*row + 1], bpf20[3*row + 0],
+	       image->columns, image->rows);
+  }
+  
+  /* TODO: should those really be interpolated over, or should they be
+     rescaled instead? */
+  if (get_camf_matrix(x3f, "HighlightPixelsInfo", 2, 2, 0, M_UINT, hpinfo))
+    for (row = hpinfo[1]; row < image->rows; row += hpinfo[3])
+      for (col = hpinfo[0]; col < image->columns; col += hpinfo[2])
+	MARK_PIX(vec, col, row, image->columns, image->rows);
+  
+  do {
+    int fixed = 0, isol = 0, lin = 0, corn = 0;
+    left = 0;
+    
+    memcpy(tmp, vec, vec_num*sizeof(uint32_t));
+    
+    for (row = 0; row < image->rows; row++)
+      for (col = 0; col < image->columns; col++)
+	if (TEST_PIX(tmp, col, row, image->columns, image->rows)) {
+	  uint16_t *outp =
+	    &image->data[row*image->row_stride + col*image->channels];
+	  uint16_t *inp[4] = {NULL, NULL, NULL, NULL};
+	  int num = 0, i;
+	  
+	  if (!TEST_PIX(tmp, col-1, row, image->columns, image->rows))
+	    num++, inp[0] =
+	      &image->data[row*image->row_stride + (col-1)*image->channels];
+	  if (!TEST_PIX(tmp, col+1, row, image->columns, image->rows))
+	    num++, inp[1] =
+	      &image->data[row*image->row_stride + (col+1)*image->channels];
+	  if (!TEST_PIX(tmp, col, row-1, image->columns, image->rows))
+	    num++, inp[2] =
+	      &image->data[(row-1)*image->row_stride + col*image->channels];
+	  if (!TEST_PIX(tmp, col, row+1, image->columns, image->rows))
+	    num++, inp[3] =
+	      &image->data[(row+1)*image->row_stride + col*image->channels];
 
-  if (!get_camf_matrix(x3f, "HighlightPixelsInfo", 2, 2, 0, M_UINT, hpinfo))
-    return;
-
-  for (row = hpinfo[1]; row < image->rows; row += hpinfo[3])
-    for (col = hpinfo[0]; col < image->columns; col += hpinfo[2]) {
-      uint16_t *outp =
-	&image->data[row*image->row_stride + col*image->channels];
-      uint16_t *inp1 =
-	&image->data[row*image->row_stride +
-		     (col > 0 ? col-1 : col+1)*image->channels];
-      uint16_t *inp2 =
-	&image->data[row*image->row_stride +
-		     (col < image->columns-1 ? col+1 : col-1)*image->channels];
-      uint16_t *inp3 =
-	&image->data[(row > 0 ? row-1 : row+1)*image->row_stride +
-		     col*image->channels];
-      uint16_t *inp4 =
-	&image->data[(row < image->rows-1 ? row+1 : row-1)*image->row_stride +
-		     col*image->channels];
-
-      for (color=0; color < colors; color++)
-	outp[color] =
-	  (inp1[color] + inp2[color] + inp3[color] + inp4[color] + 2)/4;
-    }
+	  if (inp[0] && inp[1] && inp[2] && inp[3]) isol++;
+	  else if (inp[0] && inp[1]) inp[2] = inp[3] = NULL, num = 2, lin++;
+	  else if (inp[2] && inp[3]) inp[0] = inp[1] = NULL, num = 2, lin++;
+	  else if (fix_corn && num == 2) corn++;
+	  else {left++; continue;};
+	  
+	  for (color=0; color < colors; color++) {
+	    uint32_t sum = 0;
+	    for (i=0; i<4; i++)
+	      if (inp[i]) sum += inp[i][color];
+	    outp[color] = (sum + num/2)/num;
+	  }
+	  
+	  CLEAR_PIX(vec, col, row, image->columns, image->rows);
+	  fixed++;
+	}
+    
+    printf("Bad pixels pass %d: %d fixed (%d isol, %d lin, %d corn), %d left\n",
+	   pass, fixed, isol, lin, corn, left);
+    if (fixed == 0) fix_corn = 1;
+    pass++;
+  } while (left > 0);
+  
+  free(vec);
 }
 
 static int preprocess_data(x3f_t *x3f, char *wb)
@@ -3818,9 +3898,7 @@ static int preprocess_data(x3f_t *x3f, char *wb)
       }
   }
 
-  /* TODO: should those really be interpolated over, or should they be
-     rescaled instead? */
-  interpolate_highlight_pixels(x3f, &image, 3);
+  interpolate_bad_pixels(x3f, &image, 3);
 
   return 1;
 }
