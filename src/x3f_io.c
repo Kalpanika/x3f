@@ -3709,8 +3709,12 @@ static int get_max_intermediate(x3f_t *x3f, char *wb,
 
 #define MARK_PIX(_vec, _c, _r, _cs, _rs)				\
 do {									\
-  assert((_c) >= 0 && (_c) < (_cs) && (_r) >= 0 && (_r) < (_rs));	\
-  _vec[_PN((_c), (_r), (_cs)) >> 5] |= 1 << (_PN((_c), (_r), (_cs)) & 0x1f); \
+  if((_c) >= 0 && (_c) < (_cs) && (_r) >= 0 && (_r) < (_rs))		\
+    _vec[_PN((_c), (_r), (_cs)) >> 5] |= 1 << (_PN((_c), (_r), (_cs)) & 0x1f); \
+  else									\
+    fprintf(stderr,							\
+	    "WARNING: bad pixel (%u,%u) out of bounds : image size (%u,%u)\n", \
+	    _c, _r, _cs, _rs);						\
  } while (0)
 
 #define CLEAR_PIX(_vec, _c, _r, _cs, _rs)				\
@@ -3730,38 +3734,44 @@ static void interpolate_bad_pixels(x3f_t *x3f, x3f_area16_t *image, int colors)
   uint32_t *tmp = malloc(vec_num*sizeof(uint32_t));
   
   int row, col, color;
-  uint32_t hpinfo[4], *bpf20;
-  int bpf20_rows, bpf20_cols;
+  uint32_t keep[4], hpinfo[4], *bp, *bpf20;
+  int bp_num, bpf20_rows, bpf20_cols;
   int pass = 0, left, fix_corn = 0;
+
+  assert(get_camf_matrix(x3f, "KeepImageArea", 4, 0, 0, M_UINT, keep));
   
+  if (get_camf_matrix_var(x3f, "BadPixels", &bp_num, NULL, NULL,
+			  M_UINT, (void **)&bp))
+    for (row=0; row < bp_num; row++)
+      MARK_PIX(vec,
+	       ((bp[row] & 0x000fff00) >> 8) - keep[0],
+	       ((bp[row] & 0xfff00000) >> 20) - keep[1],
+	       image->columns, image->rows);
+
   /* NOTE: the numbers of rows and cols in this matrix are
      interchanged due to bug in camera firmware */
   if (get_camf_matrix_var(x3f, "BadPixelsF20", &bpf20_cols, &bpf20_rows, NULL,
-			  M_UINT, (void **)&bpf20)) {
-    assert(bpf20_cols == 3);
-    for (row=0; row<bpf20_rows; row++)
-      MARK_PIX(vec, bpf20[3*row + 1], bpf20[3*row + 0],
+			  M_UINT, (void **)&bpf20) && bpf20_cols == 3)
+    for (row=0; row < bpf20_rows; row++)
+      MARK_PIX(vec, bpf20[3*row + 1] - keep[0], bpf20[3*row + 0] - keep[1],
 	       image->columns, image->rows);
-  }
   
   /* NOTE: the numbers of rows and cols in this matrix are
-     interchanged due to bug in camera firmware
-     TODO: should Jpeg_BadClutersF20 really be used foe RAW? It works
-     though. */
+           interchanged due to bug in camera firmware
+     TODO: should Jpeg_BadClutersF20 really be used for RAW? It works
+           though. */
   if (get_camf_matrix_var(x3f, "Jpeg_BadClusters",
 			  &bpf20_cols, &bpf20_rows, NULL,
-			  M_UINT, (void **)&bpf20)) {
-    assert(bpf20_cols == 3);
-    for (row=0; row<bpf20_rows; row++)
-      MARK_PIX(vec, bpf20[3*row + 1], bpf20[3*row + 0],
+			  M_UINT, (void **)&bpf20) && bpf20_cols == 3)
+    for (row=0; row < bpf20_rows; row++)
+      MARK_PIX(vec, bpf20[3*row + 1] - keep[0], bpf20[3*row + 0] - keep[1],
 	       image->columns, image->rows);
-  }
   
   /* TODO: should those really be interpolated over, or should they be
-     rescaled instead? */
+           rescaled instead? */
   if (get_camf_matrix(x3f, "HighlightPixelsInfo", 2, 2, 0, M_UINT, hpinfo))
-    for (row = hpinfo[1]; row < image->rows; row += hpinfo[3])
-      for (col = hpinfo[0]; col < image->columns; col += hpinfo[2])
+    for (row = hpinfo[1]-keep[1]; row < image->rows; row += hpinfo[3])
+      for (col = hpinfo[0]-keep[0]; col < image->columns; col += hpinfo[2])
 	MARK_PIX(vec, col, row, image->columns, image->rows);
   
   do {
@@ -3815,6 +3825,7 @@ static void interpolate_bad_pixels(x3f_t *x3f, x3f_area16_t *image, int colors)
   } while (left > 0);
   
   free(vec);
+  free(tmp);
 }
 
 static int preprocess_data(x3f_t *x3f, char *wb)
