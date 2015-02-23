@@ -12,7 +12,7 @@ SRC=$ROOT/deps/src
 LIB=$ROOT/deps/lib/$SYS
 
 OCV_SRC=$SRC/opencv
-OCV_BLD=$SRC/opencv_build
+OCV_BLD=$SRC/$SYS/opencv_build
 OCV_LIB=$LIB/opencv
 
 if [ -e $OCV_LIB ] ; then
