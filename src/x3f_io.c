@@ -3734,14 +3734,16 @@ static void interpolate_bad_pixels(x3f_t *x3f, x3f_area16_t *image, int colors)
   uint32_t *tmp = malloc(vec_num*sizeof(uint32_t));
   
   int row, col, color, i;
-  uint32_t keep[4], hpinfo[4], *bp, *bpf20, *bpf23;
-  int bp_num, bpf20_rows, bpf20_cols, bpf23_len;
+  uint32_t *bpf23;
+  int bpf23_len;
   int pass = 0, left, fix_corn = 0;
-
-  assert(get_camf_matrix(x3f, "KeepImageArea", 4, 0, 0, M_UINT, keep));
   
   if (colors == 3) {
-    if (get_camf_matrix_var(x3f, "BadPixels", &bp_num, NULL, NULL,
+    uint32_t keep[4], hpinfo[4], *bp, *bpf20;
+    int bp_num, bpf20_rows, bpf20_cols;
+
+    if (get_camf_matrix(x3f, "KeepImageArea", 4, 0, 0, M_UINT, keep) &&
+	get_camf_matrix_var(x3f, "BadPixels", &bp_num, NULL, NULL,
 			    M_UINT, (void **)&bp))
       for (i=0; i < bp_num; i++)
 	MARK_PIX(vec,
@@ -3800,7 +3802,7 @@ static void interpolate_bad_pixels(x3f_t *x3f, x3f_area16_t *image, int colors)
 	  uint16_t *outp =
 	    &image->data[row*image->row_stride + col*image->channels];
 	  uint16_t *inp[4] = {NULL, NULL, NULL, NULL};
-	  int num = 0, i;
+	  int num = 0;
 	  
 	  if (!TEST_PIX(tmp, col-1, row, image->columns, image->rows))
 	    num++, inp[0] =
