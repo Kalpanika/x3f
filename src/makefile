@@ -12,19 +12,7 @@
 # Set the SYS variable
 # -----------------------------------------------------------
 
-  SYS = generic
-ifdef COMSPEC
-  SYS = windows
-else
-  OSTYPE = $(shell bash -c 'echo $$OSTYPE')
-ifeq (linux-gnu, $(OSTYPE))
-  SYS = linux
-else
-ifeq (darwin, $(findstring darwin,$(OSTYPE)))
-  SYS = osx
-endif
-endif
-endif
+include ../sys.mk
 
 # Set compilation and load flags etc
 # -----------------------------------------------------------
@@ -52,7 +40,7 @@ endif
 endif
 endif
 
-OPENCV=../../opencv_install
+OPENCV=../deps/lib/$(SYS)/opencv/
 OPENCV_LIBS = -lopencv_core -lopencv_photo -lopencv_imgproc
 
 CFLAGS = $(CFBASE) -I$(OPENCV)/include -g -O3 -Wall $(C)
