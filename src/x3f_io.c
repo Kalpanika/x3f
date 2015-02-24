@@ -3694,6 +3694,7 @@ static double calc_spatial_gain(spatial_gain_corr_t *corr, int corr_num,
    takes place internally. */
 #define INTERMEDIATE_DEPTH 14
 #define INTERMEDIATE_UNIT ((1<<INTERMEDIATE_DEPTH) - 1)
+#define INTERMEDIATE_BIAS 128	/* Avoid clipping the noise in dark areas */
 
 static int get_max_intermediate(x3f_t *x3f, char *wb,
 				uint32_t *max_intermediate)
@@ -3707,7 +3708,9 @@ static int get_max_intermediate(x3f_t *x3f, char *wb,
   for (i=0; i<3; i++)
     if (gain[i] > maxgain) maxgain = gain[i];
   for (i=0; i<3; i++)
-    max_intermediate[i] = (int32_t)round(gain[i]*INTERMEDIATE_UNIT/maxgain);
+    max_intermediate[i] =
+      (int32_t)round(gain[i]*(INTERMEDIATE_UNIT - INTERMEDIATE_BIAS)/maxgain +
+		     INTERMEDIATE_BIAS);
 
   return 1;
 }
@@ -3905,7 +3908,7 @@ static int preprocess_data(x3f_t *x3f, char *wb)
 	 black_level[0], black_level[1], black_level[2]);
 
   for (color = 0; color < 3; color++)
-    scale[color] = (double)max_intermediate[color] /
+    scale[color] = (double)(max_intermediate[color] - INTERMEDIATE_BIAS) /
       (max_raw[color] - black_level[color]);
   
   /* Preprocess image data (HUF/TRU->x3rgb16) */
@@ -3915,7 +3918,8 @@ static int preprocess_data(x3f_t *x3f, char *wb)
 	uint16_t *valp =
 	  &image.data[image.row_stride*row + image.channels*col + color];
 	int32_t out =
-	  (int32_t)round(scale[color] * (*valp - black_level[color]));
+	  (int32_t)round(scale[color] * (*valp - black_level[color]) +
+			 INTERMEDIATE_BIAS);
 
 	if (out < 0) *valp = 0;
 	else if (out > 65535) *valp = 65535;
@@ -3934,7 +3938,8 @@ static int preprocess_data(x3f_t *x3f, char *wb)
 	  &qtop.data[qtop.row_stride*(2*row+1) + qtop.channels*2*col];
 	uint32_t sum =
 	  row1[0] + row1[qtop.channels] + row2[0] + row2[qtop.channels];
-	int32_t out = (int32_t)round(scale[2] * (sum/4.0 - black_level[2]));
+	int32_t out = (int32_t)round(scale[2] * (sum/4.0 - black_level[2]) +
+				     INTERMEDIATE_BIAS);
 
 	if (out < 0) *outp = 0;
 	else if (out > 65535) *outp = 65535;
@@ -3945,7 +3950,8 @@ static int preprocess_data(x3f_t *x3f, char *wb)
     for (row = 0; row < qtop.rows; row++)
       for (col = 0; col < qtop.columns; col++) {
 	uint16_t *valp = &qtop.data[qtop.row_stride*row + qtop.channels*col];
-	int32_t out = (int32_t)round(scale[2] * (*valp - black_level[2]));
+	int32_t out = (int32_t)round(scale[2] * (*valp - black_level[2]) +
+				     INTERMEDIATE_BIAS);
 
 	if (out < 0) *valp = 0;
 	else if (out > 65535) *valp = 65535;
@@ -4054,7 +4060,8 @@ static int convert_data(x3f_t *x3f, x3f_area16_t *image,
 	input[color] = calc_spatial_gain(sgain, sgain_num,
 					 row, col, color,
 					 image->rows, image->columns) *
-	  (double)*valp[color]/max_intermediate[color];
+	  (double)((int32_t)*valp[color] - INTERMEDIATE_BIAS) / 
+	  (max_intermediate[color] - INTERMEDIATE_BIAS);
       }
 
       /* Do color conversion */
@@ -4329,7 +4336,7 @@ static int write_camera_profile_for_wb(x3f_t *x3f, TIFF *tiff, char *wb)
   vec_double_to_float(xyz_to_raw, color_matrix1, 9);
   TIFFSetField(tiff, TIFFTAG_COLORMATRIX1, 9, color_matrix1);
   TIFFSetField(tiff, TIFFTAG_PROFILENAME, wb);
-  /* Tell the raw converter to refrian from clipping the dark areas */
+  /* Tell the raw converter to refrain from clipping the dark areas */
   TIFFSetField(tiff, TIFFTAG_DEFAULTBLACKRENDER, 1);
 
   return 1;
@@ -4520,6 +4527,9 @@ x3f_return_t x3f_dump_raw_data_as_dng(x3f_t *x3f,
   double gain[3], gain_inv[3];
   float as_shot_neutral[3];
   uint32_t white_level[3];
+  float black_level[3] = {INTERMEDIATE_BIAS,
+			  INTERMEDIATE_BIAS,
+			  INTERMEDIATE_BIAS};
   uint32_t active_area[4];
   x3f_area16_t image;
   int row;
@@ -4603,6 +4613,7 @@ x3f_return_t x3f_dump_raw_data_as_dng(x3f_t *x3f,
     return X3F_ARGUMENT_ERROR;
   }
   TIFFSetField(f_out, TIFFTAG_WHITELEVEL, 3, white_level);
+  TIFFSetField(f_out, TIFFTAG_BLACKLEVEL, 3, black_level);
 
   if (!write_spatial_gain(x3f, &image, wb, f_out))
     fprintf(stderr, "WARNING: could not get spatial gain\n");
