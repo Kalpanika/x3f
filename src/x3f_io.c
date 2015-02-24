@@ -3705,12 +3705,25 @@ static int get_max_intermediate(x3f_t *x3f, char *wb,
   return 1;
 }
 
+typedef struct bad_pixel_s {
+  int c, r;
+  struct bad_pixel_s *prev, *next;
+} bad_pixel_t;
+
 #define _PN(_c, _r, _cs) ((_r)*(_cs) + (_c))
 
-#define MARK_PIX(_vec, _c, _r, _cs, _rs)				\
+#define MARK_PIX(_list, _vec, _c, _r, _cs, _rs)				\
 do {									\
-  if((_c) >= 0 && (_c) < (_cs) && (_r) >= 0 && (_r) < (_rs))		\
-    _vec[_PN((_c), (_r), (_cs)) >> 5] |= 1 << (_PN((_c), (_r), (_cs)) & 0x1f); \
+ if((_c) >= 0 && (_c) < (_cs) && (_r) >= 0 && (_r) < (_rs)) {		\
+   bad_pixel_t *_p = malloc(sizeof(bad_pixel_t));			\
+   _p->c = (_c);							\
+   _p->r = (_r);							\
+   _p->prev = NULL;							\
+   _p->next = (_list);							\
+   if (_list) (_list)->prev = (_p);					\
+   (_list) = _p;							\
+   _vec[_PN((_c), (_r), (_cs)) >> 5] |= 1 << (_PN((_c), (_r), (_cs)) & 0x1f); \
+ }									\
   else									\
     fprintf(stderr,							\
 	    "WARNING: bad pixel (%u,%u) out of bounds : image size (%u,%u)\n", \
@@ -3729,14 +3742,13 @@ do {									\
 
 static void interpolate_bad_pixels(x3f_t *x3f, x3f_area16_t *image, int colors)
 {
-  int vec_num = (image->rows*image->columns + 31)/32;
-  uint32_t *vec = calloc(vec_num, sizeof(uint32_t));
-  uint32_t *tmp = malloc(vec_num*sizeof(uint32_t));
-  
+  bad_pixel_t *list = NULL;
+  uint32_t *vec = calloc((image->rows*image->columns + 31)/32,
+			 sizeof(uint32_t));
   int row, col, color, i;
   uint32_t *bpf23;
   int bpf23_len;
-  int pass = 0, left, fix_corn = 0;
+  int pass = 0, fix_corn = 0;
   
   if (colors == 3) {
     uint32_t keep[4], hpinfo[4], *bp, *bpf20;
@@ -3746,7 +3758,7 @@ static void interpolate_bad_pixels(x3f_t *x3f, x3f_area16_t *image, int colors)
 	get_camf_matrix_var(x3f, "BadPixels", &bp_num, NULL, NULL,
 			    M_UINT, (void **)&bp))
       for (i=0; i < bp_num; i++)
-	MARK_PIX(vec,
+	MARK_PIX(list, vec,
 		 ((bp[i] & 0x000fff00) >> 8) - keep[0],
 		 ((bp[i] & 0xfff00000) >> 20) - keep[1],
 		 image->columns, image->rows);
@@ -3757,7 +3769,7 @@ static void interpolate_bad_pixels(x3f_t *x3f, x3f_area16_t *image, int colors)
 			    &bpf20_cols, &bpf20_rows, NULL,
 			    M_UINT, (void **)&bpf20) && bpf20_cols == 3)
       for (row=0; row < bpf20_rows; row++)
-	MARK_PIX(vec, bpf20[3*row + 1], bpf20[3*row + 0],
+	MARK_PIX(list, vec, bpf20[3*row + 1], bpf20[3*row + 0],
 		 image->columns, image->rows);
     
     /* NOTE: the numbers of rows and cols in this matrix are
@@ -3768,7 +3780,7 @@ static void interpolate_bad_pixels(x3f_t *x3f, x3f_area16_t *image, int colors)
 			    &bpf20_cols, &bpf20_rows, NULL,
 			    M_UINT, (void **)&bpf20) && bpf20_cols == 3)
       for (row=0; row < bpf20_rows; row++)
-	MARK_PIX(vec, bpf20[3*row + 1], bpf20[3*row + 0],
+	MARK_PIX(list, vec, bpf20[3*row + 1], bpf20[3*row + 0],
 		 image->columns, image->rows);
 
     /* TODO: should those really be interpolated over, or should they be
@@ -3776,7 +3788,7 @@ static void interpolate_bad_pixels(x3f_t *x3f, x3f_area16_t *image, int colors)
     if (get_camf_matrix(x3f, "HighlightPixelsInfo", 2, 2, 0, M_UINT, hpinfo))
       for (row = hpinfo[1]; row < image->rows; row += hpinfo[3])
 	for (col = hpinfo[0]; col < image->columns; col += hpinfo[2])
-	  MARK_PIX(vec, col, row, image->columns, image->rows);
+	  MARK_PIX(list, vec, col, row, image->columns, image->rows);
   }  
   
   if ((colors == 1 && get_camf_matrix_var(x3f, "BadPixelsLumaF23",
@@ -3788,60 +3800,64 @@ static void interpolate_bad_pixels(x3f_t *x3f, x3f_area16_t *image, int colors)
       for (i=0, row=-1; i < bpf23_len; i++)
 	if (row == -1) row = bpf23[i];
 	else if (bpf23[i] == 0) row = -1;
-	else {MARK_PIX(vec, bpf23[i], row, image->columns, image->rows); i++;}
-      
-  do {
-    int fixed = 0, isol = 0, lin = 0, corn = 0;
-    left = 0;
-    
-    memcpy(tmp, vec, vec_num*sizeof(uint32_t));
-    
-    for (row = 0; row < image->rows; row++)
-      for (col = 0; col < image->columns; col++)
-	if (TEST_PIX(tmp, col, row, image->columns, image->rows)) {
-	  uint16_t *outp =
-	    &image->data[row*image->row_stride + col*image->channels];
-	  uint16_t *inp[4] = {NULL, NULL, NULL, NULL};
-	  int num = 0;
-	  
-	  if (!TEST_PIX(tmp, col-1, row, image->columns, image->rows))
-	    num++, inp[0] =
-	      &image->data[row*image->row_stride + (col-1)*image->channels];
-	  if (!TEST_PIX(tmp, col+1, row, image->columns, image->rows))
-	    num++, inp[1] =
-	      &image->data[row*image->row_stride + (col+1)*image->channels];
-	  if (!TEST_PIX(tmp, col, row-1, image->columns, image->rows))
-	    num++, inp[2] =
-	      &image->data[(row-1)*image->row_stride + col*image->channels];
-	  if (!TEST_PIX(tmp, col, row+1, image->columns, image->rows))
-	    num++, inp[3] =
-	      &image->data[(row+1)*image->row_stride + col*image->channels];
+	else {MARK_PIX(list, vec, bpf23[i], row,
+		       image->columns, image->rows); i++;}
 
-	  if (inp[0] && inp[1] && inp[2] && inp[3]) isol++;
-	  else if (inp[0] && inp[1]) inp[2] = inp[3] = NULL, num = 2, lin++;
-	  else if (inp[2] && inp[3]) inp[0] = inp[1] = NULL, num = 2, lin++;
-	  else if (fix_corn && num == 2) corn++;
-	  else {left++; continue;};
+  while (list) {
+    bad_pixel_t *p, *pn, *fixed = NULL;
+    int isol = 0, lin = 0, corn = 0, left = 0;
+
+    for (p=list; p && (pn=p->next, 1); p=pn) {
+      uint16_t *outp =
+	&image->data[p->r*image->row_stride + p->c*image->channels];
+      uint16_t *inp[4] = {NULL, NULL, NULL, NULL};
+      int num = 0;
+      
+      if (!TEST_PIX(vec, p->c - 1, p->r, image->columns, image->rows))
+	num++, inp[0] =
+	  &image->data[p->r*image->row_stride + (p->c - 1)*image->channels];
+      if (!TEST_PIX(vec, p->c + 1, p->r, image->columns, image->rows))
+	num++, inp[1] =
+	  &image->data[p->r*image->row_stride + (p->c + 1)*image->channels];
+      if (!TEST_PIX(vec, p->c, p->r - 1, image->columns, image->rows))
+	num++, inp[2] =
+	  &image->data[(p->r - 1)*image->row_stride + p->c*image->channels];
+      if (!TEST_PIX(vec, p->c, p->r + 1, image->columns, image->rows))
+	num++, inp[3] =
+	  &image->data[(p->r + 1)*image->row_stride + p->c*image->channels];
+
+      if (inp[0] && inp[1] && inp[2] && inp[3]) isol++;
+      else if (inp[0] && inp[1]) inp[2] = inp[3] = NULL, num = 2, lin++;
+      else if (inp[2] && inp[3]) inp[0] = inp[1] = NULL, num = 2, lin++;
+      else if (fix_corn && num == 2) corn++;
+      else {left++; continue;};
 	  
-	  for (color=0; color < colors; color++) {
-	    uint32_t sum = 0;
-	    for (i=0; i<4; i++)
-	      if (inp[i]) sum += inp[i][color];
-	    outp[color] = (sum + num/2)/num;
-	  }
+      for (color=0; color < colors; color++) {
+	uint32_t sum = 0;
+	for (i=0; i<4; i++)
+	  if (inp[i]) sum += inp[i][color];
+	outp[color] = (sum + num/2)/num;
+      }
 	  
-	  CLEAR_PIX(vec, col, row, image->columns, image->rows);
-	  fixed++;
-	}
-    
+      if (p->prev) p->prev->next = p->next;
+      else list = p->next;
+      if (p->next) p->next->prev = p->prev;
+      p->prev = NULL;
+      p->next = fixed;
+      fixed = p;
+    }
+
+    if (!fixed) fix_corn = 1;
+    for (p=fixed; p && (pn=p->next, 1); p=pn) {
+      CLEAR_PIX(vec, p->c, p->r, image->columns, image->rows);
+      free(p);
+    }
     printf("Bad pixels pass %d: %d fixed (%d isol, %d lin, %d corn), %d left\n",
-	   pass, fixed, isol, lin, corn, left);
-    if (fixed == 0) fix_corn = 1;
+	   pass, isol + lin + corn, isol, lin, corn, left);
     pass++;
-  } while (left > 0);
+  }
   
   free(vec);
-  free(tmp);
 }
 
 static int preprocess_data(x3f_t *x3f, char *wb)
