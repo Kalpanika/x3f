@@ -211,7 +211,7 @@ static void cleanup_true(x3f_true_t **TRUP)
   FREE(TRU->table.element);
   FREE(TRU->plane_size.element);
   cleanup_huffman_tree(&TRU->tree);
-  FREE(TRU->x3rgb16.data);
+  FREE(TRU->x3rgb16.buf);
 
   FREE(TRU);
 
@@ -230,6 +230,7 @@ static x3f_true_t *new_true(x3f_true_t **TRUP)
   TRU->plane_size.element = NULL;
   TRU->tree.nodes = NULL;
   TRU->x3rgb16.data = NULL;
+  TRU->x3rgb16.buf = NULL;
 
   *TRUP = TRU;
 
@@ -244,7 +245,7 @@ static void cleanup_quattro(x3f_quattro_t **QP)
 
   printf("Cleanup Quattro\n");
 
-  FREE(Q->top16.data);
+  FREE(Q->top16.buf);
   FREE(Q);
 
   *QP = NULL;
@@ -265,6 +266,7 @@ static x3f_quattro_t *new_quattro(x3f_quattro_t **QP)
   Q->unknown = 0;
 
   Q->top16.data = NULL;
+  Q->top16.buf = NULL;
 
   *QP = Q;
 
@@ -287,8 +289,8 @@ static void cleanup_huffman(x3f_huffman_t **HUFP)
   FREE(HUF->table.element);
   cleanup_huffman_tree(&HUF->tree);
   FREE(HUF->row_offsets.element);
-  FREE(HUF->rgb8.data);
-  FREE(HUF->x3rgb16.data);
+  FREE(HUF->rgb8.buf);
+  FREE(HUF->x3rgb16.buf);
   FREE(HUF);
 
   *HUFP = NULL;
@@ -309,7 +311,9 @@ static x3f_huffman_t *new_huffman(x3f_huffman_t **HUFP)
   HUF->row_offsets.size = 0;
   HUF->row_offsets.element = NULL;
   HUF->rgb8.data = NULL;
+  HUF->rgb8.buf = NULL;
   HUF->x3rgb16.data = NULL;
+  HUF->x3rgb16.buf = NULL;
 
   *HUFP = HUF;
 
@@ -1854,7 +1858,7 @@ static void x3f_load_true(x3f_info_t *I,
     TRU->x3rgb16.rows = rows;
     TRU->x3rgb16.channels = channels;
     TRU->x3rgb16.row_stride = columns * channels;
-    TRU->x3rgb16.data =
+    TRU->x3rgb16.data = TRU->x3rgb16.buf =
       (uint16_t *)malloc(sizeof(uint16_t)*size);
 
     columns = Q->plane[2].columns;
@@ -1866,7 +1870,7 @@ static void x3f_load_true(x3f_info_t *I,
     Q->top16.rows = rows;
     Q->top16.channels = channels;
     Q->top16.row_stride = columns * channels;
-    Q->top16.data =
+    Q->top16.data = Q->top16.buf =
       (uint16_t *)malloc(sizeof(uint16_t)*size);
   } else {
     uint32_t size = ID->columns * ID->rows * 3;
@@ -1875,7 +1879,7 @@ static void x3f_load_true(x3f_info_t *I,
     TRU->x3rgb16.rows = ID->rows;
     TRU->x3rgb16.channels = 3;
     TRU->x3rgb16.row_stride = ID->columns * 3;
-    TRU->x3rgb16.data =
+    TRU->x3rgb16.data = TRU->x3rgb16.buf =
       (uint16_t *)malloc(sizeof(uint16_t)*size);
   }
 
@@ -1954,7 +1958,7 @@ static void x3f_load_huffman(x3f_info_t *I,
     HUF->x3rgb16.rows = ID->rows;
     HUF->x3rgb16.channels = 3;
     HUF->x3rgb16.row_stride = ID->columns * 3;
-    HUF->x3rgb16.data =
+    HUF->x3rgb16.data = HUF->x3rgb16.buf =
       (uint16_t *)malloc(sizeof(uint16_t)*size);
     break;
   case X3F_IMAGE_THUMB_HUFFMAN:
@@ -1963,7 +1967,7 @@ static void x3f_load_huffman(x3f_info_t *I,
     HUF->rgb8.columns = ID->rows;
     HUF->rgb8.channels = 3;
     HUF->rgb8.row_stride = ID->columns * 3;
-    HUF->rgb8.data =
+    HUF->rgb8.data = HUF->rgb8.buf =
       (uint8_t *)malloc(sizeof(uint8_t)*size);
     break;
   default:
@@ -2953,7 +2957,8 @@ static int image_area(x3f_t *x3f, x3f_area16_t *image)
 
   if (!area || !area->data) return 0;
   *image = *area;
-
+  image->buf = NULL;		/* cleanup_true/cleanup_huffman is
+				   responsible for free() */
   return 1;
 }
 
@@ -2972,6 +2977,7 @@ static int image_area_qtop(x3f_t *x3f, x3f_area16_t *image)
 
   if (!Q || !Q->top16.data) return 0;
   *image = Q->top16;
+  image->buf = NULL;		/* cleanup_quattro is responsible for free() */
 
   return 1;
 }
@@ -2987,7 +2993,8 @@ static int crop_area(uint32_t *coord, x3f_area16_t *image, x3f_area16_t *crop)
   crop->rows = coord[3] - coord[1] + 1;
   crop->channels = image->channels;
   crop->row_stride = image->row_stride;
-
+  crop->buf = image->buf;
+  
   return 1;
 }
 
@@ -4107,8 +4114,8 @@ static int expand_quattro(x3f_t *x3f, int denoise, x3f_area16_t *expanded)
   expanded->rows = qtop_crop.rows;
   expanded->channels = 3;
   expanded->row_stride = expanded->columns*expanded->channels;
-  /* TODO: This has to be freed !!!! */
-  expanded->data = malloc(expanded->rows*expanded->row_stride*sizeof(uint16_t));
+  expanded->data = expanded->buf = 
+    malloc(expanded->rows*expanded->row_stride*sizeof(uint16_t));
 
   if (denoise && !crop_area_camf(x3f, "ActiveImageArea", expanded, 0,
 				 &active_exp)) {
@@ -4161,8 +4168,10 @@ static int get_image(x3f_t *x3f,
   }
   else if (denoise && !run_denoising(x3f)) return 0;
 
-  if (encoding != NONE && !convert_data(x3f, &original_image, encoding, wb))
+  if (encoding != NONE && !convert_data(x3f, &original_image, encoding, wb)) {
+    FREE(image->buf);
     return 0;
+  }
 
   return 1;
 }
@@ -4249,6 +4258,7 @@ x3f_return_t x3f_dump_raw_data_as_ppm(x3f_t *x3f,
   }
 
   fclose(f_out);
+  FREE(image.buf);
 
   return X3F_OK;
 }
@@ -4291,6 +4301,7 @@ x3f_return_t x3f_dump_raw_data_as_tiff(x3f_t *x3f,
 
   TIFFWriteDirectory(f_out);
   TIFFClose(f_out);
+  FREE(image.buf);
 
   return X3F_OK;
 }
@@ -4520,7 +4531,10 @@ x3f_return_t x3f_dump_raw_data_as_dng(x3f_t *x3f,
   x3f_dngtags_install_extender();
 
   f_out = TIFFOpen(outfilename, "w");
-  if (f_out == NULL) return X3F_OUTFILE_ERROR;
+  if (f_out == NULL) {
+    FREE(image.buf);
+    return X3F_OUTFILE_ERROR;
+  }
 
   TIFFSetField(f_out, TIFFTAG_SUBFILETYPE, FILETYPE_REDUCEDIMAGE);
   TIFFSetField(f_out, TIFFTAG_IMAGEWIDTH, THUMBSIZE);
@@ -4546,6 +4560,7 @@ x3f_return_t x3f_dump_raw_data_as_dng(x3f_t *x3f,
 
   if (!get_raw_to_xyz(x3f, wb, raw_to_xyz)) {
     fprintf(stderr, "Could not get raw_to_xyz for white balance: %s\n", wb);
+    FREE(image.buf);
     TIFFClose(f_out);
     return X3F_ARGUMENT_ERROR;
   }
@@ -4556,6 +4571,7 @@ x3f_return_t x3f_dump_raw_data_as_dng(x3f_t *x3f,
   if (!get_gain(x3f, wb, gain)) {
     fprintf(stderr, "Could not get gain for white balance: %s\n", wb);
     TIFFClose(f_out);
+    FREE(image.buf);
     return X3F_ARGUMENT_ERROR;
   }
   x3f_3x1_invert(gain, gain_inv);
@@ -4583,6 +4599,7 @@ x3f_return_t x3f_dump_raw_data_as_dng(x3f_t *x3f,
   if (!get_max_intermediate(x3f, wb, white_level)) {
     fprintf(stderr, "Could not get maximum intermediate level\n");
     TIFFClose(f_out);
+    FREE(image.buf);
     return X3F_ARGUMENT_ERROR;
   }
   TIFFSetField(f_out, TIFFTAG_WHITELEVEL, 3, white_level);
@@ -4598,7 +4615,8 @@ x3f_return_t x3f_dump_raw_data_as_dng(x3f_t *x3f,
 
   TIFFWriteDirectory(f_out);
   TIFFClose(f_out);
-
+  FREE(image.buf);
+  
   return X3F_OK;
 }
 
@@ -4686,6 +4704,7 @@ x3f_return_t x3f_dump_raw_data_as_histogram(x3f_t *x3f,
     free(histogram[color]);
 
   fclose(f_out);
+  FREE(image.buf);
 
   return X3F_OK;
 }

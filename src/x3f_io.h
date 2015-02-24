@@ -132,7 +132,8 @@ typedef struct x3f_table32_s {
 
 typedef struct
 {
-  uint8_t *data;
+  uint8_t *data;		/* Pointer to actual image data */
+  void *buf;			/* Pointer to allocated buffer for free() */
   uint32_t rows;
   uint32_t columns;
   uint32_t channels;
@@ -141,7 +142,8 @@ typedef struct
 
 typedef struct
 {
-  uint16_t *data;
+  uint16_t *data;		/* Pointer to actual image data */
+  void *buf;			/* Pointer to allocated buffer for free() */
   uint32_t rows;
   uint32_t columns;
   uint32_t channels;
