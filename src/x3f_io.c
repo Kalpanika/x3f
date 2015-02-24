@@ -3711,34 +3711,39 @@ typedef struct bad_pixel_s {
 } bad_pixel_t;
 
 #define _PN(_c, _r, _cs) ((_r)*(_cs) + (_c))
-
-#define MARK_PIX(_list, _vec, _c, _r, _cs, _rs)				\
-do {									\
- if((_c) >= 0 && (_c) < (_cs) && (_r) >= 0 && (_r) < (_rs)) {		\
-   bad_pixel_t *_p = malloc(sizeof(bad_pixel_t));			\
-   _p->c = (_c);							\
-   _p->r = (_r);							\
-   _p->prev = NULL;							\
-   _p->next = (_list);							\
-   if (_list) (_list)->prev = (_p);					\
-   (_list) = _p;							\
-   _vec[_PN((_c), (_r), (_cs)) >> 5] |= 1 << (_PN((_c), (_r), (_cs)) & 0x1f); \
- }									\
-  else									\
-    fprintf(stderr,							\
-	    "WARNING: bad pixel (%u,%u) out of bounds : image size (%u,%u)\n", \
-	    _c, _r, _cs, _rs);						\
- } while (0)
-
-#define CLEAR_PIX(_vec, _c, _r, _cs, _rs)				\
-do {									\
-  assert((_c) >= 0 && (_c) < (_cs) && (_r) >= 0 && (_r) < (_rs));	\
-  _vec[_PN((_c), (_r), (_cs)) >> 5] &= ~(1 << (_PN((_c), (_r), (_cs)) & 0x1f));\
- } while (0)
+#define _INB(_c, _r, _cs, _rs)					\
+  ((_c) >= 0 && (_c) < (_cs) && (_r) >= 0 && (_r) < (_rs))
 
 #define TEST_PIX(_vec, _c, _r, _cs, _rs)				\
-((_c) >= 0 && (_c) < (_cs) && (_r) >= 0 && (_r) < (_rs) ?		\
- _vec[_PN((_c), (_r), (_cs)) >> 5] & 1 << (_PN((_c), (_r), (_cs)) & 0x1f) : 1)
+  (_INB((_c), (_r), (_cs), (_rs)) ?					\
+   (_vec)[_PN((_c), (_r), (_cs)) >> 5] &				\
+   1 << (_PN((_c), (_r), (_cs)) & 0x1f) : 1)
+
+#define MARK_PIX(_list, _vec, _c, _r, _cs, _rs)				\
+  do {									\
+    if (!TEST_PIX((_vec), (_c), (_r), (_cs), (_rs))) {			\
+      bad_pixel_t *_p = malloc(sizeof(bad_pixel_t));			\
+      _p->c = (_c);							\
+      _p->r = (_r);							\
+      _p->prev = NULL;							\
+      _p->next = (_list);						\
+      if (_list) (_list)->prev = (_p);					\
+      (_list) = _p;							\
+      (_vec)[_PN((_c), (_r), (_cs)) >> 5] |=				\
+	1 << (_PN((_c), (_r), (_cs)) & 0x1f);				\
+    }									\
+    else if (!_INB((_c), (_r), (_cs), (_rs)))				\
+      fprintf(stderr,							\
+	      "WARNING: bad pixel (%u,%u) out of bounds : (%u,%u)\n",	\
+	      (_c), (_r), (_cs), (_rs));				\
+  } while (0)
+
+#define CLEAR_PIX(_vec, _c, _r, _cs, _rs)				\
+  do {									\
+    assert(_INB((_c), (_r), (_cs), (_rs)));				\
+    _vec[_PN((_c), (_r), (_cs)) >> 5] &=				\
+      ~(1 << (_PN((_c), (_r), (_cs)) & 0x1f));				\
+  } while (0)
 
 static void interpolate_bad_pixels(x3f_t *x3f, x3f_area16_t *image, int colors)
 {
