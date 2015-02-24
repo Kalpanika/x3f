@@ -21,27 +21,28 @@ if [ -e $OCV_LIB ] ; then
 fi
 
 if [ -e $OCV_SRC ] ; then
-    echo Seems like opencv already is downloaded in $OCV_SRC,
-    echo but not installed in $OCV_LIB
-    echo this can have several causes
-    echo look in the install script and do the rest manually
-    exit 1
+    echo Pull opencv
+    cd $OCV_SRC || exit 1
+    git checkout denoising-16bit-master || exit 1
+    git pull || exit 1
+    cd $ROOT || exit 1
+else
+    echo Clone opencv
+    mkdir -p $SRC || exit 1
+    git clone https://github.com/erikrk/opencv.git $OCV_SRC || exit 1
+    cd $OCV_SRC || exit 1
+    git checkout denoising-16bit-master || exit 1
+    cd $ROOT || exit 1
 fi
-
-echo Clone opencv
-mkdir -p $SRC
-git clone https://github.com/erikrk/opencv.git $OCV_SRC
-cd $OCV_SRC
-git checkout denoising-16bit-master
-cd $ROOT
 
 echo Build Opencv
 source ./lib_path
-mkdir -p $OCV_BLD
-mkdir -p $OCV_LIB
-cd $OCV_BLD
-cmake -D CMAKE_INSTALL_PREFIX=$OCV_LIB $OCV_SRC
-make install
-cd $ROOT
+mkdir -p $OCV_BLD || exit 1
+mkdir -p $OCV_LIB || exit 1
+cd $OCV_BLD || exit 1
+cmake -D CMAKE_INSTALL_PREFIX=$OCV_LIB \
+      -D CMAKE_BUILD_TYPE=RELEASE -D WITH_TBB=ON $OCV_SRC || exit 1
+make clean && make -j 4 install || exit 1
+cd $ROOT || exit 1
 
-echo Ready, now you can make "'make'"
+echo Ready, now you can run "'make'"
