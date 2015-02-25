@@ -3097,31 +3097,60 @@ static int sum_area(x3f_t *x3f, char *name,
   return area.columns*area.rows;
 }
 
-static void get_black_level(x3f_t *x3f,
-			    x3f_area16_t *image, int rescale, int colors,
-			    double *black_level)
+static int sum_area_sqdev(x3f_t *x3f, char *name,
+			  x3f_area16_t *image, int rescale, int colors,
+			  double *mean, uint64_t *sum /* in/out */)
+{
+  x3f_area16_t area;
+  int row, col, color;
+
+  if (image->channels < colors) return 0;
+  if (!crop_area_camf(x3f, name, image, rescale, &area)) return 0;
+
+  for (row = 0; row < area.rows; row++)
+    for (col = 0; col < area.columns; col++)
+      for (color = 0; color < colors; color++) {
+	double dev = area.data[area.row_stride*row +
+			       area.channels*col + color] - mean[color];
+	sum[color] += (uint64_t)(dev*dev);
+      }
+
+  return area.columns*area.rows;
+}
+
+static int get_black_level(x3f_t *x3f,
+			   x3f_area16_t *image, int rescale, int colors,
+			   double *black_level, double *black_dev)
 {
   uint64_t *black_sum;
-  int black_pixels = 0;
+  int pixels;
   int i;
   
   black_sum = alloca(colors*sizeof(uint64_t));
+
+  pixels = 0;
   memset(black_sum, 0, colors*sizeof(uint64_t));
-
-  black_pixels += sum_area(x3f, "DarkShieldTop", image, rescale, colors,
-			   black_sum);
-  black_pixels += sum_area(x3f, "DarkShieldBottom", image, rescale, colors,
-			   black_sum);
-
-  if (black_pixels == 0) {
-    memset(black_level, 0, colors*sizeof(double));
-    fprintf(stderr,
-	    "WARNING: could not calculate black level, assuming 0.0\n");;
-    return;
-  }
+  pixels += sum_area(x3f, "DarkShieldTop", image, rescale, colors,
+		     black_sum);
+  pixels += sum_area(x3f, "DarkShieldBottom", image, rescale, colors,
+		     black_sum);
+  if (pixels == 0) return 0;
 
   for (i=0; i<colors; i++)
-    black_level[i] = (double)black_sum[i]/black_pixels;
+    black_level[i] = (double)black_sum[i]/pixels;
+
+  pixels = 0;
+  memset(black_sum, 0, colors*sizeof(uint64_t));
+  pixels += sum_area_sqdev(x3f, "DarkShieldTop", image, rescale, colors,
+			   black_level, black_sum);
+  pixels += sum_area_sqdev(x3f, "DarkShieldBottom", image, rescale, colors,
+			   black_level, black_sum);
+  if (pixels == 0) return 0;
+
+  for (i=0; i<colors; i++)
+    black_dev[i] = sqrt((double)black_sum[i]/pixels);
+
+  return 1;
 }
 
 static void get_raw_neutral(double *raw_to_xyz, double *raw_neutral)
@@ -3694,9 +3723,10 @@ static double calc_spatial_gain(spatial_gain_corr_t *corr, int corr_num,
    takes place internally. */
 #define INTERMEDIATE_DEPTH 14
 #define INTERMEDIATE_UNIT ((1<<INTERMEDIATE_DEPTH) - 1)
-#define INTERMEDIATE_BIAS 128	/* Avoid clipping the noise in dark areas */
+#define INTERMEDIATE_BIAS_FACTOR 4.0
 
 static int get_max_intermediate(x3f_t *x3f, char *wb,
+				double intermediate_bias,
 				uint32_t *max_intermediate)
 {
   double gain[3], maxgain = 0.0;
@@ -3709,8 +3739,28 @@ static int get_max_intermediate(x3f_t *x3f, char *wb,
     if (gain[i] > maxgain) maxgain = gain[i];
   for (i=0; i<3; i++)
     max_intermediate[i] =
-      (int32_t)round(gain[i]*(INTERMEDIATE_UNIT - INTERMEDIATE_BIAS)/maxgain +
-		     INTERMEDIATE_BIAS);
+      (int32_t)round(gain[i]*(INTERMEDIATE_UNIT - intermediate_bias)/maxgain +
+		     intermediate_bias);
+
+  return 1;
+}
+
+static int get_intermediate_bias(x3f_t *x3f, char *wb,
+				 double *black_level, double *black_dev,
+				 double *intermediate_bias)
+{
+  uint32_t max_raw[3], max_intermediate[3];
+  int i;
+
+  if (!get_max_raw(x3f, max_raw)) return 0;
+  if (!get_max_intermediate(x3f, wb, 0, max_intermediate)) return 0;
+
+  *intermediate_bias = 0.0;
+  for (i=0; i<3; i++) {
+    double bias = INTERMEDIATE_BIAS_FACTOR * black_dev[i] *
+      max_intermediate[i] / (max_raw[i] - black_level[i]);
+    if (bias > *intermediate_bias) *intermediate_bias = bias;
+  }
 
   return 1;
 }
@@ -3875,12 +3925,17 @@ static void interpolate_bad_pixels(x3f_t *x3f, x3f_area16_t *image, int colors)
   free(vec);
 }
 
-static int preprocess_data(x3f_t *x3f, char *wb)
+typedef struct {
+  double black[3];
+  uint32_t white[3];
+} image_levels_t;
+
+static int preprocess_data(x3f_t *x3f, char *wb, image_levels_t *ilevels)
 {
   x3f_area16_t image, qtop;
   int row, col, color;
-  uint32_t max_raw[3], max_intermediate[3];
-  double scale[3], black_level[3];
+  uint32_t max_raw[3];
+  double scale[3], black_level[3], black_dev[3], intermediate_bias;
   int quattro = image_area_qtop(x3f, &qtop);
   int colors_in = quattro ? 2 : 3;
   
@@ -3889,26 +3944,39 @@ static int preprocess_data(x3f_t *x3f, char *wb)
 		  qtop.rows < 2*image.rows || qtop.columns < 2*image.columns))
     return 0;
 
+  if (!get_black_level(x3f, &image, 1, colors_in, black_level, black_dev) ||
+      (quattro && !get_black_level(x3f, &qtop, 0, 1,
+				   &black_level[2], &black_dev[2]))) {
+    fprintf(stderr, "Could not get black level\n");
+    return 0;
+  }
+  printf("black_level = {%g,%g,%g}, black_dev = {%g,%g,%g}\n",
+	 black_level[0], black_level[1], black_level[2],
+	 black_dev[0], black_dev[1], black_dev[2]);
+
   if (!get_max_raw(x3f, max_raw)) {
     fprintf(stderr, "Could not get maximum RAW level\n");
     return 0;
   }
-  printf("max_raw = {%d,%d,%d}\n", max_raw[0], max_raw[1], max_raw[2]);
-  
-  if (!get_max_intermediate(x3f, wb, max_intermediate)) {
+  printf("max_raw = {%u,%u,%u}\n", max_raw[0], max_raw[1], max_raw[2]);
+
+  if (!get_intermediate_bias(x3f, wb, black_level, black_dev,
+			     &intermediate_bias)) {
+    fprintf(stderr, "Could not get intermediate bias\n");
+    return 0;
+  }
+  printf("intermediate_bias = %g\n", intermediate_bias);
+  ilevels->black[0] = ilevels->black[1] = ilevels->black[2] = intermediate_bias;
+
+  if (!get_max_intermediate(x3f, wb, intermediate_bias, ilevels->white)) {
     fprintf(stderr, "Could not get maximum intermediate level\n");
     return 0;
   }
-  printf("max_intermediate = {%d,%d,%d}\n",
-	 max_intermediate[0], max_intermediate[1], max_intermediate[2]);
-  
-  get_black_level(x3f, &image, 1, colors_in, black_level);
-  if (quattro) get_black_level(x3f, &qtop, 0, 1, &black_level[2]);
-  printf("black_level = {%g,%g,%g}\n",
-	 black_level[0], black_level[1], black_level[2]);
+  printf("max_intermediate = {%u,%u,%u}\n",
+	 ilevels->white[0], ilevels->white[1], ilevels->white[2]);
 
   for (color = 0; color < 3; color++)
-    scale[color] = (double)(max_intermediate[color] - INTERMEDIATE_BIAS) /
+    scale[color] = (ilevels->white[color] - ilevels->black[color]) /
       (max_raw[color] - black_level[color]);
   
   /* Preprocess image data (HUF/TRU->x3rgb16) */
@@ -3919,7 +3987,7 @@ static int preprocess_data(x3f_t *x3f, char *wb)
 	  &image.data[image.row_stride*row + image.channels*col + color];
 	int32_t out =
 	  (int32_t)round(scale[color] * (*valp - black_level[color]) +
-			 INTERMEDIATE_BIAS);
+			 ilevels->black[color]);
 
 	if (out < 0) *valp = 0;
 	else if (out > 65535) *valp = 65535;
@@ -3939,7 +4007,7 @@ static int preprocess_data(x3f_t *x3f, char *wb)
 	uint32_t sum =
 	  row1[0] + row1[qtop.channels] + row2[0] + row2[qtop.channels];
 	int32_t out = (int32_t)round(scale[2] * (sum/4.0 - black_level[2]) +
-				     INTERMEDIATE_BIAS);
+				     ilevels->black[2]);
 
 	if (out < 0) *outp = 0;
 	else if (out > 65535) *outp = 65535;
@@ -3951,7 +4019,7 @@ static int preprocess_data(x3f_t *x3f, char *wb)
       for (col = 0; col < qtop.columns; col++) {
 	uint16_t *valp = &qtop.data[qtop.row_stride*row + qtop.channels*col];
 	int32_t out = (int32_t)round(scale[2] * (*valp - black_level[2]) +
-				     INTERMEDIATE_BIAS);
+				     ilevels->black[2]);
 
 	if (out < 0) *valp = 0;
 	else if (out > 65535) *valp = 65535;
@@ -3969,7 +4037,8 @@ static int preprocess_data(x3f_t *x3f, char *wb)
 
 #define LUTSIZE 1024
 
-static int convert_data(x3f_t *x3f, x3f_area16_t *image,
+static int convert_data(x3f_t *x3f,
+			x3f_area16_t *image, image_levels_t *ilevels,
 			x3f_color_encoding_t encoding, char *wb)
 {
   int row, col, color;
@@ -3981,7 +4050,6 @@ static int convert_data(x3f_t *x3f, x3f_area16_t *image,
   double conv_matrix[9];
   double sensor_iso, capture_iso, iso_scaling;
   double lut[LUTSIZE];
-  uint32_t max_intermediate[3];
   spatial_gain_corr_t sgain[MAXCORR];
   int sgain_num;
 
@@ -4037,13 +4105,6 @@ static int convert_data(x3f_t *x3f, x3f_area16_t *image,
   printf("conv_matrix\n");
   x3f_3x3_print(conv_matrix);
 
-  if (!get_max_intermediate(x3f, wb, max_intermediate)) {
-    fprintf(stderr, "Could not get maximum intermediate level\n");
-    return 0;
-  }
-  printf("max_intermediate = {%d,%d,%d}\n",
-	 max_intermediate[0], max_intermediate[1], max_intermediate[2]);
-
   sgain_num = get_spatial_gain(x3f, wb, sgain);
   if (sgain_num == 0)
     fprintf(stderr, "WARNING: could not get spatial gain\n");
@@ -4060,8 +4121,8 @@ static int convert_data(x3f_t *x3f, x3f_area16_t *image,
 	input[color] = calc_spatial_gain(sgain, sgain_num,
 					 row, col, color,
 					 image->rows, image->columns) *
-	  (double)((int32_t)*valp[color] - INTERMEDIATE_BIAS) / 
-	  (max_intermediate[color] - INTERMEDIATE_BIAS);
+	  (*valp[color] - ilevels->black[color]) /
+	  (ilevels->white[color] - ilevels->black[color]);
       }
 
       /* Do color conversion */
@@ -4074,6 +4135,9 @@ static int convert_data(x3f_t *x3f, x3f_area16_t *image,
   }
 
   cleanup_spatial_gain(sgain, sgain_num);
+
+  ilevels->black[0] = ilevels->black[1] = ilevels->black[2] = 0.0;
+  ilevels->white[0] = ilevels->white[1] = ilevels->white[2] = max_out;
 
   return 1;
 }
@@ -4139,12 +4203,14 @@ static int expand_quattro(x3f_t *x3f, int denoise, x3f_area16_t *expanded)
 
 static int get_image(x3f_t *x3f,
 		     x3f_area16_t *image,
+		     image_levels_t *ilevels,
 		     x3f_color_encoding_t encoding,
 		     int crop,
 		     int denoise,
 		     char *wb)
 {
   x3f_area16_t original_image, expanded;
+  image_levels_t il;
 
   if (wb == NULL) wb = get_wb(x3f);
 
@@ -4155,7 +4221,7 @@ static int get_image(x3f_t *x3f,
     if (!crop || !crop_area_camf(x3f, "ActiveImageArea", &qtop, 0, image))
       *image = qtop;
 
-    return 1;
+    return ilevels == NULL;
   }
 
   if (!image_area(x3f, &original_image)) return 0;
@@ -4163,9 +4229,9 @@ static int get_image(x3f_t *x3f,
 			       image))
     *image = original_image;
 
-  if (encoding == UNPROCESSED) return 1;
+  if (encoding == UNPROCESSED) return ilevels == NULL;
 
-  if (!preprocess_data(x3f, wb)) return 0;
+  if (!preprocess_data(x3f, wb, &il)) return 0;
 
   if (expand_quattro(x3f, denoise, &expanded)) {
     /* NOTE: expand_quattro destroys the data of original_image */
@@ -4175,11 +4241,13 @@ static int get_image(x3f_t *x3f,
   }
   else if (denoise && !run_denoising(x3f)) return 0;
 
-  if (encoding != NONE && !convert_data(x3f, &original_image, encoding, wb)) {
+  if (encoding != NONE &&
+      !convert_data(x3f, &original_image, &il, encoding, wb)) {
     FREE(image->buf);
     return 0;
   }
 
+  if (ilevels) *ilevels = il;
   return 1;
 }
 
@@ -4235,7 +4303,7 @@ x3f_return_t x3f_dump_raw_data_as_ppm(x3f_t *x3f,
 
   if (f_out == NULL) return X3F_OUTFILE_ERROR;
 
-  if (!get_image(x3f, &image, encoding, crop, denoise, wb) ||
+  if (!get_image(x3f, &image, NULL, encoding, crop, denoise, wb) ||
       image.channels < 3) {
     fclose(f_out);
     return X3F_ARGUMENT_ERROR;
@@ -4284,7 +4352,7 @@ x3f_return_t x3f_dump_raw_data_as_tiff(x3f_t *x3f,
 
   if (f_out == NULL) return X3F_OUTFILE_ERROR;
 
-  if (!get_image(x3f, &image, encoding, crop, denoise, wb)) {
+  if (!get_image(x3f, &image, NULL, encoding, crop, denoise, wb)) {
     TIFFClose(f_out);
     return X3F_ARGUMENT_ERROR;
   }
@@ -4526,16 +4594,15 @@ x3f_return_t x3f_dump_raw_data_as_dng(x3f_t *x3f,
   float color_matrix[9];
   double gain[3], gain_inv[3];
   float as_shot_neutral[3];
-  uint32_t white_level[3];
-  float black_level[3] = {INTERMEDIATE_BIAS,
-			  INTERMEDIATE_BIAS,
-			  INTERMEDIATE_BIAS};
+  float black_level[3];
   uint32_t active_area[4];
   x3f_area16_t image;
+  image_levels_t ilevels;
   int row;
 
   if (wb == NULL) wb = get_wb(x3f);
-  if (!get_image(x3f, &image, NONE, 0, denoise, wb) || image.channels != 3)
+  if (!get_image(x3f, &image, &ilevels, NONE, 0, denoise, wb) ||
+      image.channels != 3)
     return X3F_ARGUMENT_ERROR;
 
   x3f_dngtags_install_extender();
@@ -4606,14 +4673,9 @@ x3f_return_t x3f_dump_raw_data_as_dng(x3f_t *x3f,
   /* Prevent further chroma denoising in DNG processing software */
   TIFFSetField(f_out, TIFFTAG_CHROMABLURRADIUS, 0.0);
 
-  if (!get_max_intermediate(x3f, wb, white_level)) {
-    fprintf(stderr, "Could not get maximum intermediate level\n");
-    TIFFClose(f_out);
-    FREE(image.buf);
-    return X3F_ARGUMENT_ERROR;
-  }
-  TIFFSetField(f_out, TIFFTAG_WHITELEVEL, 3, white_level);
+  vec_double_to_float(ilevels.black, black_level, 3);
   TIFFSetField(f_out, TIFFTAG_BLACKLEVEL, 3, black_level);
+  TIFFSetField(f_out, TIFFTAG_WHITELEVEL, 3, ilevels.white);
 
   if (!write_spatial_gain(x3f, &image, wb, f_out))
     fprintf(stderr, "WARNING: could not get spatial gain\n");
@@ -4669,7 +4731,7 @@ x3f_return_t x3f_dump_raw_data_as_histogram(x3f_t *x3f,
 
   if (f_out == NULL) return X3F_OUTFILE_ERROR;
 
-  if (!get_image(x3f, &image, encoding, crop, denoise, wb) ||
+  if (!get_image(x3f, &image, NULL, encoding, crop, denoise, wb) ||
       image.channels < 3) {
     fclose(f_out);
     return X3F_ARGUMENT_ERROR;
