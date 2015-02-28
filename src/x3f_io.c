@@ -3099,7 +3099,7 @@ static int sum_area(x3f_t *x3f, char *name,
 
 static int sum_area_sqdev(x3f_t *x3f, char *name,
 			  x3f_area16_t *image, int rescale, int colors,
-			  double *mean, uint64_t *sum /* in/out */)
+			  double *mean, double *sum /* in/out */)
 {
   x3f_area16_t area;
   int row, col, color;
@@ -3112,7 +3112,7 @@ static int sum_area_sqdev(x3f_t *x3f, char *name,
       for (color = 0; color < colors; color++) {
 	double dev = area.data[area.row_stride*row +
 			       area.channels*col + color] - mean[color];
-	sum[color] += (uint64_t)(dev*dev);
+	sum[color] += dev*dev;
       }
 
   return area.columns*area.rows;
@@ -3123,12 +3123,11 @@ static int get_black_level(x3f_t *x3f,
 			   double *black_level, double *black_dev)
 {
   uint64_t *black_sum;
-  int pixels;
-  int i;
+  double *black_sum_sqdev;
+  int pixels, i;
   
-  black_sum = alloca(colors*sizeof(uint64_t));
-
   pixels = 0;
+  black_sum = alloca(colors*sizeof(uint64_t));
   memset(black_sum, 0, colors*sizeof(uint64_t));
   pixels += sum_area(x3f, "DarkShieldTop", image, rescale, colors,
 		     black_sum);
@@ -3140,15 +3139,16 @@ static int get_black_level(x3f_t *x3f,
     black_level[i] = (double)black_sum[i]/pixels;
 
   pixels = 0;
-  memset(black_sum, 0, colors*sizeof(uint64_t));
+  black_sum_sqdev = alloca(colors*sizeof(double));
+  memset(black_sum_sqdev, 0, colors*sizeof(double));
   pixels += sum_area_sqdev(x3f, "DarkShieldTop", image, rescale, colors,
-			   black_level, black_sum);
+			   black_level, black_sum_sqdev);
   pixels += sum_area_sqdev(x3f, "DarkShieldBottom", image, rescale, colors,
-			   black_level, black_sum);
+			   black_level, black_sum_sqdev);
   if (pixels == 0) return 0;
 
   for (i=0; i<colors; i++)
-    black_dev[i] = sqrt((double)black_sum[i]/pixels);
+    black_dev[i] = sqrt(black_sum_sqdev[i]/pixels);
 
   return 1;
 }
