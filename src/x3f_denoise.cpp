@@ -118,6 +118,10 @@ static void YUV_to_BMT_STD(x3f_area16_t *image)
 
 static void denoise(const Mat& in, Mat& out, double h)
 {
+  Mat Y(in.size(), CV_16U);
+  int from_to[] = { 0,0 };
+  mixChannels(&in, 1, &Y, 1, from_to, 1);
+
   std::cout << "BEGIN denoising\n";
   fastNlMeansDenoisingAbs(in, out, h, 3, 11);
   std::cout << "END denoising\n";
@@ -125,12 +129,18 @@ static void denoise(const Mat& in, Mat& out, double h)
   std::cout << "BEGIN low-frequency denoising\n";
   Mat sub, sub_dn, sub_res, res;
 
+  Y *= 4;
+  mixChannels(&Y, 1, &out, 1, from_to, 1);
+  Y /= 4;
+
   resize(out, sub, Size(), 1.0/4, 1.0/4, INTER_AREA);
-  fastNlMeansDenoisingAbs(sub, sub_dn, h/4, 5, 21);
+  fastNlMeansDenoisingAbs(sub, sub_dn, h/4, 3, 21);
   subtract(sub, sub_dn, sub_res, noArray(), CV_16S);
   resize(sub_res, res, out.size(), 0.0, 0.0, INTER_CUBIC);
   subtract(out, res, out, noArray(), CV_16U);
   std::cout << "END low-frequency denoising\n";
+
+  mixChannels(&Y, 1, &out, 1, from_to, 1);
 }
 
 static const denoise_desc_t denoise_types[] = {
@@ -147,13 +157,9 @@ void x3f_denoise(x3f_area16_t *image, x3f_denoise_type_t type)
 
   d->BMT_to_YUV(image);
 
-  Mat in(image->rows, image->columns, CV_16UC3,
+  Mat img(image->rows, image->columns, CV_16UC3,
 	 image->data, sizeof(uint16_t)*image->row_stride);
-  Mat out;
-
-  denoise(in, out, d->h);
-  int from_to[] = { 1,1, 2,2 };
-  mixChannels(&out, 1, &in, 1, from_to, 2); // Discard denoised Y
+  denoise(img, img, d->h);
 
   d->YUV_to_BMT(image);
 }
@@ -178,6 +184,7 @@ void x3f_expand_quattro(x3f_area16_t *image, x3f_area16_t *active,
 	 qtop->data, sizeof(uint16_t)*qtop->row_stride);
   Mat exp(expanded->rows, expanded->columns, CV_16UC3,
 	  expanded->data, sizeof(uint16_t)*expanded->row_stride);
+  int from_to[] = { 0,0 };
 
   assert(qt.size() == exp.size());
 
@@ -196,7 +203,6 @@ void x3f_expand_quattro(x3f_area16_t *image, x3f_area16_t *active,
 		active_exp->data, sizeof(uint16_t)*active_exp->row_stride);
 
     qt *= 4;
-    int from_to[] = { 0,0 };
     mixChannels(&qt, 1, &exp, 1, from_to, 1);
     qt /= 4;
 
@@ -205,7 +211,6 @@ void x3f_expand_quattro(x3f_area16_t *image, x3f_area16_t *active,
     std::cout << "END Quattro full-resolution denoising\n";
   }
 
-  int from_to[] = { 0,0 };
   mixChannels(&qt, 1, &exp, 1, from_to, 1);
 
   d->YUV_to_BMT(expanded);
