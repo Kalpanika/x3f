@@ -59,7 +59,7 @@ $(BINDIR)/x3f_extract$(EXE): $(BINDIR)/x3f_extract.o $(BINDIR)/x3f_io.o $(BINDIR
 $(BINDIR)/x3f_io_test$(EXE): $(BINDIR)/x3f_io_test.o $(BINDIR)/x3f_io.o $(BINDIR)/x3f_matrix.o $(BINDIR)/x3f_dngtags.o $(BINDIR)/x3f_denoise.o
 	g++ $^ -o $@ $(LDFLAGS) -lm -ltiff $(OPENCV_LIBS)
 
-$(BINDIR)/x3f_extract.o: x3f_extract.c x3f_io.h $(BINDIR)/.dummy
+$(BINDIR)/x3f_extract.o: x3f_extract.c x3f_io.h x3f_denoise.h $(BINDIR)/.dummy
 	gcc $(CFLAGS) $< -c -o $@
 
 $(BINDIR)/x3f_io_test.o: x3f_io_test.c x3f_io.h $(BINDIR)/.dummy

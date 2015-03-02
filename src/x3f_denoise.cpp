@@ -2,6 +2,7 @@
 #include <inttypes.h>
 
 #include <opencv2/core.hpp>
+#include <opencv2/core/ocl.hpp>
 #include <opencv2/photo.hpp>
 #include <opencv2/imgproc.hpp>
 
@@ -116,29 +117,32 @@ static void YUV_to_BMT_STD(x3f_area16_t *image)
     }
 }
 
-static void denoise(const Mat& in, Mat& out, double h)
+static void denoise(Mat& img, double h, double hl)
 {
-  Mat Y(in.size(), CV_16U);
-  int from_to[] = { 0,0 };
-  mixChannels(&in, 1, &Y, 1, from_to, 1);
+  UMat in = img.getUMat(ACCESS_READ), out;
 
   std::cout << "BEGIN denoising\n";
   fastNlMeansDenoisingAbs(in, out, h, 3, 11);
   std::cout << "END denoising\n";
 
-  mixChannels(&Y, 1, &out, 1, from_to, 1);
+  if (!isnan(hl)) {
+    std::cout << "BEGIN low-frequency denoising\n";
+    UMat sub, sub_dn, sub_res, res;
+    int from_to[] = { 0,0 };
+    mixChannels(std::vector<UMat>(1, in),
+		std::vector<UMat>(1, out), from_to, 1);
 
-  std::cout << "BEGIN low-frequency denoising\n";
-  Mat sub, sub_dn, sub_res, res;
+    resize(out, sub, Size(), 1.0/4, 1.0/4, INTER_AREA);
+    fastNlMeansDenoisingAbs(sub, sub_dn, hl/4, 3, 21);
+    subtract(sub, sub_dn, sub_res, noArray(), CV_16S);
+    resize(sub_res, res, out.size(), 0.0, 0.0, INTER_CUBIC);
+    subtract(out, res, out, noArray(), CV_16U);
+    std::cout << "END low-frequency denoising\n";
+  }
 
-  resize(out, sub, Size(), 1.0/4, 1.0/4, INTER_AREA);
-  fastNlMeansDenoisingAbs(sub, sub_dn, h/8, 3, 21);
-  subtract(sub, sub_dn, sub_res, noArray(), CV_16S);
-  resize(sub_res, res, out.size(), 0.0, 0.0, INTER_CUBIC);
-  subtract(out, res, out, noArray(), CV_16U);
-  std::cout << "END low-frequency denoising\n";
-
-  mixChannels(&Y, 1, &out, 1, from_to, 1);
+  int from_to[] = { 1,1, 2,2 };
+  mixChannels(std::vector<Mat>(1, out.getMat(ACCESS_READ)),
+	      std::vector<Mat>(1, img), from_to, 2);
 }
 
 static const denoise_desc_t denoise_types[] = {
@@ -157,7 +161,7 @@ void x3f_denoise(x3f_area16_t *image, x3f_denoise_type_t type)
 
   Mat img(image->rows, image->columns, CV_16UC3,
 	 image->data, sizeof(uint16_t)*image->row_stride);
-  denoise(img, img, d->h);
+  denoise(img, d->h, d->h/2);
 
   d->YUV_to_BMT(image);
 }
@@ -182,7 +186,6 @@ void x3f_expand_quattro(x3f_area16_t *image, x3f_area16_t *active,
 	 qtop->data, sizeof(uint16_t)*qtop->row_stride);
   Mat exp(expanded->rows, expanded->columns, CV_16UC3,
 	  expanded->data, sizeof(uint16_t)*expanded->row_stride);
-  int from_to[] = { 0,0 };
 
   assert(qt.size() == exp.size());
 
@@ -190,25 +193,25 @@ void x3f_expand_quattro(x3f_area16_t *image, x3f_area16_t *active,
     assert(active->channels == 3);
     Mat act(active->rows, active->columns, CV_16UC3,
 	    active->data, sizeof(uint16_t)*active->row_stride);
-    denoise(act, act, d->h);
+    denoise(act, d->h, d->h/2);
   }
 
   resize(img, exp, exp.size(), 0.0, 0.0, INTER_LANCZOS4);
   qt *= 4;
+  int from_to[] = { 0,0 };
+  mixChannels(&qt, 1, &exp, 1, from_to, 1);
 
   if (active_exp) {
     assert(active_exp->channels == 3);
     Mat act_exp(active_exp->rows, active_exp->columns, CV_16UC3,
 		active_exp->data, sizeof(uint16_t)*active_exp->row_stride);
-
-    mixChannels(&qt, 1, &exp, 1, from_to, 1);
-
-    std::cout << "BEGIN Quattro full-resolution denoising\n";
-    fastNlMeansDenoisingAbs(act_exp, act_exp, d->h*4, 3, 11);
-    std::cout << "END Quattro full-resolution denoising\n";
+    denoise(act_exp, d->h*4, NAN);
   }
 
-  mixChannels(&qt, 1, &exp, 1, from_to, 1);
-
   d->YUV_to_BMT(expanded);
+}
+
+void x3f_set_use_opencl(int flag)
+{
+  ocl::setUseOpenCL(flag);
 }
