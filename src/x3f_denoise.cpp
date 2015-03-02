@@ -214,4 +214,14 @@ void x3f_expand_quattro(x3f_area16_t *image, x3f_area16_t *active,
 void x3f_set_use_opencl(int flag)
 {
   ocl::setUseOpenCL(flag);
+
+  if (flag) {
+    if (ocl::useOpenCL()) {
+      ocl::Device dev = ocl::Device::getDefault();
+      std::cout << "OpenCL device name: " << dev.name() << "\n";
+      std::cout << "OpenCL device version: " << dev.version() << "\n";
+    }
+    else std::cerr << "WARNING: OpenCL is not available\n";
+  }
+  else std::cout << "OpenCL is disabled\n";
 }
