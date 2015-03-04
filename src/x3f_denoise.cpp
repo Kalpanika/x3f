@@ -180,31 +180,30 @@ static void denoise(Mat& img, double h, double hl)
     return;
   }
 
-  int copy_Y[] = { 0,0 };
+  UMat sub, sub_dn, sub_res, res, tmp;
+  int copy_Y[] = { 0,0 }, copy_U[] = { 1,1 }, copy_V[] = { 2,2 };
   mixChannels(std::vector<UMat>(1, in),
 	      std::vector<UMat>(1, out), copy_Y, 1);
+  resize(out, sub, Size(), 1.0/4, 1.0/4, INTER_AREA);
+  sub.copyTo(sub_dn);
+
+  std::cout << "BEGIN low-frequency U denoising\n";
+  fastNlMeansDenoisingAbs(sub, tmp, hl/16, 3, 21);
+  mixChannels(std::vector<UMat>(1, tmp),
+	      std::vector<UMat>(1, sub_dn), copy_U, 1);
+  std::cout << "END low-frequency U denoising\n";
 
   std::cout << "BEGIN low-frequency V denoising\n";
-  UMat sub, sub_dn;
-  resize(out, sub, Size(), 1.0/4, 1.0/4, INTER_AREA);
-  fastNlMeansDenoisingAbs(sub, sub_dn, hl/4, 3, 21);
-
-  UMat sub_V(sub.size(), CV_16U), sub_dn_V(sub.size(), CV_16U), sub_res_V;
-  UMat res_V, V(out.size(), CV_16U);
-  int get_V[] = { 2,0 };
-  mixChannels(std::vector<UMat>(1, sub),
-	      std::vector<UMat>(1, sub_V), get_V, 1);
-  mixChannels(std::vector<UMat>(1, sub_dn),
-	      std::vector<UMat>(1, sub_dn_V), get_V, 1);
-  subtract(sub_V, sub_dn_V, sub_res_V, noArray(), CV_16S);
-  resize(sub_res_V, res_V, V.size(), 0.0, 0.0, INTER_CUBIC);
-  mixChannels(std::vector<UMat>(1, out), std::vector<UMat>(1, V), get_V, 1);
-  subtract(V, res_V, V, noArray(), CV_16U);
+  fastNlMeansDenoisingAbs(sub, tmp, hl/4, 3, 21);
+  mixChannels(std::vector<UMat>(1, tmp),
+	      std::vector<UMat>(1, sub_dn), copy_V, 1);
   std::cout << "END low-frequency V denoising\n";
 
-  int from_to[] = { 1,1, 3,2 };
-  Mat from[] = {out.getMat(ACCESS_READ), V.getMat(ACCESS_READ)};
-  mixChannels(from, 2, &img, 1, from_to, 2);
+  subtract(sub, sub_dn, sub_res, noArray(), CV_16S);
+  resize(sub_res, res, out.size(), 0.0, 0.0, INTER_CUBIC);
+  subtract(out, res, out, noArray(), CV_16U);
+
+  out.copyTo(img);
 }
 
 static const denoise_desc_t denoise_types[] = {
