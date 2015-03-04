@@ -125,24 +125,38 @@ static void denoise(Mat& img, double h, double hl)
   fastNlMeansDenoisingAbs(in, out, h, 3, 11);
   std::cout << "END denoising\n";
 
-  if (!isnan(hl)) {
-    std::cout << "BEGIN low-frequency denoising\n";
-    UMat sub, sub_dn, sub_res, res;
-    int from_to[] = { 0,0 };
-    mixChannels(std::vector<UMat>(1, in),
-		std::vector<UMat>(1, out), from_to, 1);
-
-    resize(out, sub, Size(), 1.0/4, 1.0/4, INTER_AREA);
-    fastNlMeansDenoisingAbs(sub, sub_dn, hl/4, 3, 21);
-    subtract(sub, sub_dn, sub_res, noArray(), CV_16S);
-    resize(sub_res, res, out.size(), 0.0, 0.0, INTER_CUBIC);
-    subtract(out, res, out, noArray(), CV_16U);
-    std::cout << "END low-frequency denoising\n";
+  if (isnan(hl)) {
+    int from_to[] = { 1,1, 2,2 };
+    mixChannels(std::vector<Mat>(1, out.getMat(ACCESS_READ)),
+		std::vector<Mat>(1, img), from_to, 2);
+    return;
   }
 
-  int from_to[] = { 1,1, 2,2 };
-  mixChannels(std::vector<Mat>(1, out.getMat(ACCESS_READ)),
-	      std::vector<Mat>(1, img), from_to, 2);
+  int copy_Y[] = { 0,0 };
+  mixChannels(std::vector<UMat>(1, in),
+	      std::vector<UMat>(1, out), copy_Y, 1);
+
+  std::cout << "BEGIN low-frequency V denoising\n";
+  UMat sub, sub_dn;
+  resize(out, sub, Size(), 1.0/4, 1.0/4, INTER_AREA);
+  fastNlMeansDenoisingAbs(sub, sub_dn, hl/4, 3, 21);
+
+  UMat sub_V(sub.size(), CV_16U), sub_dn_V(sub.size(), CV_16U), sub_res_V;
+  UMat res_V, V(out.size(), CV_16U);
+  int get_V[] = { 2,0 };
+  mixChannels(std::vector<UMat>(1, sub),
+	      std::vector<UMat>(1, sub_V), get_V, 1);
+  mixChannels(std::vector<UMat>(1, sub_dn),
+	      std::vector<UMat>(1, sub_dn_V), get_V, 1);
+  subtract(sub_V, sub_dn_V, sub_res_V, noArray(), CV_16S);
+  resize(sub_res_V, res_V, V.size(), 0.0, 0.0, INTER_CUBIC);
+  mixChannels(std::vector<UMat>(1, out), std::vector<UMat>(1, V), get_V, 1);
+  subtract(V, res_V, V, noArray(), CV_16U);
+  std::cout << "END low-frequency V denoising\n";
+
+  int from_to[] = { 1,1, 3,2 };
+  Mat from[] = {out.getMat(ACCESS_READ), V.getMat(ACCESS_READ)};
+  mixChannels(from, 2, &img, 1, from_to, 2);
 }
 
 static const denoise_desc_t denoise_types[] = {
@@ -161,7 +175,7 @@ void x3f_denoise(x3f_area16_t *image, x3f_denoise_type_t type)
 
   Mat img(image->rows, image->columns, CV_16UC3,
 	 image->data, sizeof(uint16_t)*image->row_stride);
-  denoise(img, d->h, d->h/2);
+  denoise(img, d->h, d->h);
 
   d->YUV_to_BMT(image);
 }
@@ -193,7 +207,7 @@ void x3f_expand_quattro(x3f_area16_t *image, x3f_area16_t *active,
     assert(active->channels == 3);
     Mat act(active->rows, active->columns, CV_16UC3,
 	    active->data, sizeof(uint16_t)*active->row_stride);
-    denoise(act, d->h, d->h/2);
+    denoise(act, d->h, d->h);
   }
 
   resize(img, exp, exp.size(), 0.0, 0.0, INTER_LANCZOS4);
