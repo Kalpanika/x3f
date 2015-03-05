@@ -2994,7 +2994,7 @@ static int crop_area(uint32_t *coord, x3f_area16_t *image, x3f_area16_t *crop)
   crop->channels = image->channels;
   crop->row_stride = image->row_stride;
   crop->buf = image->buf;
-  
+
   return 1;
 }
 
@@ -3814,7 +3814,7 @@ static void interpolate_bad_pixels(x3f_t *x3f, x3f_area16_t *image, int colors)
   uint32_t *bpf23;
   int bpf23_len;
   int pass = 0, fix_corn = 0;
-  
+
   if (colors == 3) {
     uint32_t keep[4], hpinfo[4], *bp, *bpf20;
     int bp_num, bpf20_rows, bpf20_cols;
@@ -3827,7 +3827,7 @@ static void interpolate_bad_pixels(x3f_t *x3f, x3f_area16_t *image, int colors)
 		 ((bp[i] & 0x000fff00) >> 8) - keep[0],
 		 ((bp[i] & 0xfff00000) >> 20) - keep[1],
 		 image->columns, image->rows);
-    
+
     /* NOTE: the numbers of rows and cols in this matrix are
              interchanged due to bug in camera firmware */
     if (get_camf_matrix_var(x3f, "BadPixelsF20",
@@ -3836,7 +3836,7 @@ static void interpolate_bad_pixels(x3f_t *x3f, x3f_area16_t *image, int colors)
       for (row=0; row < bpf20_rows; row++)
 	MARK_PIX(list, vec, bpf20[3*row + 1], bpf20[3*row + 0],
 		 image->columns, image->rows);
-    
+
     /* NOTE: the numbers of rows and cols in this matrix are
              interchanged due to bug in camera firmware
        TODO: should Jpeg_BadClutersF20 really be used for RAW? It works
@@ -3854,8 +3854,8 @@ static void interpolate_bad_pixels(x3f_t *x3f, x3f_area16_t *image, int colors)
       for (row = hpinfo[1]; row < image->rows; row += hpinfo[3])
 	for (col = hpinfo[0]; col < image->columns; col += hpinfo[2])
 	  MARK_PIX(list, vec, col, row, image->columns, image->rows);
-  }  
-  
+  }
+
   if ((colors == 1 && get_camf_matrix_var(x3f, "BadPixelsLumaF23",
 					  &bpf23_len, NULL, NULL,
 					  M_UINT, (void **)&bpf23)) ||
@@ -3877,7 +3877,7 @@ static void interpolate_bad_pixels(x3f_t *x3f, x3f_area16_t *image, int colors)
 	&image->data[p->r*image->row_stride + p->c*image->channels];
       uint16_t *inp[4] = {NULL, NULL, NULL, NULL};
       int num = 0;
-      
+
       if (!TEST_PIX(vec, p->c - 1, p->r, image->columns, image->rows))
 	num++, inp[0] =
 	  &image->data[p->r*image->row_stride + (p->c - 1)*image->channels];
@@ -3896,14 +3896,14 @@ static void interpolate_bad_pixels(x3f_t *x3f, x3f_area16_t *image, int colors)
       else if (inp[2] && inp[3]) inp[0] = inp[1] = NULL, num = 2, lin++;
       else if (fix_corn && num == 2) corn++;
       else {left++; continue;};
-	  
+
       for (color=0; color < colors; color++) {
 	uint32_t sum = 0;
 	for (i=0; i<4; i++)
 	  if (inp[i]) sum += inp[i][color];
 	outp[color] = (sum + num/2)/num;
       }
-	  
+
       if (p->prev) p->prev->next = p->next;
       else list = p->next;
       if (p->next) p->next->prev = p->prev;
@@ -3921,7 +3921,7 @@ static void interpolate_bad_pixels(x3f_t *x3f, x3f_area16_t *image, int colors)
 	   pass, isol + lin + corn, isol, lin, corn, left);
     pass++;
   }
-  
+
   free(vec);
 }
 
@@ -4185,7 +4185,7 @@ static int expand_quattro(x3f_t *x3f, int denoise, x3f_area16_t *expanded)
   expanded->rows = qtop_crop.rows;
   expanded->channels = 3;
   expanded->row_stride = expanded->columns*expanded->channels;
-  expanded->data = expanded->buf = 
+  expanded->data = expanded->buf =
     malloc(expanded->rows*expanded->row_stride*sizeof(uint16_t));
 
   if (denoise && !crop_area_camf(x3f, "ActiveImageArea", expanded, 0,
@@ -4689,7 +4689,7 @@ x3f_return_t x3f_dump_raw_data_as_dng(x3f_t *x3f,
   TIFFWriteDirectory(f_out);
   TIFFClose(f_out);
   FREE(image.buf);
-  
+
   return X3F_OK;
 }
 
