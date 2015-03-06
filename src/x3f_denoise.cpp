@@ -165,43 +165,27 @@ static void YUV_to_BMT_STD(x3f_area16_t *image)
     }
 }
 
-static void denoise(Mat& img, double h, double hl)
+static void denoise(Mat& img, float h, bool lf)
 {
-  UMat in = img.getUMat(ACCESS_READ), out;
+  UMat out;
+  float hs[3] = {0, h, h};
 
   std::cout << "BEGIN denoising\n";
-  fastNlMeansDenoisingAbs(in, out, h, 3, 11);
+  fastNlMeansDenoisingAbs(img, out, hs, 3, 11);
   std::cout << "END denoising\n";
 
-  if (isnan(hl)) {
-    int from_to[] = { 1,1, 2,2 };
-    mixChannels(std::vector<Mat>(1, out.getMat(ACCESS_READ)),
-		std::vector<Mat>(1, img), from_to, 2);
-    return;
+  if (lf) {
+    UMat sub, sub_dn, sub_res, res;
+    float hs[3] = {0.0, h/16, h/4};
+
+    std::cout << "BEGIN low-frequency denoising\n";
+    resize(out, sub, Size(), 1.0/4, 1.0/4, INTER_AREA);
+    fastNlMeansDenoisingAbs(sub, sub_dn, hs, 3, 21);
+    subtract(sub, sub_dn, sub_res, noArray(), CV_16S);
+    resize(sub_res, res, out.size(), 0.0, 0.0, INTER_CUBIC);
+    subtract(out, res, out, noArray(), CV_16U);
+    std::cout << "END low-frequency denoising\n";
   }
-
-  UMat sub, sub_dn, sub_res, res, tmp;
-  int copy_Y[] = { 0,0 }, copy_U[] = { 1,1 }, copy_V[] = { 2,2 };
-  mixChannels(std::vector<UMat>(1, in),
-	      std::vector<UMat>(1, out), copy_Y, 1);
-  resize(out, sub, Size(), 1.0/4, 1.0/4, INTER_AREA);
-  sub.copyTo(sub_dn);
-
-  std::cout << "BEGIN low-frequency U denoising\n";
-  fastNlMeansDenoisingAbs(sub, tmp, hl/16, 3, 21);
-  mixChannels(std::vector<UMat>(1, tmp),
-	      std::vector<UMat>(1, sub_dn), copy_U, 1);
-  std::cout << "END low-frequency U denoising\n";
-
-  std::cout << "BEGIN low-frequency V denoising\n";
-  fastNlMeansDenoisingAbs(sub, tmp, hl/4, 3, 21);
-  mixChannels(std::vector<UMat>(1, tmp),
-	      std::vector<UMat>(1, sub_dn), copy_V, 1);
-  std::cout << "END low-frequency V denoising\n";
-
-  subtract(sub, sub_dn, sub_res, noArray(), CV_16S);
-  resize(sub_res, res, out.size(), 0.0, 0.0, INTER_CUBIC);
-  subtract(out, res, out, noArray(), CV_16U);
 
   out.copyTo(img);
 }
@@ -222,7 +206,7 @@ void x3f_denoise(x3f_area16_t *image, x3f_denoise_type_t type)
 
   Mat img(image->rows, image->columns, CV_16UC3,
 	 image->data, sizeof(uint16_t)*image->row_stride);
-  denoise(img, d->h, d->h);
+  denoise(img, d->h, true);
 
   d->YUV_to_BMT(image);
 }
@@ -254,7 +238,7 @@ void x3f_expand_quattro(x3f_area16_t *image, x3f_area16_t *active,
     assert(active->channels == 3);
     Mat act(active->rows, active->columns, CV_16UC3,
 	    active->data, sizeof(uint16_t)*active->row_stride);
-    denoise(act, d->h/4, d->h/4);
+    denoise(act, d->h/4, true);
   }
 
   resize(img, exp, exp.size(), 0.0, 0.0, INTER_CUBIC);
@@ -266,7 +250,7 @@ void x3f_expand_quattro(x3f_area16_t *image, x3f_area16_t *active,
     assert(active_exp->channels == 3);
     Mat act_exp(active_exp->rows, active_exp->columns, CV_16UC3,
 		active_exp->data, sizeof(uint16_t)*active_exp->row_stride);
-    denoise(act_exp, d->h, NAN);
+    denoise(act_exp, d->h, false);
   }
 
   d->YUV_to_BMT(expanded);
