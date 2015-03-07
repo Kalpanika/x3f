@@ -175,6 +175,14 @@ static void denoise(Mat& img, float h)
   fastNlMeansDenoisingAbs(out, out, h2, 3, 11);
   std::cout << "END denoising\n";
 
+  std::cout << "BEGIN V median filtering\n";
+  UMat V(out.size(), CV_16U);
+  int get_V[2] = { 2,0 }, set_V[2] = { 0,2 };
+  mixChannels(std::vector<UMat>(1, out), std::vector<UMat>(2, V), get_V, 1);
+  medianBlur(V, V, 3);
+  mixChannels(std::vector<UMat>(1, V), std::vector<UMat>(2, out), set_V, 1);
+  std::cout << "END V median filtering\n";
+
   UMat sub, sub_dn, sub_res, res;
   float hl[3] = {0.0, h/16, h/4};
 
