@@ -167,12 +167,11 @@ static void YUV_to_BMT_STD(x3f_area16_t *image)
 
 static void denoise(Mat& img, float h)
 {
-  UMat out;
-  float h1[3] = {0.0, h/2, h/2}, h2[3] = {0.0, 0.0, h/2};
+  UMat out, sub, sub_dn, sub_res, res;
+  float h1[3] = {0.0, h, h}, h2[3] = {0.0, h/8, h/4};
 
   std::cout << "BEGIN denoising\n";
   fastNlMeansDenoisingAbs(img, out, h1, 3, 11);
-  fastNlMeansDenoisingAbs(out, out, h2, 3, 11);
   std::cout << "END denoising\n";
 
   std::cout << "BEGIN V median filtering\n";
@@ -183,12 +182,9 @@ static void denoise(Mat& img, float h)
   mixChannels(std::vector<UMat>(1, V), std::vector<UMat>(2, out), set_V, 1);
   std::cout << "END V median filtering\n";
 
-  UMat sub, sub_dn, sub_res, res;
-  float hl[3] = {0.0, h/16, h/4};
-
   std::cout << "BEGIN low-frequency denoising\n";
   resize(out, sub, Size(), 1.0/4, 1.0/4, INTER_AREA);
-  fastNlMeansDenoisingAbs(sub, sub_dn, hl, 3, 21);
+  fastNlMeansDenoisingAbs(sub, sub_dn, h2, 3, 21);
   subtract(sub, sub_dn, sub_res, noArray(), CV_16S);
   resize(sub_res, res, out.size(), 0.0, 0.0, INTER_CUBIC);
   subtract(out, res, out, noArray(), CV_16U);
@@ -198,8 +194,8 @@ static void denoise(Mat& img, float h)
 }
 
 static const denoise_desc_t denoise_types[] = {
-  {200.0, BMT_to_YUV_STD, YUV_to_BMT_STD},
-  {140.0, BMT_to_YUV_YisT, YUV_to_BMT_YisT},
+  {100.0, BMT_to_YUV_STD, YUV_to_BMT_STD},
+  {70.0, BMT_to_YUV_YisT, YUV_to_BMT_YisT},
   {1000.0, BMT_to_YUV_Yis4T, YUV_to_BMT_Yis4T},
 };
 
