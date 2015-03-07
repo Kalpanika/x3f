@@ -196,7 +196,7 @@ static void denoise(Mat& img, float h)
 static const denoise_desc_t denoise_types[] = {
   {100.0, BMT_to_YUV_STD, YUV_to_BMT_STD},
   {70.0, BMT_to_YUV_YisT, YUV_to_BMT_YisT},
-  {1000.0, BMT_to_YUV_Yis4T, YUV_to_BMT_Yis4T},
+  {300.0, BMT_to_YUV_Yis4T, YUV_to_BMT_Yis4T},
 };
 
 void x3f_denoise(x3f_area16_t *image, x3f_denoise_type_t type)
@@ -241,7 +241,7 @@ void x3f_expand_quattro(x3f_area16_t *image, x3f_area16_t *active,
     assert(active->channels == 3);
     Mat act(active->rows, active->columns, CV_16UC3,
 	    active->data, sizeof(uint16_t)*active->row_stride);
-    denoise(act, d->h/4);
+    denoise(act, d->h);
   }
 
   resize(img, exp, exp.size(), 0.0, 0.0, INTER_CUBIC);
@@ -254,7 +254,7 @@ void x3f_expand_quattro(x3f_area16_t *image, x3f_area16_t *active,
     Mat act_exp(active_exp->rows, active_exp->columns, CV_16UC3,
 		active_exp->data, sizeof(uint16_t)*active_exp->row_stride);
     UMat out;
-    float h[3] = {0.0, d->h/2, d->h};
+    float h[3] = {0.0, d->h, d->h*2};
 
     std::cout << "BEGIN Quattro full-resolution denoising\n";
     fastNlMeansDenoisingAbs(act_exp, out, h, 3, 11);
