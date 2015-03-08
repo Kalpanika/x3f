@@ -3958,23 +3958,30 @@ static void interpolate_bad_pixels(x3f_t *x3f, x3f_area16_t *image, int colors)
       fixed = p;
     }
 
-    if (!fixed)
-      /* If nothing else to do, accept corners */
-      fix_corner = 1;
-
-    /* Clear the bad pixel vector and free the list */
-    for (p=fixed; p && (pn=p->next, 1); p=pn) {
-      CLEAR_PIX(bad_pixel_vec, p->c, p->r, image->columns, image->rows);
-      free(p);
-    }
-
-    printf("Bad pixels pass %d: %d fixed (%d all_four, %d two_linear, %d corn), %d left\n",
+    printf("Bad pixels pass %d: %d fixed (%d all_four, %d linear, %d corner), %d left\n",
 	   stat_pass,
 	   stats.all_four + stats.two_linear + stats.two_corner,
 	   stats.all_four,
 	   stats.two_linear,
 	   stats.two_corner,
 	   stats.left);
+
+    if (!fixed) {
+      /* If nothing else to do, accept corners */
+      if (!fix_corner) fix_corner = 1;
+      else {
+	fprintf(stderr,	"WARNING: Failed to interpolate %d bad pixels\n",
+		stats.left);
+	fixed = bad_pixel_list;	/* Free remaining list entries */
+	bad_pixel_list = NULL;	/* Force termination */
+      }
+    }
+
+    /* Clear the bad pixel vector and free the list */
+    for (p=fixed; p && (pn=p->next, 1); p=pn) {
+      CLEAR_PIX(bad_pixel_vec, p->c, p->r, image->columns, image->rows);
+      free(p);
+    }
 
     stat_pass++;
   }
