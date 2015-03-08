@@ -3770,15 +3770,20 @@ typedef struct bad_pixel_s {
   struct bad_pixel_s *prev, *next;
 } bad_pixel_t;
 
+/* Address pixel at column _c and row _r */
 #define _PN(_c, _r, _cs) ((_r)*(_cs) + (_c))
+
+/* Test if a pixel (_c,_r) is within a rectancle */
 #define _INB(_c, _r, _cs, _rs)					\
   ((_c) >= 0 && (_c) < (_cs) && (_r) >= 0 && (_r) < (_rs))
 
+/* Test if a pixel has been marked in the bad pixel vector */
 #define TEST_PIX(_vec, _c, _r, _cs, _rs)				\
   (_INB((_c), (_r), (_cs), (_rs)) ?					\
    (_vec)[_PN((_c), (_r), (_cs)) >> 5] &				\
    1 << (_PN((_c), (_r), (_cs)) & 0x1f) : 1)
 
+/* Mark the pixel, in the bad pixel vector and the bad pixel list */
 #define MARK_PIX(_list, _vec, _c, _r, _cs, _rs)				\
   do {									\
     if (!TEST_PIX((_vec), (_c), (_r), (_cs), (_rs))) {			\
@@ -3798,6 +3803,7 @@ typedef struct bad_pixel_s {
 	      (_c), (_r), (_cs), (_rs));				\
   } while (0)
 
+/* Clear the mark in the bad pixel vector */
 #define CLEAR_PIX(_vec, _c, _r, _cs, _rs)				\
   do {									\
     assert(_INB((_c), (_r), (_cs), (_rs)));				\
@@ -3807,13 +3813,18 @@ typedef struct bad_pixel_s {
 
 static void interpolate_bad_pixels(x3f_t *x3f, x3f_area16_t *image, int colors)
 {
-  bad_pixel_t *list = NULL;
-  uint32_t *vec = calloc((image->rows*image->columns + 31)/32,
-			 sizeof(uint32_t));
+  bad_pixel_t *bad_pixel_list = NULL;
+  uint32_t *bad_pixel_vec = calloc((image->rows*image->columns + 31)/32,
+				   sizeof(uint32_t));
   int row, col, color, i;
   uint32_t *bpf23;
   int bpf23_len;
-  int pass = 0, fix_corn = 0;
+  int stat_pass = 0;		/* Statistics */
+  int fix_corner = 0;		/* By default, do not accept corners */
+
+  /* BEGIN - collecting bad pixels. This part reads meta data and
+     collects all bad pixels both in the list 'bad_pixel_list' and the
+     vector 'bad_pixel_vec' */
 
   if (colors == 3) {
     uint32_t keep[4], hpinfo[4], *bp, *bpf20;
@@ -3823,38 +3834,41 @@ static void interpolate_bad_pixels(x3f_t *x3f, x3f_area16_t *image, int colors)
 	get_camf_matrix_var(x3f, "BadPixels", &bp_num, NULL, NULL,
 			    M_UINT, (void **)&bp))
       for (i=0; i < bp_num; i++)
-	MARK_PIX(list, vec,
+	MARK_PIX(bad_pixel_list, bad_pixel_vec,
 		 ((bp[i] & 0x000fff00) >> 8) - keep[0],
 		 ((bp[i] & 0xfff00000) >> 20) - keep[1],
 		 image->columns, image->rows);
 
     /* NOTE: the numbers of rows and cols in this matrix are
-             interchanged due to bug in camera firmware */
+       interchanged due to bug in camera firmware */
     if (get_camf_matrix_var(x3f, "BadPixelsF20",
 			    &bpf20_cols, &bpf20_rows, NULL,
 			    M_UINT, (void **)&bpf20) && bpf20_cols == 3)
       for (row=0; row < bpf20_rows; row++)
-	MARK_PIX(list, vec, bpf20[3*row + 1], bpf20[3*row + 0],
+	MARK_PIX(bad_pixel_list, bad_pixel_vec,
+		 bpf20[3*row + 1], bpf20[3*row + 0],
 		 image->columns, image->rows);
 
     /* NOTE: the numbers of rows and cols in this matrix are
-             interchanged due to bug in camera firmware
+       interchanged due to bug in camera firmware
        TODO: should Jpeg_BadClutersF20 really be used for RAW? It works
-             though. */
+       though. */
     if (get_camf_matrix_var(x3f, "Jpeg_BadClusters",
 			    &bpf20_cols, &bpf20_rows, NULL,
 			    M_UINT, (void **)&bpf20) && bpf20_cols == 3)
       for (row=0; row < bpf20_rows; row++)
-	MARK_PIX(list, vec, bpf20[3*row + 1], bpf20[3*row + 0],
+	MARK_PIX(bad_pixel_list, bad_pixel_vec,
+		 bpf20[3*row + 1], bpf20[3*row + 0],
 		 image->columns, image->rows);
 
     /* TODO: should those really be interpolated over, or should they be
-             rescaled instead? */
+       rescaled instead? */
     if (get_camf_matrix(x3f, "HighlightPixelsInfo", 2, 2, 0, M_UINT, hpinfo))
       for (row = hpinfo[1]; row < image->rows; row += hpinfo[3])
 	for (col = hpinfo[0]; col < image->columns; col += hpinfo[2])
-	  MARK_PIX(list, vec, col, row, image->columns, image->rows);
-  }
+	  MARK_PIX(bad_pixel_list, bad_pixel_vec,
+		   col, row, image->columns, image->rows);
+  } /* colors == 3 */
 
   if ((colors == 1 && get_camf_matrix_var(x3f, "BadPixelsLumaF23",
 					  &bpf23_len, NULL, NULL,
@@ -3862,41 +3876,70 @@ static void interpolate_bad_pixels(x3f_t *x3f, x3f_area16_t *image, int colors)
       (colors == 3 && get_camf_matrix_var(x3f, "BadPixelsChromaF23",
 					  &bpf23_len, NULL, NULL,
 					  M_UINT, (void **)&bpf23)))
-      for (i=0, row=-1; i < bpf23_len; i++)
-	if (row == -1) row = bpf23[i];
-	else if (bpf23[i] == 0) row = -1;
-	else {MARK_PIX(list, vec, bpf23[i], row,
-		       image->columns, image->rows); i++;}
+    for (i=0, row=-1; i < bpf23_len; i++)
+      if (row == -1) row = bpf23[i];
+      else if (bpf23[i] == 0) row = -1;
+      else {MARK_PIX(bad_pixel_list, bad_pixel_vec,
+		     bpf23[i], row,
+		     image->columns, image->rows); i++;}
 
-  while (list) {
-    bad_pixel_t *p, *pn, *fixed = NULL;
-    int isol = 0, lin = 0, corn = 0, left = 0;
+  /* END - collecting bad pixels */
 
-    for (p=list; p && (pn=p->next, 1); p=pn) {
+
+  /* BEGIN - fixing bad pixels. This part fixes all bad pixels
+     collected in the list 'bad_pixel_list', using the mirror data in
+     the vector 'bad_pixel_vec'.  This is made in passes. In each pass
+     all pixels that can be interpolated are interpolated and also
+     removed from the list of bad pixels.  Eventually the list of bad
+     pixels is going to be empty. */
+
+  while (bad_pixel_list) {
+    bad_pixel_t *p, *pn;
+    bad_pixel_t *fixed = NULL;	/* Contains all, in this pass, fixed pixels */
+    struct {
+      int all_four, two_linear, two_corner, left; /* Statistics */
+    } stats = {0,0,0,0};
+
+    /* Iterate over all pixels in the bad pixel list, in this pass */
+    for (p=bad_pixel_list; p && (pn=p->next, 1); p=pn) {
       uint16_t *outp =
 	&image->data[p->r*image->row_stride + p->c*image->channels];
       uint16_t *inp[4] = {NULL, NULL, NULL, NULL};
       int num = 0;
 
-      if (!TEST_PIX(vec, p->c - 1, p->r, image->columns, image->rows))
+      /* Collect status of neighbor pixels */
+      if (!TEST_PIX(bad_pixel_vec, p->c - 1, p->r, image->columns, image->rows))
 	num++, inp[0] =
 	  &image->data[p->r*image->row_stride + (p->c - 1)*image->channels];
-      if (!TEST_PIX(vec, p->c + 1, p->r, image->columns, image->rows))
+      if (!TEST_PIX(bad_pixel_vec, p->c + 1, p->r, image->columns, image->rows))
 	num++, inp[1] =
 	  &image->data[p->r*image->row_stride + (p->c + 1)*image->channels];
-      if (!TEST_PIX(vec, p->c, p->r - 1, image->columns, image->rows))
+      if (!TEST_PIX(bad_pixel_vec, p->c, p->r - 1, image->columns, image->rows))
 	num++, inp[2] =
 	  &image->data[(p->r - 1)*image->row_stride + p->c*image->channels];
-      if (!TEST_PIX(vec, p->c, p->r + 1, image->columns, image->rows))
+      if (!TEST_PIX(bad_pixel_vec, p->c, p->r + 1, image->columns, image->rows))
 	num++, inp[3] =
 	  &image->data[(p->r + 1)*image->row_stride + p->c*image->channels];
 
-      if (inp[0] && inp[1] && inp[2] && inp[3]) isol++;
-      else if (inp[0] && inp[1]) inp[2] = inp[3] = NULL, num = 2, lin++;
-      else if (inp[2] && inp[3]) inp[0] = inp[1] = NULL, num = 2, lin++;
-      else if (fix_corn && num == 2) corn++;
-      else {left++; continue;};
+      /* Test if interpolation is possible ... */
+      if (inp[0] && inp[1] && inp[2] && inp[3])
+	/* ... all four neighbors are OK */
+	stats.all_four++;
+      else if (inp[0] && inp[1])
+	/* ... left and right are OK */
+	inp[2] = inp[3] = NULL, num = 2, stats.two_linear++;
+      else if (inp[2] && inp[3])
+	/* ... above and under are OK */
+	inp[0] = inp[1] = NULL, num = 2, stats.two_linear++;
+      else if (fix_corner && num == 2)
+	/* ... corner (plus nothing else to do) are OK */
+	stats.two_corner++;
+      else
+	/* ... nope - it was not possible. Look at next without doing
+	   interpolation.  */
+	{stats.left++; continue;};
 
+      /* Interpolate the actual pixel */
       for (color=0; color < colors; color++) {
 	uint32_t sum = 0;
 	for (i=0; i<4; i++)
@@ -3904,25 +3947,41 @@ static void interpolate_bad_pixels(x3f_t *x3f, x3f_area16_t *image, int colors)
 	outp[color] = (sum + num/2)/num;
       }
 
-      if (p->prev) p->prev->next = p->next;
-      else list = p->next;
+      /* Remove p from bad_pixel_list */
+      if (p->prev) p->prev->next  = p->next;
+      else         bad_pixel_list = p->next;
       if (p->next) p->next->prev = p->prev;
+
+      /* Add p to fixed list */
       p->prev = NULL;
       p->next = fixed;
       fixed = p;
     }
 
-    if (!fixed) fix_corn = 1;
+    if (!fixed)
+      /* If nothing else to do, accept corners */
+      fix_corner = 1;
+
+    /* Clear the bad pixel vector and free the list */
     for (p=fixed; p && (pn=p->next, 1); p=pn) {
-      CLEAR_PIX(vec, p->c, p->r, image->columns, image->rows);
+      CLEAR_PIX(bad_pixel_vec, p->c, p->r, image->columns, image->rows);
       free(p);
     }
-    printf("Bad pixels pass %d: %d fixed (%d isol, %d lin, %d corn), %d left\n",
-	   pass, isol + lin + corn, isol, lin, corn, left);
-    pass++;
+
+    printf("Bad pixels pass %d: %d fixed (%d all_four, %d two_linear, %d corn), %d left\n",
+	   stat_pass,
+	   stats.all_four + stats.two_linear + stats.two_corner,
+	   stats.all_four,
+	   stats.two_linear,
+	   stats.two_corner,
+	   stats.left);
+
+    stat_pass++;
   }
 
-  free(vec);
+  /* END - fixing bad pixels */
+
+  free(bad_pixel_vec);
 }
 
 typedef struct {
