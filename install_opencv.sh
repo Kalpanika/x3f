@@ -15,11 +15,6 @@ OCV_SRC=$SRC/opencv
 OCV_BLD=$SRC/$SYS/opencv_build
 OCV_LIB=$LIB/opencv
 
-if [ -e $OCV_LIB ] ; then
-    echo Seems like opencv already is installed in $OCV_LIB
-    exit 1
-fi
-
 if [ -e $OCV_SRC ] ; then
     echo Pull opencv
     cd $OCV_SRC || exit 1
@@ -42,7 +37,7 @@ mkdir -p $OCV_LIB || exit 1
 cd $OCV_BLD || exit 1
 cmake -D CMAKE_INSTALL_PREFIX=$OCV_LIB \
       -D CMAKE_BUILD_TYPE=RELEASE -D WITH_TBB=ON $OCV_SRC || exit 1
-make clean && make -j 4 install || exit 1
+make -j 4 install || exit 1
 cd $ROOT || exit 1
 
 echo Ready, now you can run "'make'"

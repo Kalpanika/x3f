@@ -211,7 +211,7 @@ static void cleanup_true(x3f_true_t **TRUP)
   FREE(TRU->table.element);
   FREE(TRU->plane_size.element);
   cleanup_huffman_tree(&TRU->tree);
-  FREE(TRU->x3rgb16.data);
+  FREE(TRU->x3rgb16.buf);
 
   FREE(TRU);
 
@@ -230,6 +230,7 @@ static x3f_true_t *new_true(x3f_true_t **TRUP)
   TRU->plane_size.element = NULL;
   TRU->tree.nodes = NULL;
   TRU->x3rgb16.data = NULL;
+  TRU->x3rgb16.buf = NULL;
 
   *TRUP = TRU;
 
@@ -244,7 +245,7 @@ static void cleanup_quattro(x3f_quattro_t **QP)
 
   printf("Cleanup Quattro\n");
 
-  FREE(Q->top16.data);
+  FREE(Q->top16.buf);
   FREE(Q);
 
   *QP = NULL;
@@ -265,6 +266,7 @@ static x3f_quattro_t *new_quattro(x3f_quattro_t **QP)
   Q->unknown = 0;
 
   Q->top16.data = NULL;
+  Q->top16.buf = NULL;
 
   *QP = Q;
 
@@ -287,8 +289,8 @@ static void cleanup_huffman(x3f_huffman_t **HUFP)
   FREE(HUF->table.element);
   cleanup_huffman_tree(&HUF->tree);
   FREE(HUF->row_offsets.element);
-  FREE(HUF->rgb8.data);
-  FREE(HUF->x3rgb16.data);
+  FREE(HUF->rgb8.buf);
+  FREE(HUF->x3rgb16.buf);
   FREE(HUF);
 
   *HUFP = NULL;
@@ -309,7 +311,9 @@ static x3f_huffman_t *new_huffman(x3f_huffman_t **HUFP)
   HUF->row_offsets.size = 0;
   HUF->row_offsets.element = NULL;
   HUF->rgb8.data = NULL;
+  HUF->rgb8.buf = NULL;
   HUF->x3rgb16.data = NULL;
+  HUF->x3rgb16.buf = NULL;
 
   *HUFP = HUF;
 
@@ -1854,7 +1858,7 @@ static void x3f_load_true(x3f_info_t *I,
     TRU->x3rgb16.rows = rows;
     TRU->x3rgb16.channels = channels;
     TRU->x3rgb16.row_stride = columns * channels;
-    TRU->x3rgb16.data =
+    TRU->x3rgb16.data = TRU->x3rgb16.buf =
       (uint16_t *)malloc(sizeof(uint16_t)*size);
 
     columns = Q->plane[2].columns;
@@ -1866,7 +1870,7 @@ static void x3f_load_true(x3f_info_t *I,
     Q->top16.rows = rows;
     Q->top16.channels = channels;
     Q->top16.row_stride = columns * channels;
-    Q->top16.data =
+    Q->top16.data = Q->top16.buf =
       (uint16_t *)malloc(sizeof(uint16_t)*size);
   } else {
     uint32_t size = ID->columns * ID->rows * 3;
@@ -1875,7 +1879,7 @@ static void x3f_load_true(x3f_info_t *I,
     TRU->x3rgb16.rows = ID->rows;
     TRU->x3rgb16.channels = 3;
     TRU->x3rgb16.row_stride = ID->columns * 3;
-    TRU->x3rgb16.data =
+    TRU->x3rgb16.data = TRU->x3rgb16.buf =
       (uint16_t *)malloc(sizeof(uint16_t)*size);
   }
 
@@ -1954,7 +1958,7 @@ static void x3f_load_huffman(x3f_info_t *I,
     HUF->x3rgb16.rows = ID->rows;
     HUF->x3rgb16.channels = 3;
     HUF->x3rgb16.row_stride = ID->columns * 3;
-    HUF->x3rgb16.data =
+    HUF->x3rgb16.data = HUF->x3rgb16.buf =
       (uint16_t *)malloc(sizeof(uint16_t)*size);
     break;
   case X3F_IMAGE_THUMB_HUFFMAN:
@@ -1963,7 +1967,7 @@ static void x3f_load_huffman(x3f_info_t *I,
     HUF->rgb8.columns = ID->rows;
     HUF->rgb8.channels = 3;
     HUF->rgb8.row_stride = ID->columns * 3;
-    HUF->rgb8.data =
+    HUF->rgb8.data = HUF->rgb8.buf =
       (uint8_t *)malloc(sizeof(uint8_t)*size);
     break;
   default:
@@ -2953,7 +2957,8 @@ static int image_area(x3f_t *x3f, x3f_area16_t *image)
 
   if (!area || !area->data) return 0;
   *image = *area;
-
+  image->buf = NULL;		/* cleanup_true/cleanup_huffman is
+				   responsible for free() */
   return 1;
 }
 
@@ -2972,6 +2977,7 @@ static int image_area_qtop(x3f_t *x3f, x3f_area16_t *image)
 
   if (!Q || !Q->top16.data) return 0;
   *image = Q->top16;
+  image->buf = NULL;		/* cleanup_quattro is responsible for free() */
 
   return 1;
 }
@@ -2987,6 +2993,7 @@ static int crop_area(uint32_t *coord, x3f_area16_t *image, x3f_area16_t *crop)
   crop->rows = coord[3] - coord[1] + 1;
   crop->channels = image->channels;
   crop->row_stride = image->row_stride;
+  crop->buf = image->buf;
 
   return 1;
 }
@@ -3090,31 +3097,60 @@ static int sum_area(x3f_t *x3f, char *name,
   return area.columns*area.rows;
 }
 
-static void get_black_level(x3f_t *x3f,
-			    x3f_area16_t *image, int rescale, int colors,
-			    double *black_level)
+static int sum_area_sqdev(x3f_t *x3f, char *name,
+			  x3f_area16_t *image, int rescale, int colors,
+			  double *mean, double *sum /* in/out */)
+{
+  x3f_area16_t area;
+  int row, col, color;
+
+  if (image->channels < colors) return 0;
+  if (!crop_area_camf(x3f, name, image, rescale, &area)) return 0;
+
+  for (row = 0; row < area.rows; row++)
+    for (col = 0; col < area.columns; col++)
+      for (color = 0; color < colors; color++) {
+	double dev = area.data[area.row_stride*row +
+			       area.channels*col + color] - mean[color];
+	sum[color] += dev*dev;
+      }
+
+  return area.columns*area.rows;
+}
+
+static int get_black_level(x3f_t *x3f,
+			   x3f_area16_t *image, int rescale, int colors,
+			   double *black_level, double *black_dev)
 {
   uint64_t *black_sum;
-  int black_pixels = 0;
-  int i;
+  double *black_sum_sqdev;
+  int pixels, i;
   
+  pixels = 0;
   black_sum = alloca(colors*sizeof(uint64_t));
   memset(black_sum, 0, colors*sizeof(uint64_t));
-
-  black_pixels += sum_area(x3f, "DarkShieldTop", image, rescale, colors,
-			   black_sum);
-  black_pixels += sum_area(x3f, "DarkShieldBottom", image, rescale, colors,
-			   black_sum);
-
-  if (black_pixels == 0) {
-    memset(black_level, 0, colors*sizeof(double));
-    fprintf(stderr,
-	    "WARNING: could not calculate black level, assuming 0.0\n");;
-    return;
-  }
+  pixels += sum_area(x3f, "DarkShieldTop", image, rescale, colors,
+		     black_sum);
+  pixels += sum_area(x3f, "DarkShieldBottom", image, rescale, colors,
+		     black_sum);
+  if (pixels == 0) return 0;
 
   for (i=0; i<colors; i++)
-    black_level[i] = (double)black_sum[i]/black_pixels;
+    black_level[i] = (double)black_sum[i]/pixels;
+
+  pixels = 0;
+  black_sum_sqdev = alloca(colors*sizeof(double));
+  memset(black_sum_sqdev, 0, colors*sizeof(double));
+  pixels += sum_area_sqdev(x3f, "DarkShieldTop", image, rescale, colors,
+			   black_level, black_sum_sqdev);
+  pixels += sum_area_sqdev(x3f, "DarkShieldBottom", image, rescale, colors,
+			   black_level, black_sum_sqdev);
+  if (pixels == 0) return 0;
+
+  for (i=0; i<colors; i++)
+    black_dev[i] = sqrt(black_sum_sqdev[i]/pixels);
+
+  return 1;
 }
 
 static void get_raw_neutral(double *raw_to_xyz, double *raw_neutral)
@@ -3687,8 +3723,10 @@ static double calc_spatial_gain(spatial_gain_corr_t *corr, int corr_num,
    takes place internally. */
 #define INTERMEDIATE_DEPTH 14
 #define INTERMEDIATE_UNIT ((1<<INTERMEDIATE_DEPTH) - 1)
+#define INTERMEDIATE_BIAS_FACTOR 4.0
 
 static int get_max_intermediate(x3f_t *x3f, char *wb,
+				double intermediate_bias,
 				uint32_t *max_intermediate)
 {
   double gain[3], maxgain = 0.0;
@@ -3700,49 +3738,270 @@ static int get_max_intermediate(x3f_t *x3f, char *wb,
   for (i=0; i<3; i++)
     if (gain[i] > maxgain) maxgain = gain[i];
   for (i=0; i<3; i++)
-    max_intermediate[i] = (int32_t)round(gain[i]*INTERMEDIATE_UNIT/maxgain);
+    max_intermediate[i] =
+      (int32_t)round(gain[i]*(INTERMEDIATE_UNIT - intermediate_bias)/maxgain +
+		     intermediate_bias);
 
   return 1;
 }
 
-static void interpolate_highlight_pixels(x3f_t *x3f,
-					 x3f_area16_t *image, int colors)
+static int get_intermediate_bias(x3f_t *x3f, char *wb,
+				 double *black_level, double *black_dev,
+				 double *intermediate_bias)
 {
-  int row, col, color;
-  uint32_t hpinfo[4];
+  uint32_t max_raw[3], max_intermediate[3];
+  int i;
 
-  if (!get_camf_matrix(x3f, "HighlightPixelsInfo", 2, 2, 0, M_UINT, hpinfo))
-    return;
+  if (!get_max_raw(x3f, max_raw)) return 0;
+  if (!get_max_intermediate(x3f, wb, 0, max_intermediate)) return 0;
 
-  for (row = hpinfo[1]; row < image->rows; row += hpinfo[3])
-    for (col = hpinfo[0]; col < image->columns; col += hpinfo[2]) {
-      uint16_t *outp =
-	&image->data[row*image->row_stride + col*image->channels];
-      uint16_t *inp1 =
-	&image->data[row*image->row_stride +
-		     (col > 0 ? col-1 : col+1)*image->channels];
-      uint16_t *inp2 =
-	&image->data[row*image->row_stride +
-		     (col < image->columns-1 ? col+1 : col-1)*image->channels];
-      uint16_t *inp3 =
-	&image->data[(row > 0 ? row-1 : row+1)*image->row_stride +
-		     col*image->channels];
-      uint16_t *inp4 =
-	&image->data[(row < image->rows-1 ? row+1 : row-1)*image->row_stride +
-		     col*image->channels];
+  *intermediate_bias = 0.0;
+  for (i=0; i<3; i++) {
+    double bias = INTERMEDIATE_BIAS_FACTOR * black_dev[i] *
+      max_intermediate[i] / (max_raw[i] - black_level[i]);
+    if (bias > *intermediate_bias) *intermediate_bias = bias;
+  }
 
-      for (color=0; color < colors; color++)
-	outp[color] =
-	  (inp1[color] + inp2[color] + inp3[color] + inp4[color] + 2)/4;
-    }
+  return 1;
 }
 
-static int preprocess_data(x3f_t *x3f, char *wb)
+typedef struct bad_pixel_s {
+  int c, r;
+  struct bad_pixel_s *prev, *next;
+} bad_pixel_t;
+
+/* Address pixel at column _c and row _r */
+#define _PN(_c, _r, _cs) ((_r)*(_cs) + (_c))
+
+/* Test if a pixel (_c,_r) is within a rectancle */
+#define _INB(_c, _r, _cs, _rs)					\
+  ((_c) >= 0 && (_c) < (_cs) && (_r) >= 0 && (_r) < (_rs))
+
+/* Test if a pixel has been marked in the bad pixel vector */
+#define TEST_PIX(_vec, _c, _r, _cs, _rs)				\
+  (_INB((_c), (_r), (_cs), (_rs)) ?					\
+   (_vec)[_PN((_c), (_r), (_cs)) >> 5] &				\
+   1 << (_PN((_c), (_r), (_cs)) & 0x1f) : 1)
+
+/* Mark the pixel, in the bad pixel vector and the bad pixel list */
+#define MARK_PIX(_list, _vec, _c, _r, _cs, _rs)				\
+  do {									\
+    if (!TEST_PIX((_vec), (_c), (_r), (_cs), (_rs))) {			\
+      bad_pixel_t *_p = malloc(sizeof(bad_pixel_t));			\
+      _p->c = (_c);							\
+      _p->r = (_r);							\
+      _p->prev = NULL;							\
+      _p->next = (_list);						\
+      if (_list) (_list)->prev = (_p);					\
+      (_list) = _p;							\
+      (_vec)[_PN((_c), (_r), (_cs)) >> 5] |=				\
+	1 << (_PN((_c), (_r), (_cs)) & 0x1f);				\
+    }									\
+    else if (!_INB((_c), (_r), (_cs), (_rs)))				\
+      fprintf(stderr,							\
+	      "WARNING: bad pixel (%u,%u) out of bounds : (%u,%u)\n",	\
+	      (_c), (_r), (_cs), (_rs));				\
+  } while (0)
+
+/* Clear the mark in the bad pixel vector */
+#define CLEAR_PIX(_vec, _c, _r, _cs, _rs)				\
+  do {									\
+    assert(_INB((_c), (_r), (_cs), (_rs)));				\
+    _vec[_PN((_c), (_r), (_cs)) >> 5] &=				\
+      ~(1 << (_PN((_c), (_r), (_cs)) & 0x1f));				\
+  } while (0)
+
+static void interpolate_bad_pixels(x3f_t *x3f, x3f_area16_t *image, int colors)
+{
+  bad_pixel_t *bad_pixel_list = NULL;
+  uint32_t *bad_pixel_vec = calloc((image->rows*image->columns + 31)/32,
+				   sizeof(uint32_t));
+  int row, col, color, i;
+  uint32_t *bpf23;
+  int bpf23_len;
+  int stat_pass = 0;		/* Statistics */
+  int fix_corner = 0;		/* By default, do not accept corners */
+
+  /* BEGIN - collecting bad pixels. This part reads meta data and
+     collects all bad pixels both in the list 'bad_pixel_list' and the
+     vector 'bad_pixel_vec' */
+
+  if (colors == 3) {
+    uint32_t keep[4], hpinfo[4], *bp, *bpf20;
+    int bp_num, bpf20_rows, bpf20_cols;
+
+    if (get_camf_matrix(x3f, "KeepImageArea", 4, 0, 0, M_UINT, keep) &&
+	get_camf_matrix_var(x3f, "BadPixels", &bp_num, NULL, NULL,
+			    M_UINT, (void **)&bp))
+      for (i=0; i < bp_num; i++)
+	MARK_PIX(bad_pixel_list, bad_pixel_vec,
+		 ((bp[i] & 0x000fff00) >> 8) - keep[0],
+		 ((bp[i] & 0xfff00000) >> 20) - keep[1],
+		 image->columns, image->rows);
+
+    /* NOTE: the numbers of rows and cols in this matrix are
+       interchanged due to bug in camera firmware */
+    if (get_camf_matrix_var(x3f, "BadPixelsF20",
+			    &bpf20_cols, &bpf20_rows, NULL,
+			    M_UINT, (void **)&bpf20) && bpf20_cols == 3)
+      for (row=0; row < bpf20_rows; row++)
+	MARK_PIX(bad_pixel_list, bad_pixel_vec,
+		 bpf20[3*row + 1], bpf20[3*row + 0],
+		 image->columns, image->rows);
+
+    /* NOTE: the numbers of rows and cols in this matrix are
+       interchanged due to bug in camera firmware
+       TODO: should Jpeg_BadClutersF20 really be used for RAW? It works
+       though. */
+    if (get_camf_matrix_var(x3f, "Jpeg_BadClusters",
+			    &bpf20_cols, &bpf20_rows, NULL,
+			    M_UINT, (void **)&bpf20) && bpf20_cols == 3)
+      for (row=0; row < bpf20_rows; row++)
+	MARK_PIX(bad_pixel_list, bad_pixel_vec,
+		 bpf20[3*row + 1], bpf20[3*row + 0],
+		 image->columns, image->rows);
+
+    /* TODO: should those really be interpolated over, or should they be
+       rescaled instead? */
+    if (get_camf_matrix(x3f, "HighlightPixelsInfo", 2, 2, 0, M_UINT, hpinfo))
+      for (row = hpinfo[1]; row < image->rows; row += hpinfo[3])
+	for (col = hpinfo[0]; col < image->columns; col += hpinfo[2])
+	  MARK_PIX(bad_pixel_list, bad_pixel_vec,
+		   col, row, image->columns, image->rows);
+  } /* colors == 3 */
+
+  if ((colors == 1 && get_camf_matrix_var(x3f, "BadPixelsLumaF23",
+					  &bpf23_len, NULL, NULL,
+					  M_UINT, (void **)&bpf23)) ||
+      (colors == 3 && get_camf_matrix_var(x3f, "BadPixelsChromaF23",
+					  &bpf23_len, NULL, NULL,
+					  M_UINT, (void **)&bpf23)))
+    for (i=0, row=-1; i < bpf23_len; i++)
+      if (row == -1) row = bpf23[i];
+      else if (bpf23[i] == 0) row = -1;
+      else {MARK_PIX(bad_pixel_list, bad_pixel_vec,
+		     bpf23[i], row,
+		     image->columns, image->rows); i++;}
+
+  /* END - collecting bad pixels */
+
+
+  /* BEGIN - fixing bad pixels. This part fixes all bad pixels
+     collected in the list 'bad_pixel_list', using the mirror data in
+     the vector 'bad_pixel_vec'.  This is made in passes. In each pass
+     all pixels that can be interpolated are interpolated and also
+     removed from the list of bad pixels.  Eventually the list of bad
+     pixels is going to be empty. */
+
+  while (bad_pixel_list) {
+    bad_pixel_t *p, *pn;
+    bad_pixel_t *fixed = NULL;	/* Contains all, in this pass, fixed pixels */
+    struct {
+      int all_four, two_linear, two_corner, left; /* Statistics */
+    } stats = {0,0,0,0};
+
+    /* Iterate over all pixels in the bad pixel list, in this pass */
+    for (p=bad_pixel_list; p && (pn=p->next, 1); p=pn) {
+      uint16_t *outp =
+	&image->data[p->r*image->row_stride + p->c*image->channels];
+      uint16_t *inp[4] = {NULL, NULL, NULL, NULL};
+      int num = 0;
+
+      /* Collect status of neighbor pixels */
+      if (!TEST_PIX(bad_pixel_vec, p->c - 1, p->r, image->columns, image->rows))
+	num++, inp[0] =
+	  &image->data[p->r*image->row_stride + (p->c - 1)*image->channels];
+      if (!TEST_PIX(bad_pixel_vec, p->c + 1, p->r, image->columns, image->rows))
+	num++, inp[1] =
+	  &image->data[p->r*image->row_stride + (p->c + 1)*image->channels];
+      if (!TEST_PIX(bad_pixel_vec, p->c, p->r - 1, image->columns, image->rows))
+	num++, inp[2] =
+	  &image->data[(p->r - 1)*image->row_stride + p->c*image->channels];
+      if (!TEST_PIX(bad_pixel_vec, p->c, p->r + 1, image->columns, image->rows))
+	num++, inp[3] =
+	  &image->data[(p->r + 1)*image->row_stride + p->c*image->channels];
+
+      /* Test if interpolation is possible ... */
+      if (inp[0] && inp[1] && inp[2] && inp[3])
+	/* ... all four neighbors are OK */
+	stats.all_four++;
+      else if (inp[0] && inp[1])
+	/* ... left and right are OK */
+	inp[2] = inp[3] = NULL, num = 2, stats.two_linear++;
+      else if (inp[2] && inp[3])
+	/* ... above and under are OK */
+	inp[0] = inp[1] = NULL, num = 2, stats.two_linear++;
+      else if (fix_corner && num == 2)
+	/* ... corner (plus nothing else to do) are OK */
+	stats.two_corner++;
+      else
+	/* ... nope - it was not possible. Look at next without doing
+	   interpolation.  */
+	{stats.left++; continue;};
+
+      /* Interpolate the actual pixel */
+      for (color=0; color < colors; color++) {
+	uint32_t sum = 0;
+	for (i=0; i<4; i++)
+	  if (inp[i]) sum += inp[i][color];
+	outp[color] = (sum + num/2)/num;
+      }
+
+      /* Remove p from bad_pixel_list */
+      if (p->prev) p->prev->next  = p->next;
+      else         bad_pixel_list = p->next;
+      if (p->next) p->next->prev = p->prev;
+
+      /* Add p to fixed list */
+      p->prev = NULL;
+      p->next = fixed;
+      fixed = p;
+    }
+
+    printf("Bad pixels pass %d: %d fixed (%d all_four, %d linear, %d corner), %d left\n",
+	   stat_pass,
+	   stats.all_four + stats.two_linear + stats.two_corner,
+	   stats.all_four,
+	   stats.two_linear,
+	   stats.two_corner,
+	   stats.left);
+
+    if (!fixed) {
+      /* If nothing else to do, accept corners */
+      if (!fix_corner) fix_corner = 1;
+      else {
+	fprintf(stderr,	"WARNING: Failed to interpolate %d bad pixels\n",
+		stats.left);
+	fixed = bad_pixel_list;	/* Free remaining list entries */
+	bad_pixel_list = NULL;	/* Force termination */
+      }
+    }
+
+    /* Clear the bad pixel vector and free the list */
+    for (p=fixed; p && (pn=p->next, 1); p=pn) {
+      CLEAR_PIX(bad_pixel_vec, p->c, p->r, image->columns, image->rows);
+      free(p);
+    }
+
+    stat_pass++;
+  }
+
+  /* END - fixing bad pixels */
+
+  free(bad_pixel_vec);
+}
+
+typedef struct {
+  double black[3];
+  uint32_t white[3];
+} image_levels_t;
+
+static int preprocess_data(x3f_t *x3f, char *wb, image_levels_t *ilevels)
 {
   x3f_area16_t image, qtop;
   int row, col, color;
-  uint32_t max_raw[3], max_intermediate[3];
-  double scale[3], black_level[3];
+  uint32_t max_raw[3];
+  double scale[3], black_level[3], black_dev[3], intermediate_bias;
   int quattro = image_area_qtop(x3f, &qtop);
   int colors_in = quattro ? 2 : 3;
   
@@ -3751,26 +4010,39 @@ static int preprocess_data(x3f_t *x3f, char *wb)
 		  qtop.rows < 2*image.rows || qtop.columns < 2*image.columns))
     return 0;
 
+  if (!get_black_level(x3f, &image, 1, colors_in, black_level, black_dev) ||
+      (quattro && !get_black_level(x3f, &qtop, 0, 1,
+				   &black_level[2], &black_dev[2]))) {
+    fprintf(stderr, "Could not get black level\n");
+    return 0;
+  }
+  printf("black_level = {%g,%g,%g}, black_dev = {%g,%g,%g}\n",
+	 black_level[0], black_level[1], black_level[2],
+	 black_dev[0], black_dev[1], black_dev[2]);
+
   if (!get_max_raw(x3f, max_raw)) {
     fprintf(stderr, "Could not get maximum RAW level\n");
     return 0;
   }
-  printf("max_raw = {%d,%d,%d}\n", max_raw[0], max_raw[1], max_raw[2]);
-  
-  if (!get_max_intermediate(x3f, wb, max_intermediate)) {
+  printf("max_raw = {%u,%u,%u}\n", max_raw[0], max_raw[1], max_raw[2]);
+
+  if (!get_intermediate_bias(x3f, wb, black_level, black_dev,
+			     &intermediate_bias)) {
+    fprintf(stderr, "Could not get intermediate bias\n");
+    return 0;
+  }
+  printf("intermediate_bias = %g\n", intermediate_bias);
+  ilevels->black[0] = ilevels->black[1] = ilevels->black[2] = intermediate_bias;
+
+  if (!get_max_intermediate(x3f, wb, intermediate_bias, ilevels->white)) {
     fprintf(stderr, "Could not get maximum intermediate level\n");
     return 0;
   }
-  printf("max_intermediate = {%d,%d,%d}\n",
-	 max_intermediate[0], max_intermediate[1], max_intermediate[2]);
-  
-  get_black_level(x3f, &image, 1, colors_in, black_level);
-  if (quattro) get_black_level(x3f, &qtop, 0, 1, &black_level[2]);
-  printf("black_level = {%g,%g,%g}\n",
-	 black_level[0], black_level[1], black_level[2]);
+  printf("max_intermediate = {%u,%u,%u}\n",
+	 ilevels->white[0], ilevels->white[1], ilevels->white[2]);
 
   for (color = 0; color < 3; color++)
-    scale[color] = (double)max_intermediate[color] /
+    scale[color] = (ilevels->white[color] - ilevels->black[color]) /
       (max_raw[color] - black_level[color]);
   
   /* Preprocess image data (HUF/TRU->x3rgb16) */
@@ -3780,7 +4052,8 @@ static int preprocess_data(x3f_t *x3f, char *wb)
 	uint16_t *valp =
 	  &image.data[image.row_stride*row + image.channels*col + color];
 	int32_t out =
-	  (int32_t)round(scale[color] * (*valp - black_level[color]));
+	  (int32_t)round(scale[color] * (*valp - black_level[color]) +
+			 ilevels->black[color]);
 
 	if (out < 0) *valp = 0;
 	else if (out > 65535) *valp = 65535;
@@ -3799,7 +4072,8 @@ static int preprocess_data(x3f_t *x3f, char *wb)
 	  &qtop.data[qtop.row_stride*(2*row+1) + qtop.channels*2*col];
 	uint32_t sum =
 	  row1[0] + row1[qtop.channels] + row2[0] + row2[qtop.channels];
-	int32_t out = (int32_t)round(scale[2] * (sum/4.0 - black_level[2]));
+	int32_t out = (int32_t)round(scale[2] * (sum/4.0 - black_level[2]) +
+				     ilevels->black[2]);
 
 	if (out < 0) *outp = 0;
 	else if (out > 65535) *outp = 65535;
@@ -3810,17 +4084,17 @@ static int preprocess_data(x3f_t *x3f, char *wb)
     for (row = 0; row < qtop.rows; row++)
       for (col = 0; col < qtop.columns; col++) {
 	uint16_t *valp = &qtop.data[qtop.row_stride*row + qtop.channels*col];
-	int32_t out = (int32_t)round(scale[2] * (*valp - black_level[2]));
+	int32_t out = (int32_t)round(scale[2] * (*valp - black_level[2]) +
+				     ilevels->black[2]);
 
 	if (out < 0) *valp = 0;
 	else if (out > 65535) *valp = 65535;
 	else *valp = out;
       }
+    interpolate_bad_pixels(x3f, &qtop, 1);
   }
 
-  /* TODO: should those really be interpolated over, or should they be
-     rescaled instead? */
-  interpolate_highlight_pixels(x3f, &image, 3);
+  interpolate_bad_pixels(x3f, &image, 3);
 
   return 1;
 }
@@ -3829,7 +4103,8 @@ static int preprocess_data(x3f_t *x3f, char *wb)
 
 #define LUTSIZE 1024
 
-static int convert_data(x3f_t *x3f, x3f_area16_t *image,
+static int convert_data(x3f_t *x3f,
+			x3f_area16_t *image, image_levels_t *ilevels,
 			x3f_color_encoding_t encoding, char *wb)
 {
   int row, col, color;
@@ -3841,7 +4116,6 @@ static int convert_data(x3f_t *x3f, x3f_area16_t *image,
   double conv_matrix[9];
   double sensor_iso, capture_iso, iso_scaling;
   double lut[LUTSIZE];
-  uint32_t max_intermediate[3];
   spatial_gain_corr_t sgain[MAXCORR];
   int sgain_num;
 
@@ -3897,13 +4171,6 @@ static int convert_data(x3f_t *x3f, x3f_area16_t *image,
   printf("conv_matrix\n");
   x3f_3x3_print(conv_matrix);
 
-  if (!get_max_intermediate(x3f, wb, max_intermediate)) {
-    fprintf(stderr, "Could not get maximum intermediate level\n");
-    return 0;
-  }
-  printf("max_intermediate = {%d,%d,%d}\n",
-	 max_intermediate[0], max_intermediate[1], max_intermediate[2]);
-
   sgain_num = get_spatial_gain(x3f, wb, sgain);
   if (sgain_num == 0)
     fprintf(stderr, "WARNING: could not get spatial gain\n");
@@ -3920,7 +4187,8 @@ static int convert_data(x3f_t *x3f, x3f_area16_t *image,
 	input[color] = calc_spatial_gain(sgain, sgain_num,
 					 row, col, color,
 					 image->rows, image->columns) *
-	  (double)*valp[color]/max_intermediate[color];
+	  (*valp[color] - ilevels->black[color]) /
+	  (ilevels->white[color] - ilevels->black[color]);
       }
 
       /* Do color conversion */
@@ -3933,6 +4201,9 @@ static int convert_data(x3f_t *x3f, x3f_area16_t *image,
   }
 
   cleanup_spatial_gain(sgain, sgain_num);
+
+  ilevels->black[0] = ilevels->black[1] = ilevels->black[2] = 0.0;
+  ilevels->white[0] = ilevels->white[1] = ilevels->white[2] = max_out;
 
   return 1;
 }
@@ -3980,8 +4251,8 @@ static int expand_quattro(x3f_t *x3f, int denoise, x3f_area16_t *expanded)
   expanded->rows = qtop_crop.rows;
   expanded->channels = 3;
   expanded->row_stride = expanded->columns*expanded->channels;
-  /* TODO: This has to be freed !!!! */
-  expanded->data = malloc(expanded->rows*expanded->row_stride*sizeof(uint16_t));
+  expanded->data = expanded->buf =
+    malloc(expanded->rows*expanded->row_stride*sizeof(uint16_t));
 
   if (denoise && !crop_area_camf(x3f, "ActiveImageArea", expanded, 0,
 				 &active_exp)) {
@@ -3998,12 +4269,14 @@ static int expand_quattro(x3f_t *x3f, int denoise, x3f_area16_t *expanded)
 
 static int get_image(x3f_t *x3f,
 		     x3f_area16_t *image,
+		     image_levels_t *ilevels,
 		     x3f_color_encoding_t encoding,
 		     int crop,
 		     int denoise,
 		     char *wb)
 {
   x3f_area16_t original_image, expanded;
+  image_levels_t il;
 
   if (wb == NULL) wb = get_wb(x3f);
 
@@ -4014,7 +4287,7 @@ static int get_image(x3f_t *x3f,
     if (!crop || !crop_area_camf(x3f, "ActiveImageArea", &qtop, 0, image))
       *image = qtop;
 
-    return 1;
+    return ilevels == NULL;
   }
 
   if (!image_area(x3f, &original_image)) return 0;
@@ -4022,9 +4295,9 @@ static int get_image(x3f_t *x3f,
 			       image))
     *image = original_image;
 
-  if (encoding == UNPROCESSED) return 1;
+  if (encoding == UNPROCESSED) return ilevels == NULL;
 
-  if (!preprocess_data(x3f, wb)) return 0;
+  if (!preprocess_data(x3f, wb, &il)) return 0;
 
   if (expand_quattro(x3f, denoise, &expanded)) {
     /* NOTE: expand_quattro destroys the data of original_image */
@@ -4034,9 +4307,13 @@ static int get_image(x3f_t *x3f,
   }
   else if (denoise && !run_denoising(x3f)) return 0;
 
-  if (encoding != NONE && !convert_data(x3f, &original_image, encoding, wb))
+  if (encoding != NONE &&
+      !convert_data(x3f, &original_image, &il, encoding, wb)) {
+    FREE(image->buf);
     return 0;
+  }
 
+  if (ilevels) *ilevels = il;
   return 1;
 }
 
@@ -4092,7 +4369,7 @@ x3f_return_t x3f_dump_raw_data_as_ppm(x3f_t *x3f,
 
   if (f_out == NULL) return X3F_OUTFILE_ERROR;
 
-  if (!get_image(x3f, &image, encoding, crop, denoise, wb) ||
+  if (!get_image(x3f, &image, NULL, encoding, crop, denoise, wb) ||
       image.channels < 3) {
     fclose(f_out);
     return X3F_ARGUMENT_ERROR;
@@ -4122,6 +4399,7 @@ x3f_return_t x3f_dump_raw_data_as_ppm(x3f_t *x3f,
   }
 
   fclose(f_out);
+  FREE(image.buf);
 
   return X3F_OK;
 }
@@ -4140,7 +4418,7 @@ x3f_return_t x3f_dump_raw_data_as_tiff(x3f_t *x3f,
 
   if (f_out == NULL) return X3F_OUTFILE_ERROR;
 
-  if (!get_image(x3f, &image, encoding, crop, denoise, wb)) {
+  if (!get_image(x3f, &image, NULL, encoding, crop, denoise, wb)) {
     TIFFClose(f_out);
     return X3F_ARGUMENT_ERROR;
   }
@@ -4164,6 +4442,7 @@ x3f_return_t x3f_dump_raw_data_as_tiff(x3f_t *x3f,
 
   TIFFWriteDirectory(f_out);
   TIFFClose(f_out);
+  FREE(image.buf);
 
   return X3F_OK;
 }
@@ -4191,7 +4470,7 @@ static int write_camera_profile_for_wb(x3f_t *x3f, TIFF *tiff, char *wb)
   vec_double_to_float(xyz_to_raw, color_matrix1, 9);
   TIFFSetField(tiff, TIFFTAG_COLORMATRIX1, 9, color_matrix1);
   TIFFSetField(tiff, TIFFTAG_PROFILENAME, wb);
-  /* Tell the raw converter to refrian from clipping the dark areas */
+  /* Tell the raw converter to refrain from clipping the dark areas */
   TIFFSetField(tiff, TIFFTAG_DEFAULTBLACKRENDER, 1);
 
   return 1;
@@ -4381,19 +4660,24 @@ x3f_return_t x3f_dump_raw_data_as_dng(x3f_t *x3f,
   float color_matrix[9];
   double gain[3], gain_inv[3];
   float as_shot_neutral[3];
-  uint32_t white_level[3];
+  float black_level[3];
   uint32_t active_area[4];
   x3f_area16_t image;
+  image_levels_t ilevels;
   int row;
 
   if (wb == NULL) wb = get_wb(x3f);
-  if (!get_image(x3f, &image, NONE, 0, denoise, wb) || image.channels != 3)
+  if (!get_image(x3f, &image, &ilevels, NONE, 0, denoise, wb) ||
+      image.channels != 3)
     return X3F_ARGUMENT_ERROR;
 
   x3f_dngtags_install_extender();
 
   f_out = TIFFOpen(outfilename, "w");
-  if (f_out == NULL) return X3F_OUTFILE_ERROR;
+  if (f_out == NULL) {
+    FREE(image.buf);
+    return X3F_OUTFILE_ERROR;
+  }
 
   TIFFSetField(f_out, TIFFTAG_SUBFILETYPE, FILETYPE_REDUCEDIMAGE);
   TIFFSetField(f_out, TIFFTAG_IMAGEWIDTH, THUMBSIZE);
@@ -4419,6 +4703,7 @@ x3f_return_t x3f_dump_raw_data_as_dng(x3f_t *x3f,
 
   if (!get_raw_to_xyz(x3f, wb, raw_to_xyz)) {
     fprintf(stderr, "Could not get raw_to_xyz for white balance: %s\n", wb);
+    FREE(image.buf);
     TIFFClose(f_out);
     return X3F_ARGUMENT_ERROR;
   }
@@ -4429,6 +4714,7 @@ x3f_return_t x3f_dump_raw_data_as_dng(x3f_t *x3f,
   if (!get_gain(x3f, wb, gain)) {
     fprintf(stderr, "Could not get gain for white balance: %s\n", wb);
     TIFFClose(f_out);
+    FREE(image.buf);
     return X3F_ARGUMENT_ERROR;
   }
   x3f_3x1_invert(gain, gain_inv);
@@ -4453,12 +4739,9 @@ x3f_return_t x3f_dump_raw_data_as_dng(x3f_t *x3f,
   /* Prevent further chroma denoising in DNG processing software */
   TIFFSetField(f_out, TIFFTAG_CHROMABLURRADIUS, 0.0);
 
-  if (!get_max_intermediate(x3f, wb, white_level)) {
-    fprintf(stderr, "Could not get maximum intermediate level\n");
-    TIFFClose(f_out);
-    return X3F_ARGUMENT_ERROR;
-  }
-  TIFFSetField(f_out, TIFFTAG_WHITELEVEL, 3, white_level);
+  vec_double_to_float(ilevels.black, black_level, 3);
+  TIFFSetField(f_out, TIFFTAG_BLACKLEVEL, 3, black_level);
+  TIFFSetField(f_out, TIFFTAG_WHITELEVEL, 3, ilevels.white);
 
   if (!write_spatial_gain(x3f, &image, wb, f_out))
     fprintf(stderr, "WARNING: could not get spatial gain\n");
@@ -4471,6 +4754,7 @@ x3f_return_t x3f_dump_raw_data_as_dng(x3f_t *x3f,
 
   TIFFWriteDirectory(f_out);
   TIFFClose(f_out);
+  FREE(image.buf);
 
   return X3F_OK;
 }
@@ -4513,7 +4797,7 @@ x3f_return_t x3f_dump_raw_data_as_histogram(x3f_t *x3f,
 
   if (f_out == NULL) return X3F_OUTFILE_ERROR;
 
-  if (!get_image(x3f, &image, encoding, crop, denoise, wb) ||
+  if (!get_image(x3f, &image, NULL, encoding, crop, denoise, wb) ||
       image.channels < 3) {
     fclose(f_out);
     return X3F_ARGUMENT_ERROR;
@@ -4559,6 +4843,7 @@ x3f_return_t x3f_dump_raw_data_as_histogram(x3f_t *x3f,
     free(histogram[color]);
 
   fclose(f_out);
+  FREE(image.buf);
 
   return X3F_OK;
 }
