@@ -1540,7 +1540,7 @@ x3f_return_t x3f_dump_raw_data_as_dng(x3f_t *x3f,
   TIFFSetField(f_out, TIFFTAG_ASSHOTNEUTRAL, 3, as_shot_neutral);
 
   memset(thumbnail, 0, 3*THUMBSIZE); /* TODO: Thumbnail is all black */
-  for (row=0; row < 100; row++)
+  for (row=0; row < THUMBSIZE; row++)
     TIFFWriteScanline(f_out, thumbnail, row, 0);
 
   TIFFWriteDirectory(f_out);
