@@ -110,68 +110,6 @@ static int x3f_get4(FILE *f)
     }									\
   } while (0)
 
-#define PUT1(_v) x3f_put1(I->output.file, _v)
-#define PUT2(_v) x3f_put2(I->output.file, _v)
-#define PUT4(_v) x3f_put4(I->output.file, _v)
-#define PUTN(_v,_s) PUT_GET_N(_v,_s,I->output.file,fwrite)
-
-#define PUT_TABLE(_T, _PUTX)			\
-  do {						\
-    int _i;					\
-    if ((_T).size == 0) break;			\
-    for (_i = 0; _i < (_T).size; _i++)		\
-      _PUTX((_T).element[_i]);			\
-  } while (0)
-
-#define PUT_PROPERTY_TABLE(_T)					\
-  do {								\
-    int _i;							\
-    if ((_T).size == 0) break;					\
-    for (_i = 0; _i < (_T).size; _i++) {			\
-      PUT4((_T).element[_i].name_offset);			\
-      PUT4((_T).element[_i].value_offset);			\
-    }								\
-  } while (0)
-
-#define PUT_TRUE_HUFF_TABLE(_T)				\
-  do {							\
-    int _i;						\
-    if ((_T).size == 0) break;				\
-    for (_i = 0; _i < (_T).size; _i++) {		\
-      PUT1((_T).element[_i].code_size);			\
-      PUT1((_T).element[_i].code);			\
-    }							\
-  } while (0)
-
-
-#if 0
-/* --------------------------------------------------------------------- */
-/* Converting - ingeger vs memory - assuming little endian in the memory */
-/* --------------------------------------------------------------------- */
-
-static void x3f_convert2(void *to, void *from)
-{
-  uint8_t *f = (uint8_t *)from;
-  uint16_t *t = (uint16_t *)to;
-
-  /* Little endian memory */
-  *t = (uint16_t)((*(f+0)<<0) + (*(f+1)<<8));
-}
-
-static void x3f_convert4(void *to, void *from)
-{
-  uint8_t *f = (uint8_t *)from;
-  uint16_t *t = (uint16_t *)to;
-
-  /* Little endian memory */
-  *t = (uint32_t)((*(f+0)<<0) + (*(f+1)<<8) + (*(f+2)<<16) + (*(f+3)<<24));
-}
-
-#define CONV2(_v, _p) do {x3f_conv2(_p, _v);} while (0)
-#define CONV4(_v, _p) do {x3f_conv4(_p, _v);} while (0)
-#endif
-
-
 /* --------------------------------------------------------------------- */
 /* Allocating Huffman tree help data                                   */
 /* --------------------------------------------------------------------- */
@@ -313,7 +251,6 @@ static x3f_huffman_t *new_huffman(x3f_huffman_t **HUFP)
 
   return HUF;
 }
-
 
 /* --------------------------------------------------------------------- */
 /* Creating a new x3f structure from file                                */
@@ -464,115 +401,6 @@ static x3f_huffman_t *new_huffman(x3f_huffman_t **HUFP)
 
   return x3f;
 }
-
-
-#if 0 /* Not used display functions */
-
-/* --------------------------------------------------------------------- */
-/* Pretty print UTF 16                                        */
-/* --------------------------------------------------------------------- */
-
-static char display_char(char c)
-{
-  if (c == 0)
-    return ',';
-  if (c >= '0' && c <= '9')
-    return c;
-  if (c >= 'a' && c <= 'z')
-    return c;
-  if (c >= 'A' && c <= 'Z')
-    return c;
-  if (c == '_')
-    return c;
-  if (c == '.')
-    return c;
-  if (c == '-')
-    return c;
-  if (c == '/')
-    return c;
-  if (c == ' ')
-    return c;
-
-  return '?';
-}
-
-static char *display_chars(char *str, char *buffer, int size)
-{
-  int i;
-  char *b = buffer;
-
-  for (i=0; i<size; i++) {
-    *b++ = display_char(*str++);
-  }
-
-  *b = 0;
-
-  return buffer;
-}
-
-static char *display_char_string(char *str, char *buffer)
-{
-  char *b = buffer;
-
-  while (*str != 0x0) {
-    *b++ = display_char(*str++);
-  }
-
-  *b = 0;
-
-  return buffer;
-}
-
-static char *display_utf16s(utf16_t *str, char *buffer, int size)
-{
-  int i;
-  char *b = buffer;
-
-  for (i=0; i<size; i += 2) { 
-
-    char *chr = (char *)str;
-
-    char chr1 = *chr;
-    char chr2 = *(chr+1);
-
-    if (chr1)
-      *b++ = display_char(chr1);
-    if (chr2)
-      *b++ = display_char(chr2);
-
-    str++;
-  }
-
-  *b = 0;
-
-  return buffer;
-}
-
-static char *display_utf16_string(utf16_t *str, char *buffer)
-{
-  char *b = buffer;
-
-  while (*str != 0x00) {
-
-    char *chr = (char *)str;
-
-    char chr1 = *chr;
-    char chr2 = *(chr+1);
-
-    if (chr1)
-      *b++ = display_char(chr1);
-    if (chr2)
-      *b++ = display_char(chr2);
-
-    str++;
-  }
-
-  *b = 0;
-
-  return buffer;
-}
-
-#endif /* Not used display functions */
 
 /* --------------------------------------------------------------------- */
 /* Pretty print the x3f structure                                        */
@@ -1032,7 +860,6 @@ static void print_prop_meta_data(FILE *f_out, x3f_t *x3f)
   }
 }
 
-
 /* --------------------------------------------------------------------- */
 /* Clean up an x3f structure                                             */
 /* --------------------------------------------------------------------- */
@@ -1106,7 +933,6 @@ static void free_camf_entry(camf_entry_t *entry)
 
   return X3F_OK;
 }
-
 
 /* --------------------------------------------------------------------- */
 /* Getting a reference to a directory entry                              */
@@ -1203,7 +1029,6 @@ static x3f_directory_entry_t *x3f_get(x3f_t *x3f,
 
 #define PATTERN_BIT_POS(_len, _bit) ((_len) - (_bit) - 1)
 #define MEMORY_BIT_POS(_bit) PATTERN_BIT_POS(8, _bit)
-
 
 /* --------------------------------------------------------------------- */
 /* Huffman Decode                                                        */
