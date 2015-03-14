@@ -472,10 +472,6 @@ extern int x3f_get_max_raw(x3f_t *x3f, uint32_t *max_raw);
 extern int x3f_image_area(x3f_t *x3f, x3f_area16_t *image);
 extern int x3f_image_area_qtop(x3f_t *x3f, x3f_area16_t *image);
 
-extern x3f_return_t x3f_dump_raw_data(x3f_t *x3f, char *outfilename);
-
-extern x3f_return_t x3f_dump_jpeg(x3f_t *x3f, char *outfilename);
-
 extern char *x3f_err(x3f_return_t err);
 
 #ifdef __cplusplus

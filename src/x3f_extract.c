@@ -8,6 +8,7 @@
 #include "x3f_io.h"
 #include "x3f_process.h"
 #include "x3f_print.h"
+#include "x3f_dump.h"
 #include "x3f_denoise.h"
 
 #include <stdio.h>

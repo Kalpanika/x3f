@@ -2347,34 +2347,6 @@ static void x3f_load_camf(x3f_info_t *I, x3f_directory_entry_t *DE)
   return 1;
 }
 
-/* extern */ x3f_return_t x3f_dump_jpeg(x3f_t *x3f, char *outfilename)
-{
-  x3f_directory_entry_t *DE = x3f_get_thumb_jpeg(x3f);
-
-  if (DE == NULL) {
-    return X3F_ARGUMENT_ERROR;
-  } else {
-    x3f_directory_entry_header_t *DEH = &DE->header;
-    x3f_image_data_t *ID = &DEH->data_subsection.image_data;
-    void *data = ID->data;
-
-    if (data == NULL) {
-      return X3F_INTERNAL_ERROR;
-    } else {
-      FILE *f_out = fopen(outfilename, "wb");
-
-      if (f_out == NULL) {
-        return X3F_OUTFILE_ERROR;
-      } else {
-        fwrite(data, 1, DE->input.size, f_out);
-        fclose(f_out);
-      }
-    }
-  }
-
-  return X3F_OK;
-}
-
 /* extern */ char *x3f_err(x3f_return_t err)
 {
   switch (err) {
