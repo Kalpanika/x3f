@@ -445,9 +445,6 @@ extern x3f_return_t x3f_load_data(x3f_t *x3f, x3f_directory_entry_t *DE);
 
 extern x3f_return_t x3f_load_image_block(x3f_t *x3f, x3f_directory_entry_t *DE);
 
-extern int x3f_image_area(x3f_t *x3f, x3f_area16_t *image);
-extern int x3f_image_area_qtop(x3f_t *x3f, x3f_area16_t *image);
-
 extern char *x3f_err(x3f_return_t err);
 
 #ifdef __cplusplus

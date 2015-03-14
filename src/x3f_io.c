@@ -1933,55 +1933,6 @@ static void x3f_load_camf(x3f_info_t *I, x3f_directory_entry_t *DE)
   return X3F_OK;
 }
 
-/* extern */ int x3f_image_area(x3f_t *x3f, x3f_area16_t *image)
-{
-  x3f_directory_entry_t *DE = x3f_get_raw(x3f);
-  x3f_directory_entry_header_t *DEH;
-  x3f_image_data_t *ID;
-  x3f_huffman_t *HUF;
-  x3f_true_t *TRU;
-  x3f_area16_t *area = NULL;
-
-  if (!DE) return 0;
-
-  DEH = &DE->header;
-  ID = &DEH->data_subsection.image_data;
-  HUF = ID->huffman;
-  TRU = ID->tru;
-
-  if (HUF != NULL)
-    area = &HUF->x3rgb16;
-
-  if (TRU != NULL)
-    area = &TRU->x3rgb16;
-
-  if (!area || !area->data) return 0;
-  *image = *area;
-  image->buf = NULL;		/* cleanup_true/cleanup_huffman is
-				   responsible for free() */
-  return 1;
-}
-
-/* extern */ int x3f_image_area_qtop(x3f_t *x3f, x3f_area16_t *image)
-{
-  x3f_directory_entry_t *DE = x3f_get_raw(x3f);
-  x3f_directory_entry_header_t *DEH;
-  x3f_image_data_t *ID;
-  x3f_quattro_t *Q;
-
-  if (!DE) return 0;
-
-  DEH = &DE->header;
-  ID = &DEH->data_subsection.image_data;
-  Q = ID->quattro;
-
-  if (!Q || !Q->top16.data) return 0;
-  *image = Q->top16;
-  image->buf = NULL;		/* cleanup_quattro is responsible for free() */
-
-  return 1;
-}
-
 /* extern */ char *x3f_err(x3f_return_t err)
 {
   switch (err) {

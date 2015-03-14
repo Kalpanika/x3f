@@ -1,6 +1,7 @@
 #include "x3f_process.h"
 #include "x3f_io.h"
 #include "x3f_meta.h"
+#include "x3f_image.h"
 #include "x3f_matrix.h"
 #include "x3f_dngtags.h"
 #include "x3f_denoise.h"
@@ -12,103 +13,6 @@
 #include <assert.h>
 #include <tiffio.h>
 
-static int crop_area(uint32_t *coord, x3f_area16_t *image, x3f_area16_t *crop)
-{
-  if (coord[0] > coord[2] || coord[1] > coord[3]) return 0;
-  if (coord[2] >= image->columns || coord[3] >= image->rows) return 0;
-
-  crop->data =
-    image->data + image->channels*coord[0] + image->row_stride*coord[1];
-  crop->columns = coord[2] - coord[0] + 1;
-  crop->rows = coord[3] - coord[1] + 1;
-  crop->channels = image->channels;
-  crop->row_stride = image->row_stride;
-  crop->buf = image->buf;
-
-  return 1;
-}
-
-/* NOTE: The existence of KeepImageArea and, in the case of Quattro,
-         layers with different resolution makes coordinate
-         transformation pretty complicated.
-
-         For rescale = 0, the origin and resolution of image MUST
-         correspond to those of KeepImageArea. image can be bigger but NOT
-         smmaler than KeepImageArea. 
-
-	 For rescale = 1, the bounds of image MUST correspond exatly
-	 to those of KeepImageArea, but their resolutions can be
-	 different. */
-static int get_camf_rect(x3f_t *x3f, char *name,
-			 x3f_area16_t *image, int rescale,
-			 uint32_t *rect)
-{
-  uint32_t keep[4], keep_cols, keep_rows;
-  
-  if (!x3f_get_camf_matrix(x3f, name, 4, 0, 0, M_UINT, rect)) return 0;
-  if (!x3f_get_camf_matrix(x3f, "KeepImageArea", 4, 0, 0, M_UINT, keep))
-    return 0;
-  keep_cols = keep[2] - keep[0] + 1;
-  keep_rows = keep[3] - keep[1] + 1;
-  
-  /* Make sure that at least some part of rect is within the bounds of
-     KeepImageArea */
-  if (rect[0] > keep[2] || rect[1] > keep[3] ||
-      rect[2] < keep[0] || rect[3] < keep[1]) {
-    fprintf(stderr,
-	    "WARNING: CAMF rect %s (%u,%u,%u,%u) completely out of bounds : "
-	    "KeepImageArea (%u,%u,%u,%u)\n", name,
-	    rect[0], rect[1], rect[2], rect[3],
-	    keep[0], keep[1], keep[2], keep[3]);
-    return 0;
-  }
-  
-  /* Clip rect to the bouds of KeepImageArea */
-  if (rect[0] < keep[0]) rect[0] = keep[0];
-  if (rect[1] < keep[1]) rect[1] = keep[1];
-  if (rect[2] > keep[2]) rect[2] = keep[2];
-  if (rect[3] > keep[3]) rect[3] = keep[3];
-  
-  /* Translate rect so coordinates are relative to the origin of
-     KeepImageArea */
-  rect[0] -= keep[0];
-  rect[1] -= keep[1];
-  rect[2] -= keep[0];
-  rect[3] -= keep[1];
-  
-  if (rescale) {
-    /* Rescale rect from the resolution of KeepImageArea to that of image */
-    rect[0] = rect[0]*image->columns/keep_cols;
-    rect[1] = rect[1]*image->rows/keep_rows;
-    rect[2] = rect[2]*image->columns/keep_cols;
-    rect[3] = rect[3]*image->rows/keep_rows;
-  }
-  /* Make sure that KeepImageArea is within the bounds of image */
-  else if (keep_cols > image->columns || keep_rows > image->rows) {
-    fprintf(stderr,
-	    "WARNING: KeepImageArea (%u,%u,%u,%u) out of bounds : "
-	    "image size (%u,%u)\n",
-	    keep[0], keep[1], keep[2], keep[3],
-	    image->columns, image->rows);
-    return 0;
-  }
-
-  return 1;
-}
-
-static int crop_area_camf(x3f_t *x3f, char *name,
-			  x3f_area16_t *image, int rescale,
-			  x3f_area16_t *crop)
-{
-  uint32_t coord[4];
-
-  if (!get_camf_rect(x3f, name, image, rescale, coord)) return 0;
-  /* This should not fail as long as get_camf_rect is implemented correctly */
-  assert(crop_area(coord, image, crop));
-
-  return 1;
-}
-
 static int sum_area(x3f_t *x3f, char *name,
 		    x3f_area16_t *image, int rescale, int colors,
 		    uint64_t *sum /* in/out */)
@@ -117,7 +21,7 @@ static int sum_area(x3f_t *x3f, char *name,
   int row, col, color;
 
   if (image->channels < colors) return 0;
-  if (!crop_area_camf(x3f, name, image, rescale, &area)) return 0;
+  if (!x3f_crop_area_camf(x3f, name, image, rescale, &area)) return 0;
 
   for (row = 0; row < area.rows; row++)
     for (col = 0; col < area.columns; col++)
@@ -136,7 +40,7 @@ static int sum_area_sqdev(x3f_t *x3f, char *name,
   int row, col, color;
 
   if (image->channels < colors) return 0;
-  if (!crop_area_camf(x3f, name, image, rescale, &area)) return 0;
+  if (!x3f_crop_area_camf(x3f, name, image, rescale, &area)) return 0;
 
   for (row = 0; row < area.rows; row++)
     for (col = 0; col < area.columns; col++)
@@ -1249,7 +1153,7 @@ static int run_denoising(x3f_t *x3f)
   char *sensorid;
 
   if (!x3f_image_area(x3f, &original_image)) return 0;
-  if (!crop_area_camf(x3f, "ActiveImageArea", &original_image, 1, &image)) {
+  if (!x3f_crop_area_camf(x3f, "ActiveImageArea", &original_image, 1, &image)) {
     image = original_image;
     fprintf(stderr,
 	    "WARNING: could not get active area, denoising entire image\n");
@@ -1270,7 +1174,8 @@ static int expand_quattro(x3f_t *x3f, int denoise, x3f_area16_t *expanded)
 
   if (!x3f_image_area_qtop(x3f, &qtop)) return 0;
   if (!x3f_image_area(x3f, &image)) return 0;
-  if (denoise && !crop_area_camf(x3f, "ActiveImageArea", &image, 1, &active)) {
+  if (denoise &&
+      !x3f_crop_area_camf(x3f, "ActiveImageArea", &image, 1, &active)) {
     active = image;
     fprintf(stderr,
 	    "WARNING: could not get active area, denoising entire image\n");
@@ -1280,7 +1185,7 @@ static int expand_quattro(x3f_t *x3f, int denoise, x3f_area16_t *expanded)
   rect[1] = 0;
   rect[2] = 2*image.columns - 1;
   rect[3] = 2*image.rows - 1;
-  if (!crop_area(rect, &qtop, &qtop_crop)) return 0;
+  if (!x3f_crop_area(rect, &qtop, &qtop_crop)) return 0;
 
   expanded->columns = qtop_crop.columns;
   expanded->rows = qtop_crop.rows;
@@ -1289,8 +1194,8 @@ static int expand_quattro(x3f_t *x3f, int denoise, x3f_area16_t *expanded)
   expanded->data = expanded->buf =
     malloc(expanded->rows*expanded->row_stride*sizeof(uint16_t));
 
-  if (denoise && !crop_area_camf(x3f, "ActiveImageArea", expanded, 0,
-				 &active_exp)) {
+  if (denoise && !x3f_crop_area_camf(x3f, "ActiveImageArea", expanded, 0,
+				     &active_exp)) {
     active_exp = *expanded;
     fprintf(stderr,
 	    "WARNING: could not get active area, denoising entire image\n");
@@ -1319,15 +1224,15 @@ static int get_image(x3f_t *x3f,
     x3f_area16_t qtop;
 
     if (!x3f_image_area_qtop(x3f, &qtop)) return 0;
-    if (!crop || !crop_area_camf(x3f, "ActiveImageArea", &qtop, 0, image))
+    if (!crop || !x3f_crop_area_camf(x3f, "ActiveImageArea", &qtop, 0, image))
       *image = qtop;
 
     return ilevels == NULL;
   }
 
   if (!x3f_image_area(x3f, &original_image)) return 0;
-  if (!crop || !crop_area_camf(x3f, "ActiveImageArea", &original_image, 1,
-			       image))
+  if (!crop || !x3f_crop_area_camf(x3f, "ActiveImageArea", &original_image, 1,
+				   image))
     *image = original_image;
 
   if (encoding == UNPROCESSED) return ilevels == NULL;
@@ -1336,7 +1241,8 @@ static int get_image(x3f_t *x3f,
 
   if (expand_quattro(x3f, denoise, &expanded)) {
     /* NOTE: expand_quattro destroys the data of original_image */
-    if (!crop || !crop_area_camf(x3f, "ActiveImageArea", &expanded, 0, image))
+    if (!crop ||
+	!x3f_crop_area_camf(x3f, "ActiveImageArea", &expanded, 0, image))
       *image = expanded;
     original_image = expanded;
   }
@@ -1467,7 +1373,7 @@ static int get_camf_rect_as_dngrect(x3f_t *x3f, char *name,
 {
   uint32_t camf_rect[4];
 
-  if (!get_camf_rect(x3f, name, image, rescale, camf_rect))
+  if (!x3f_get_camf_rect(x3f, name, image, rescale, camf_rect))
     return 0;
   
   /* Translate from Sigma's to Adobe's view on rectangles */
