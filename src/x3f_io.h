@@ -425,11 +425,7 @@ typedef enum x3f_return_e {
 extern int legacy_offset;
 extern bool_t auto_legacy_offset;
 
-extern uint32_t max_printed_matrix_elements;
-
 extern x3f_t *x3f_new_from_file(FILE *infile);
-
-extern void x3f_print(x3f_t *x3f);
 
 extern x3f_return_t x3f_delete(x3f_t *x3f);
 
@@ -479,8 +475,6 @@ extern int x3f_image_area_qtop(x3f_t *x3f, x3f_area16_t *image);
 extern x3f_return_t x3f_dump_raw_data(x3f_t *x3f, char *outfilename);
 
 extern x3f_return_t x3f_dump_jpeg(x3f_t *x3f, char *outfilename);
-
-extern x3f_return_t x3f_dump_meta_data(x3f_t *x3f, char *outfilename);
 
 extern char *x3f_err(x3f_return_t err);
 
