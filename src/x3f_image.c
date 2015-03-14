@@ -84,7 +84,7 @@
 
          For rescale = 0, the origin and resolution of image MUST
          correspond to those of KeepImageArea. image can be bigger but NOT
-         smmaler than KeepImageArea. 
+         smmaler than KeepImageArea.
 
 	 For rescale = 1, the bounds of image MUST correspond exatly
 	 to those of KeepImageArea, but their resolutions can be
@@ -94,13 +94,13 @@
 				   uint32_t *rect)
 {
   uint32_t keep[4], keep_cols, keep_rows;
-  
+
   if (!x3f_get_camf_matrix(x3f, name, 4, 0, 0, M_UINT, rect)) return 0;
   if (!x3f_get_camf_matrix(x3f, "KeepImageArea", 4, 0, 0, M_UINT, keep))
     return 0;
   keep_cols = keep[2] - keep[0] + 1;
   keep_rows = keep[3] - keep[1] + 1;
-  
+
   /* Make sure that at least some part of rect is within the bounds of
      KeepImageArea */
   if (rect[0] > keep[2] || rect[1] > keep[3] ||
@@ -112,20 +112,20 @@
 	    keep[0], keep[1], keep[2], keep[3]);
     return 0;
   }
-  
+
   /* Clip rect to the bouds of KeepImageArea */
   if (rect[0] < keep[0]) rect[0] = keep[0];
   if (rect[1] < keep[1]) rect[1] = keep[1];
   if (rect[2] > keep[2]) rect[2] = keep[2];
   if (rect[3] > keep[3]) rect[3] = keep[3];
-  
+
   /* Translate rect so coordinates are relative to the origin of
      KeepImageArea */
   rect[0] -= keep[0];
   rect[1] -= keep[1];
   rect[2] -= keep[0];
   rect[3] -= keep[1];
-  
+
   if (rescale) {
     /* Rescale rect from the resolution of KeepImageArea to that of image */
     rect[0] = rect[0]*image->columns/keep_cols;

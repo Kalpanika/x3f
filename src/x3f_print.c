@@ -101,7 +101,7 @@ static void print_matrix(FILE *f_out, camf_entry_t *entry)
     fprintf(f_out, "x: %s\n", entry->matrix_dim_entry[2].name);
     fprintf(f_out, "y: %s\n", entry->matrix_dim_entry[1].name);
     fprintf(f_out, "z: %s (i.e. group)\n", entry->matrix_dim_entry[0].name);
-    blocksize = linesize * entry->matrix_dim_entry[dim-2].size; 
+    blocksize = linesize * entry->matrix_dim_entry[dim-2].size;
     break;
   default:
     fprintf(f_out, "\nNot support for higher than 3D in printout\n");

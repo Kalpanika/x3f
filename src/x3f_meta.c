@@ -228,7 +228,7 @@
   }
 
   fprintf(stderr, "CAMF entry not found: %s\n", list);
-  
+
   return 0;
 }
 
@@ -240,7 +240,7 @@
 
   if (!x3f_get_camf_property_list(x3f, list, &names, &values, &num))
     return 0;
-  
+
   for (i=0; i<num; i++)
     if (!strcmp(names[i], name)) {
 	*value = values[i];

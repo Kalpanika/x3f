@@ -60,7 +60,7 @@ static int get_black_level(x3f_t *x3f,
   uint64_t *black_sum;
   double *black_sum_sqdev;
   int pixels, i;
-  
+
   pixels = 0;
   black_sum = alloca(colors*sizeof(uint64_t));
   memset(black_sum, 0, colors*sizeof(uint64_t));
@@ -121,7 +121,7 @@ static int get_gain(x3f_t *x3f, char *wb, double *gain)
 
   if (x3f_get_camf_float_vector(x3f, "TempGainFact", gain_fact))
     x3f_3x1_comp_mul(gain_fact, gain, gain);
-     
+
   if (x3f_get_camf_float_vector(x3f, "FNumberGainFact", gain_fact))
     x3f_3x1_comp_mul(gain_fact, gain, gain);
 
@@ -134,7 +134,7 @@ static int get_gain(x3f_t *x3f, char *wb, double *gain)
 static int get_bmt_to_xyz(x3f_t *x3f, char *wb, double *bmt_to_xyz)
 {
   double cc_matrix[9], cam_to_xyz[9], wb_correction[9];
-  
+
   if (x3f_get_camf_matrix_for_wb(x3f, "WhiteBalanceColorCorrections", wb,
 				 3, 3, cc_matrix) ||
       x3f_get_camf_matrix_for_wb(x3f, "DP1_WhiteBalanceColorCorrections", wb,
@@ -197,7 +197,7 @@ static double get_focal_length(x3f_t *x3f)
     fprintf(stderr, "WARNING: could not get focal length, assuming %g mm\n",
 	    focal_length);
   }
-    
+
   return focal_length;
 }
 
@@ -212,7 +212,7 @@ static double get_object_distance(x3f_t *x3f)
     fprintf(stderr, "WARNING: could not get object distance, assuming %g mm\n",
 	    object_distance);
   }
-    
+
   return object_distance;
 }
 
@@ -249,7 +249,7 @@ typedef struct {
 
   uint32_t *gain;
   double mingain, delta;
-} spatial_gain_corr_merrill_t; 
+} spatial_gain_corr_merrill_t;
 
 typedef struct {
   double *gain;		    /* final gain (interpolated if necessary) */
@@ -287,7 +287,7 @@ static int get_merrill_type_gains_table(x3f_t *x3f, char *name, char *chan,
   sprintf(table, "Delta%s", chan);
   if (!x3f_get_camf_property(x3f, name, table, &val)) return 0;
   *delta = atof(val);
-  
+
   return 1;
 }
 
@@ -331,12 +331,12 @@ static int get_merrill_type_spatial_gain(x3f_t *x3f, int hp_flag,
 				 M_FLOAT, (void **)&spatial_gain_fstop))
       return 0;
     corr_num = 6; /* R, G, B0, B1, B2, B3 */
-    
+
     for (i=0; i<include_blocks_num; i++) {
       char **names, **values;
       uint32_t num, aperture_index;
       char dummy;
-      
+
       if (sscanf(include_blocks[i], "SpatialGainHPProps_%d%c",
 		 &aperture_index, &dummy) == 1 &&
 	  x3f_get_camf_property_list(x3f, include_blocks[i],
@@ -350,7 +350,7 @@ static int get_merrill_type_spatial_gain(x3f_t *x3f, int hp_flag,
 	gains = g;
       }
     }
-    
+
     x = 1.0/capture_aperture;
     y = 0.0;			/* unused */
   }
@@ -362,20 +362,20 @@ static int get_merrill_type_spatial_gain(x3f_t *x3f, int hp_flag,
 	char **names, **values;
 	uint32_t num, aperture_index;
 	char focus_distance[4], dummy;
-	
+
 	if (sscanf(include_blocks[i], "SpatialGainsProps_%d_%3s%c",
 		   &aperture_index, focus_distance, &dummy) == 2 &&
 	    x3f_get_camf_property_list(x3f, include_blocks[i],
 				       &names, &values, &num) &&
 	    aperture_index >= 0 && aperture_index < num_fstop) {
 	  double lenspos;
-	  
+
 	  if (!strcmp(focus_distance, "INF"))
 	    lenspos = lens_position(get_focal_length(x3f), INFINITY);
 	  else if (!strcmp(focus_distance, "MOD"))
 	    lenspos = lens_position(get_focal_length(x3f), get_MOD(x3f));
 	  else continue;
-	  
+
 	  g = alloca(sizeof(merrill_spatial_gain_t));
 	  g->name = include_blocks[i];
 	  g->x = 1.0/spatial_gain_fstop[aperture_index];
@@ -390,7 +390,7 @@ static int get_merrill_type_spatial_gain(x3f_t *x3f, int hp_flag,
 	uint32_t num;
 	double aperture, lenspos;
 	char dummy;
-	  
+
 	if (sscanf(include_blocks[i], "SpatialGainsProps_%lf_%lf%c",
 		   &aperture, &lenspos, &dummy) == 2 &&
 	    x3f_get_camf_property_list(x3f, include_blocks[i],
@@ -403,13 +403,13 @@ static int get_merrill_type_spatial_gain(x3f_t *x3f, int hp_flag,
 	  gains = g;
 	}
       }
-    
+
     /* TODO: doing bilinear interpolation with respect to 1/aperture
        and lens position. Is that correct? */
     x = 1.0/capture_aperture;
     y = lens_position(get_focal_length(x3f), get_object_distance(x3f));
   }
-  
+
   for (g=gains; g; g=g->next) {
     double dx = g->x - x;
     double dy = g->y - y;
@@ -428,7 +428,7 @@ static int get_merrill_type_spatial_gain(x3f_t *x3f, int hp_flag,
       q_closest_d2[q] = d2;
     }
   }
-  
+
   /* TODO: bilinear interpolation requires that the points be laid out
      in a more or less rectilinear grid. Is that assumption good
      enough? It appears to be valid for the current cameras. */
@@ -468,7 +468,7 @@ static int get_merrill_type_spatial_gain(x3f_t *x3f, int hp_flag,
     spatial_gain_corr_t *c = &corr[i];
     c->gain = NULL;		/* No interploated gains present */
     c->malloc = 0;
-    
+
     c->rows = c->cols = -1;
     c->rowoff = c->coloff = 0;
     c->rowpitch = c->colpitch = 1;
@@ -506,7 +506,7 @@ static int get_merrill_type_spatial_gain(x3f_t *x3f, int hp_flag,
     char *channels_hp[6] = {"R", "G", "B0", "B1", "B2", "B3"};
     char **channels = hp_flag ? channels_hp : channels_normal;
     int j;
-    
+
     if (!q_closest[i]) continue;
     name = q_closest[i]->name;
 
@@ -519,12 +519,12 @@ static int get_merrill_type_spatial_gain(x3f_t *x3f, int hp_flag,
 					&m->gain, &c->rows, &c->cols,
 					&m->mingain, &m->delta))
 	return 0;
-    }    
+    }
   }
 
   for (i=0; i<corr_num; i++)
     if (corr[i].mgain_num == 0) return 0;
-  
+
   return corr_num;
 }
 
@@ -537,13 +537,13 @@ static int get_interp_merrill_type_spatial_gain(x3f_t *x3f, int hp_flag,
   for (i=0; i<corr_num; i++) {
     spatial_gain_corr_t *c = &corr[i];
     int j, num = c->rows*c->cols*c->channels;
-    
+
     c->gain = malloc(num*sizeof(double));
     c->malloc = 1;
 
     for (j=0; j<num; j++) {
       int g;
-      
+
       c->gain[j] = 0.0;
       for (g=0; g < c->mgain_num; g++) {
 	spatial_gain_corr_merrill_t *m = &c->mgain[g];
@@ -559,7 +559,7 @@ static int get_classic_spatial_gain(x3f_t *x3f, char *wb,
 				    spatial_gain_corr_t *corr)
 {
   char *gain_name;
-  
+
   if ((x3f_get_camf_property(x3f, "SpatialGainTables", wb, &gain_name) &&
        x3f_get_camf_matrix_var(x3f, gain_name,
 			       &corr->rows, &corr->cols, &corr->channels,
@@ -649,10 +649,10 @@ static double calc_spatial_gain(spatial_gain_corr_t *corr, int corr_num,
 
     gr1 = r1[co1] + cf*(r1[co2]-r1[co1]);
     gr2 = r2[co1] + cf*(r2[co2]-r2[co1]);
- 
+
     gain *= gr1 + rf*(gr2-gr1);
   }
-  
+
   return gain;
 }
 
@@ -942,7 +942,7 @@ static int preprocess_data(x3f_t *x3f, char *wb, image_levels_t *ilevels)
   double scale[3], black_level[3], black_dev[3], intermediate_bias;
   int quattro = x3f_image_area_qtop(x3f, &qtop);
   int colors_in = quattro ? 2 : 3;
-  
+
   if (!x3f_image_area(x3f, &image) || image.channels < 3) return 0;
   if (quattro && (qtop.channels < 1 ||
 		  qtop.rows < 2*image.rows || qtop.columns < 2*image.columns))
@@ -982,7 +982,7 @@ static int preprocess_data(x3f_t *x3f, char *wb, image_levels_t *ilevels)
   for (color = 0; color < 3; color++)
     scale[color] = (ilevels->white[color] - ilevels->black[color]) /
       (max_raw[color] - black_level[color]);
-  
+
   /* Preprocess image data (HUF/TRU->x3rgb16) */
   for (row = 0; row < image.rows; row++)
     for (col = 0; col < image.columns; col++)
@@ -1112,7 +1112,7 @@ static int convert_data(x3f_t *x3f,
   sgain_num = get_spatial_gain(x3f, wb, sgain);
   if (sgain_num == 0)
     fprintf(stderr, "WARNING: could not get spatial gain\n");
-  
+
   for (row = 0; row < image->rows; row++) {
     for (col = 0; col < image->columns; col++) {
       uint16_t *valp[3];
@@ -1120,7 +1120,7 @@ static int convert_data(x3f_t *x3f,
 
       /* Get the data */
       for (color = 0; color < 3; color++) {
-	valp[color] = 
+	valp[color] =
 	  &image->data[image->row_stride*row + image->channels*col + color];
 	input[color] = calc_spatial_gain(sgain, sgain_num,
 					 row, col, color,
@@ -1375,7 +1375,7 @@ static int get_camf_rect_as_dngrect(x3f_t *x3f, char *name,
 
   if (!x3f_get_camf_rect(x3f, name, image, rescale, camf_rect))
     return 0;
-  
+
   /* Translate from Sigma's to Adobe's view on rectangles */
   rect[0] = camf_rect[1];
   rect[1] = camf_rect[0];
@@ -1412,7 +1412,7 @@ static int write_spatial_gain(x3f_t *x3f, x3f_area16_t *image, char *wb,
 
   corr_num = get_spatial_gain(x3f, wb, corr);
   if (corr_num == 0) return 0;
-  
+
   for (i=0; i<corr_num; i++) {
     opcode_size[i] = sizeof(dng_opcode_GainMap_t) +
       corr[i].rows*corr[i].cols*corr[i].channels*sizeof(float);
@@ -1438,7 +1438,7 @@ static int write_spatial_gain(x3f_t *x3f, x3f_area16_t *image, char *wb,
     PUT_BIG_32(gain_map->Top, c->rowoff);
     PUT_BIG_32(gain_map->Left, c->coloff);
     PUT_BIG_32(gain_map->Bottom, active_area[2] - active_area[0]);
-    PUT_BIG_32(gain_map->Right, active_area[3] - active_area[1]);   
+    PUT_BIG_32(gain_map->Right, active_area[3] - active_area[1]);
     PUT_BIG_32(gain_map->Plane, c->chan);
     PUT_BIG_32(gain_map->Planes, c->channels);
     PUT_BIG_32(gain_map->RowPitch, c->rowpitch);
@@ -1454,7 +1454,7 @@ static int write_spatial_gain(x3f_t *x3f, x3f_area16_t *image, char *wb,
     for (j=0; j<c->rows*c->cols*c->channels; j++)
       PUT_BIG_32(gain_map->MapGain[j], c->gain[j]);
   }
-  
+
   cleanup_spatial_gain(corr, corr_num);
 
   TIFFSetField(tiff, TIFFTAG_OPCODELIST2, opcode_list_size, opcode_list);
@@ -1513,7 +1513,7 @@ x3f_return_t x3f_dump_raw_data_as_dng(x3f_t *x3f,
   /* Prevent clipping of dark areas in DNG processing software */
   TIFFSetField(f_out, TIFFTAG_DEFAULTBLACKRENDER, 1);
 
-  if (x3f_get_camf_float(x3f, "SensorISO", &sensor_iso) && 
+  if (x3f_get_camf_float(x3f, "SensorISO", &sensor_iso) &&
       x3f_get_camf_float(x3f, "CaptureISO", &capture_iso)) {
     double baseline_exposure = log2(capture_iso/sensor_iso);
     TIFFSetField(f_out, TIFFTAG_BASELINEEXPOSURE, baseline_exposure);
