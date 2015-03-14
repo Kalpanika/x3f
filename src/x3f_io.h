@@ -445,30 +445,6 @@ extern x3f_return_t x3f_load_data(x3f_t *x3f, x3f_directory_entry_t *DE);
 
 extern x3f_return_t x3f_load_image_block(x3f_t *x3f, x3f_directory_entry_t *DE);
 
-extern int x3f_get_camf_matrix_var(x3f_t *x3f, char *name,
-				   int *dim0, int *dim1, int *dim2,
-				   matrix_type_t type,
-				   void **matrix);
-extern int x3f_get_camf_matrix(x3f_t *x3f, char *name,
-			       int dim0, int dim1, int dim2, matrix_type_t type,
-			       void *matrix);
-extern int x3f_get_camf_float(x3f_t *x3f, char *name,  double *val);
-extern int x3f_get_camf_float_vector(x3f_t *x3f, char *name,  double *val);
-extern int x3f_get_camf_unsigned(x3f_t *x3f, char *name,  uint32_t *val);
-extern int x3f_get_camf_signed(x3f_t *x3f, char *name,  int32_t *val);
-extern int x3f_get_camf_signed_vector(x3f_t *x3f, char *name,  int32_t *val);
-extern int x3f_get_camf_property_list(x3f_t *x3f, char *list,
-				      char ***names, char ***values,
-				      uint32_t *num);
-extern int x3f_get_camf_property(x3f_t *x3f, char *list,
-				 char *name, char **value);
-extern int x3f_get_prop_entry(x3f_t *x3f, char *name, char **value);
-extern char *x3f_get_wb(x3f_t *x3f);
-extern int x3f_get_camf_matrix_for_wb(x3f_t *x3f,
-				      char *list, char *wb, int dim0, int dim1,
-				      double *matrix);
-extern int x3f_is_TRUE_engine(x3f_t *x3f);
-extern int x3f_get_max_raw(x3f_t *x3f, uint32_t *max_raw);
 extern int x3f_image_area(x3f_t *x3f, x3f_area16_t *image);
 extern int x3f_image_area_qtop(x3f_t *x3f, x3f_area16_t *image);
 

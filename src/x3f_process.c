@@ -1,5 +1,6 @@
 #include "x3f_process.h"
 #include "x3f_io.h"
+#include "x3f_meta.h"
 #include "x3f_matrix.h"
 #include "x3f_dngtags.h"
 #include "x3f_denoise.h"
