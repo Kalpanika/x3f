@@ -1,3 +1,4 @@
+#include <iostream>
 #include "x3f_denoise_aniso.h"
 
 static inline float determine_pixel_difference(const float& v1_1, const float& v1_2, const float& v1_3,
@@ -238,18 +239,17 @@ bool give_min(const uint16_t& left, const uint16_t& right)
 
 //denoising using the morphological operations that compose the 'splotchify' algorithm
 //ideally directly implementable in opencv, come to think.
-void morphological_op(x3f_area16_t *image, const uint32_t& in_radius, bool* mask, const bool& erode)
+void morphological_op(x3f_area16_t *image, const int& in_radius, bool* in_mask, const bool& erode)
 {
-  const size_t in_rows = image->rows;
-  const size_t in_columns = image->columns;
-
+  const int ysize = image->rows;  //forcing a cast to signed for boundary conditions
+  const int xsize = image->columns;
   
   int red = 0;
   int green = 1;
   int blue = 2;
   //int alpha = 3;
   
-  void (*determinant)(const uint16_t&, const uint16_t&);
+  bool (*determinant)(const uint16_t&, const uint16_t&);
   determinant = &give_max;
   if (erode){
     determinant = &give_min;
@@ -259,27 +259,29 @@ void morphological_op(x3f_area16_t *image, const uint32_t& in_radius, bool* mask
   int currRed, currBlue, currGreen;
   int index = 0;
   int currIndex;
-  int x, y, dx, dy;
-  const int thePixelSize = image->channels;
-  uint16_t outPixelData = new uint16_t[in_rows*in_columns*thePixelSize];
-  for (y = 0; y < in_rows; y++){
-    for (x = 0; x < in_columns; x++){
+  int x, y;
+  int dx, dy;
+  const int the_edge = in_radius*2 + 1;
+  const int jump = image->channels;
+  uint16_t* outPixelData = new uint16_t[ysize*xsize*jump];
+  for (y = 0; y < ysize; y++){
+    for (x = 0; x < xsize; x++){
       redMax = blueMax = greenMax = 0;
       for (dy = -in_radius; dy <= in_radius; dy++){
         if (y + dy < 0 || y + dy >= ysize) continue;
         for (dx = -in_radius; dx <= in_radius; dx++){
           if (x + dx < 0 || x + dx >= xsize) continue;
-          if (!theMask[(y+inRadius)* theEdge + x+inRadius]) continue;
-          currIndex = ((y+dy)*xsize + (x+dx))*thePixelSize;
-          currRed = pixelData[currIndex + red];
-          currGreen = pixelData[currIndex+ green];
-          currBlue = pixelData[currIndex + blue];
+          if (!in_mask[(y+in_radius)* the_edge + x+in_radius]) continue;
+          currIndex = ((y+dy)*xsize + (x+dx))*jump;
+          currRed = image->data[currIndex + red];
+          currGreen = image->data[currIndex+ green];
+          currBlue = image->data[currIndex + blue];
           if (determinant(currRed, redMax)) redMax = currRed;
           if (determinant(currBlue, blueMax)) blueMax = currBlue;
           if (determinant(currGreen, greenMax)) greenMax = currGreen;
         }
       }
-      index = (y*xsize  + x)*thePixelSize;
+      index = (y*xsize  + x)*jump;
       outPixelData[index + red] = redMax;
       outPixelData[index + green] = greenMax;
       outPixelData[index + blue] = blueMax;
@@ -287,7 +289,7 @@ void morphological_op(x3f_area16_t *image, const uint32_t& in_radius, bool* mask
     }
   }
   
-  memcpy(image->data, outPixelData, in_rows*in_columns*thePixelSize*sizeof(uint16_t));
+  memcpy(image->data, outPixelData, ysize*xsize*jump*sizeof(uint16_t));
   delete [] outPixelData;
 }
 
@@ -295,15 +297,17 @@ void morphological_op(x3f_area16_t *image, const uint32_t& in_radius, bool* mask
 //the effect is somewhat artistic (and probably pretty useless) at low ISOs.
 void denoise_splotchify(x3f_area16_t *image, const int& in_radius)
 {
-  int theEdge = in_radius*2 + 1;
-  bool* theMask = new bool[theEdge*theEdge];
+  int the_edge = in_radius*2 + 1;
+  bool* theMask = new bool[the_edge*the_edge];
   int sqrRad = in_radius*in_radius;
-  for (int y = -in_radius; y <= in_radius; y++){
-    for (int x = -in_radius; x <= in_radius; x++){
+  
+  int x, y;
+  for (y = -in_radius; y <= in_radius; y++){
+    for (x = -in_radius; x <= in_radius; x++){
       if (x*x + y*y <= sqrRad){
-        theMask[(y+inRadius)* theEdge + x+inRadius] = true;
+        theMask[(y+in_radius)* the_edge + x+in_radius] = true;
       } else {
-        theMask[(y+inRadius)* theEdge + x+inRadius] = false;
+        theMask[(y+in_radius)* the_edge + x+in_radius] = false;
       }
     }
   }
@@ -322,11 +326,12 @@ void denoise_splotchify(x3f_area16_t *image, const int& in_radius)
   delete [] theMask;
   
   //restore luminosity channel
-  int x, y;
+  const int ysize = image->rows; //forcing int cast to remove warning
+  const int xsize = image->columns;
   uint16_t* image_ptr = image->data;
   uint16_t* orig_ptr = original_data;
-  for (y = 0; y < image->rows; y++){
-    for (x = 0; x < image->columns; x++, image_ptr+=3, orig_ptr+=3){
+  for (y = 0; y < ysize; y++){
+    for (x = 0; x < xsize; x++, image_ptr+=3, orig_ptr+=3){
       *image_ptr = *orig_ptr;
     }
   }
