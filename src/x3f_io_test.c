@@ -6,6 +6,8 @@
  */
 
 #include "x3f_io.h"
+#include "x3f_print.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

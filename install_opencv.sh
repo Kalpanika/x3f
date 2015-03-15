@@ -3,8 +3,17 @@
 if [ -z $1 ]; then
     echo usage $0 "<SYS>"
     echo Please run '"make install_opencv"'
+    exit 1
 else
     SYS=$1
+fi
+
+CORES=`nproc 2>/dev/null`
+if [ $? -eq 0 ]; then
+    echo Detected $CORES cores
+else
+    CORES=4
+    echo Unable to detect number of cores, assuming $CORES
 fi
 
 ROOT=$PWD
@@ -37,7 +46,7 @@ mkdir -p $OCV_LIB || exit 1
 cd $OCV_BLD || exit 1
 cmake -D CMAKE_INSTALL_PREFIX=$OCV_LIB \
       -D CMAKE_BUILD_TYPE=RELEASE -D WITH_TBB=ON $OCV_SRC || exit 1
-make -j 4 install || exit 1
+make -j $CORES install || exit 1
 cd $ROOT || exit 1
 
 echo Ready, now you can run "'make'"

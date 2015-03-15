@@ -414,15 +414,6 @@ typedef struct x3f_s {
   x3f_directory_section_t directory_section;
 } x3f_t;
 
-typedef enum x3f_color_encoding_e {
-  NONE=0,		 /* Preprocessed but unconverted data */
-  SRGB=1,		 /* Preproccesed and convered to sRGB */
-  ARGB=2,		 /* Preproccesed and convered to Adobee RGB */
-  PPRGB=3,		 /* Preproccesed and convered to ProPhoto RGB */
-  UNPROCESSED=4,	 /* RAW data without any preprocessing */
-  QTOP=5,		 /* Quattro top layer without any preprocessing */
-} x3f_color_encoding_t;
-
 typedef enum x3f_return_e {
   X3F_OK=0,
   X3F_ARGUMENT_ERROR=1,
@@ -434,11 +425,7 @@ typedef enum x3f_return_e {
 extern int legacy_offset;
 extern bool_t auto_legacy_offset;
 
-extern uint32_t max_printed_matrix_elements;
-
 extern x3f_t *x3f_new_from_file(FILE *infile);
-
-extern void x3f_print(x3f_t *x3f);
 
 extern x3f_return_t x3f_delete(x3f_t *x3f);
 
@@ -457,36 +444,6 @@ extern x3f_directory_entry_t *x3f_get_prop(x3f_t *x3f);
 extern x3f_return_t x3f_load_data(x3f_t *x3f, x3f_directory_entry_t *DE);
 
 extern x3f_return_t x3f_load_image_block(x3f_t *x3f, x3f_directory_entry_t *DE);
-
-extern x3f_return_t x3f_dump_raw_data(x3f_t *x3f, char *outfilename);
-
-extern x3f_return_t x3f_dump_raw_data_as_ppm(x3f_t *x3f, char *outfilename,
-                                             x3f_color_encoding_t encoding,
-					     int crop,
-					     int denoise,
-					     char *wb,
-                                             int binary);
-
-extern x3f_return_t x3f_dump_raw_data_as_tiff(x3f_t *x3f, char *outfilename,
-					      x3f_color_encoding_t encoding,
-					      int crop,
-					      int denoise,
-					      char *wb);
-
-extern x3f_return_t x3f_dump_raw_data_as_dng(x3f_t *x3f, char *outfilename,
-					     int denoise, char *wb);
-
-extern x3f_return_t x3f_dump_raw_data_as_histogram(x3f_t *x3f,
-                                                   char *outfilename,
-						   x3f_color_encoding_t encoding,
-						   int crop,
-						   int denoise,
-						   char *wb,
-                                                   int log_hist);
-
-extern x3f_return_t x3f_dump_jpeg(x3f_t *x3f, char *outfilename);
-
-extern x3f_return_t x3f_dump_meta_data(x3f_t *x3f, char *outfilename);
 
 extern char *x3f_err(x3f_return_t err);
 
