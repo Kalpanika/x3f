@@ -1,5 +1,6 @@
 #include <iostream>
 #include "x3f_denoise_aniso.h"
+#include <algorithm> //for std::sort for the median filter
 
 static inline float determine_pixel_difference(const float& v1_1, const float& v1_2, const float& v1_3,
                                                const float& v2_1, const float& v2_2, const float& v2_3)

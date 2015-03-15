@@ -4,7 +4,6 @@
 
 #include "x3f_denoise_utils.h"
 #include "x3f_denoise.h"
-#include <algorithm> //for std::sort for the median filter
 
 using namespace cv;
 
