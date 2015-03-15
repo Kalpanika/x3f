@@ -1,7 +1,24 @@
+#include "x3f_denoise_aniso.h"
+
+static inline float determine_pixel_difference(const float& v1_1, const float& v1_2, const float& v1_3,
+                                               const float& v2_1, const float& v2_2, const float& v2_3)
+{ //assumes 3 channels for now, may be a bad assumption
+  //also doing the exp version rather than the other technique
+  //since the diff is symmetric, can precalc these and cut down on processing time by a factor of 2
+  const float c1 = (v1_1 - v2_1);
+  const float c2 = (v1_2 - v2_2);
+  const float c3 = (v1_3 - v2_3);
+  const float K = 0.0000050f;
+  const float l2norm = (c1 * c1 + c2 * c2 + c3 * c3); //should be sqrt'd to be mathy, but it's immediately squared
+  return -1.0f * exp(-1.0f * l2norm/K); //not the lack of squaring of l2
+  //return -1.0f * exp(-1.0f * l2norm*l2norm/K); //expensive but better
+  //return -1.0f/(1.0f - l2norm*l2norm/K);
+}
+
 //need a median filter to remove the pepper noise
 //there are faster ways to do this, but this variant is immediately implementable in gl
 //probably a variant in opencv for this
-static void median_filter(x3f_area16_t *image)
+void median_filter(x3f_area16_t *image)
 {
   uint32_t x, y, i, j;
   int dx, dy; //needs to be signed, derp
@@ -66,7 +83,7 @@ static void median_filter(x3f_area16_t *image)
 }
 
 //crude denoising.  Ignores boundary conditions by being super lazy.
-static void denoise_aniso(const uint32_t& in_rows, const uint32_t& in_columns, float* image)
+void denoise_aniso(const uint32_t& in_rows, const uint32_t& in_columns, float* image)
 {
   uint32_t x, y, i;
   const uint32_t jump = 3;
@@ -124,4 +141,64 @@ static void denoise_aniso(const uint32_t& in_rows, const uint32_t& in_columns, f
   memcpy(image, out_image, in_rows * in_columns * jump * sizeof(float));
   delete [] out_image;
   delete [] h;
+}
+
+//even cruder denoising.  Ignores boundary conditions by being super lazy.
+//also, is basically a gaussian blur.
+void denoise_iso(const uint32_t& in_rows, const uint32_t& in_columns, float* image)
+{
+  uint32_t x, y, i;
+  const uint32_t jump = 3;
+  const uint32_t num_rows = in_rows;
+  const uint32_t row_stride = in_columns * jump;
+  const uint32_t edgeless_rows = num_rows - 1;
+  const uint32_t edgeless_cols = in_columns - 1;  //used for boundaries
+  float* in_ptr;
+  float* out_ptr;
+  float* out_image = new float[in_rows * in_columns * jump];
+  float coeff_fwd, coeff_bkwd, coeff_up, coeff_down, lambda1, lambda2;
+  //do the memcpy to keep the boundaries as they were before processing
+  //not ideal, because there will be noise there, but it should avoid the green boundary problem.
+  //there are a number of ways to solve boundary problems, but none of them are efficient.
+  memcpy(out_image, image, in_rows * in_columns * jump * sizeof(float));
+  
+  //diffusion for the first channel is different, to prevent color bleed
+  float* h = new float[jump];
+  h[0] = 5.0f;
+  h[1] = 1.0f;
+  h[2] = 1.0f;
+  
+  coeff_fwd = coeff_up = coeff_down = coeff_bkwd = -1.0f;
+  lambda1 = coeff_fwd + coeff_bkwd + coeff_down + coeff_up;
+  lambda2 = fabs(lambda1);
+  
+  for (y = 1; y < edgeless_rows; y++){
+    for (x = 1,
+         out_ptr = (out_image + y * row_stride + jump),
+         in_ptr = (image + y * row_stride + jump);
+         x < edgeless_cols;
+         x++, out_ptr += jump, in_ptr += jump){
+      
+      
+      for (i = 0; i < jump; i++)
+      {
+        *(out_ptr + i) = *(in_ptr + i) - (lambda2 * *(in_ptr + i) + coeff_fwd * *(in_ptr + jump + i)
+                                          + coeff_bkwd * *(in_ptr - jump + i)
+                                          + coeff_down * *(in_ptr + row_stride + i)
+                                          + coeff_up * *(in_ptr - row_stride + i))/(h[i] *lambda2);
+        
+      }
+    }
+  }
+  
+  memcpy(image, out_image, in_rows * in_columns * jump * sizeof(float));
+  delete [] out_image;
+  delete [] h;
+}
+
+//denoising using the morphological operations that compose the 'splotchify' algorithm
+//ideally directly implementable in opencv, come to think.
+void denoise_splotchify(const uint32_t& in_rows, const uint32_t& in_columns, float* image)
+{
+  
 }

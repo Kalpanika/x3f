@@ -53,7 +53,7 @@ BINDIR = ../bin/$(SYS)
 
 all: $(BINDIR)/x3f_extract$(EXE) $(BINDIR)/x3f_io_test$(EXE) $(BINDIR)/x3f_matrix_test$(EXE)
 
-$(BINDIR)/x3f_extract$(EXE): $(BINDIR)/x3f_extract.o $(BINDIR)/x3f_io.o $(BINDIR)/x3f_process.o $(BINDIR)/x3f_meta.o $(BINDIR)/x3f_image.o $(BINDIR)/x3f_print.o $(BINDIR)/x3f_dump.o $(BINDIR)/x3f_matrix.o $(BINDIR)/x3f_dngtags.o $(BINDIR)/x3f_denoise_utils.o $(BINDIR)/x3f_denoise.o
+$(BINDIR)/x3f_extract$(EXE): $(BINDIR)/x3f_extract.o $(BINDIR)/x3f_io.o $(BINDIR)/x3f_process.o $(BINDIR)/x3f_meta.o $(BINDIR)/x3f_image.o $(BINDIR)/x3f_print.o $(BINDIR)/x3f_dump.o $(BINDIR)/x3f_matrix.o $(BINDIR)/x3f_dngtags.o $(BINDIR)/x3f_denoise_utils.o $(BINDIR)/x3f_denoise_aniso.o $(BINDIR)/x3f_denoise.o
 	g++ $^ -o $@ $(LDFLAGS) -lm -ltiff $(OPENCV_LIBS)
 
 $(BINDIR)/x3f_io_test$(EXE): $(BINDIR)/x3f_io_test.o $(BINDIR)/x3f_io.o $(BINDIR)/x3f_print.o
@@ -92,7 +92,10 @@ $(BINDIR)/x3f_dngtags.o: x3f_dngtags.c x3f_dngtags.h $(BINDIR)/.dummy
 $(BINDIR)/x3f_denoise_utils.o: x3f_denoise_utils.cpp x3f_denoise_utils.h x3f_io.h $(BINDIR)/.dummy
 	g++ $(CFLAGS) $< -c -o $@
 
-$(BINDIR)/x3f_denoise.o: x3f_denoise.cpp x3f_denoise.h x3f_denoise_utils.h x3f_io.h $(BINDIR)/.dummy
+$(BINDIR)/x3f_denoise_aniso.o: x3f_denoise_aniso.cpp x3f_denoise_aniso.h x3f_denoise_utils.h x3f_io.h $(BINDIR)/.dummy
+	g++ $(CFLAGS) $< -c -o $@
+
+$(BINDIR)/x3f_denoise.o: x3f_denoise.cpp x3f_denoise.h x3f_denoise_utils.h x3f_denoise_aniso.h x3f_io.h $(BINDIR)/.dummy
 	g++ $(CFLAGS) $< -c -o $@
 
 $(BINDIR)/x3f_matrix_test.o: x3f_matrix_test.c x3f_matrix.h $(BINDIR)/.dummy
