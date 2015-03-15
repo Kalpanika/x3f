@@ -82,22 +82,8 @@ void median_filter(x3f_area16_t *image)
   delete [] current_set;
 }
 
-//puts the aniso denoising into float format, does the denoising, then
-//converts back to shorts.  Along the way, ditches the luminosity channel in the back conversion.
-void denoise_aniso(x3f_area16_t *image, const int& in_iterations)
-{
-  median_filter(image);
-  float* float_image = convert_to_float_image(image);
-  for (int i = 0; i < in_iterations; i++){
-    denoise_aniso(image->rows, image->columns, float_image);
-    std::cout << "iteration: " << i << std::endl;
-  }
-  convert_from_float_image(image, float_image);
-  delete [] float_image;
-}
-
 //crude denoising.  Ignores boundary conditions by being super lazy.
-void denoise_aniso(const uint32_t& in_rows, const uint32_t& in_columns, float* image)
+void denoise_aniso_float(const uint32_t& in_rows, const uint32_t& in_columns, float* image)
 {
   uint32_t x, y, i;
   const uint32_t jump = 3;
@@ -159,21 +145,22 @@ void denoise_aniso(const uint32_t& in_rows, const uint32_t& in_columns, float* i
 
 //puts the aniso denoising into float format, does the denoising, then
 //converts back to shorts.  Along the way, ditches the luminosity channel in the back conversion.
-void denoise_iso(x3f_area16_t *image, const int& in_iterations)
+void denoise_aniso(x3f_area16_t *image, const int& in_iterations)
 {
   median_filter(image);
   float* float_image = convert_to_float_image(image);
   for (int i = 0; i < in_iterations; i++){
-    denoise_iso(image->rows, image->columns, float_image);
+    denoise_aniso_float(image->rows, image->columns, float_image);
     std::cout << "iteration: " << i << std::endl;
   }
   convert_from_float_image(image, float_image);
   delete [] float_image;
 }
 
+
 //even cruder denoising.  Ignores boundary conditions by being super lazy.
 //also, is basically a gaussian blur.
-void denoise_iso(const uint32_t& in_rows, const uint32_t& in_columns, float* image)
+void denoise_iso_float(const uint32_t& in_rows, const uint32_t& in_columns, float* image)
 {
   uint32_t x, y, i;
   const uint32_t jump = 3;
@@ -222,6 +209,20 @@ void denoise_iso(const uint32_t& in_rows, const uint32_t& in_columns, float* ima
   memcpy(image, out_image, in_rows * in_columns * jump * sizeof(float));
   delete [] out_image;
   delete [] h;
+}
+
+//puts the iso denoising into float format, does the denoising, then
+//converts back to shorts.  Along the way, ditches the luminosity channel in the back conversion.
+void denoise_iso(x3f_area16_t *image, const int& in_iterations)
+{
+  median_filter(image);
+  float* float_image = convert_to_float_image(image);
+  for (int i = 0; i < in_iterations; i++){
+    denoise_iso_float(image->rows, image->columns, float_image);
+    std::cout << "iteration: " << i << std::endl;
+  }
+  convert_from_float_image(image, float_image);
+  delete [] float_image;
 }
 
 //use these two functions as function pointers for the dilate/erosion operations
@@ -290,7 +291,8 @@ void morphological_op(x3f_area16_t *image, const uint32_t& in_radius, bool* mask
   delete [] outPixelData;
 }
 
-
+//uses morphological operations for every aggressive noise reduction for high ISO images.
+//the effect is somewhat artistic (and probably pretty useless) at low ISOs.
 void denoise_splotchify(x3f_area16_t *image, const int& in_radius)
 {
   int theEdge = in_radius*2 + 1;
@@ -306,6 +308,10 @@ void denoise_splotchify(x3f_area16_t *image, const int& in_radius)
     }
   }
   
+  //save the original luminosity channel
+  uint16_t* original_data = new uint16_t[image->rows * image->columns * image->channels];
+  memcpy(original_data, image->data, image->rows * image->columns * image->channels*sizeof(uint16_t));
+  
   //the order of operations is
   //dilate, erode, erode, dilate
   morphological_op(image, in_radius, theMask, false);
@@ -314,5 +320,17 @@ void denoise_splotchify(x3f_area16_t *image, const int& in_radius)
   morphological_op(image, in_radius, theMask, false);
   
   delete [] theMask;
+  
+  //restore luminosity channel
+  int x, y;
+  uint16_t* image_ptr = image->data;
+  uint16_t* orig_ptr = original_data;
+  for (y = 0; y < image->rows; y++){
+    for (x = 0; x < image->columns; x++, image_ptr+=3, orig_ptr+=3){
+      *image_ptr = *orig_ptr;
+    }
+  }
+  
+  delete [] original_data;
   
 }
