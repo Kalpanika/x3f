@@ -4,8 +4,8 @@
 #include "x3f_denoise_utils.h"
 
 void median_filter(x3f_area16_t *image);
-void denoise_aniso(const uint32_t& in_rows, const uint32_t& in_columns, float* image);
-void denoise_iso(const uint32_t& in_rows, const uint32_t& in_columns, float* image);
-void denoise_splotchify(const uint32_t& in_rows, const uint32_t& in_columns, float* image);
+void denoise_aniso(x3f_area16_t *image, const int& in_iterations);
+void denoise_iso(x3f_area16_t *image, const int& in_iterations);
+void denoise_splotchify(x3f_area16_t *image, const int& in_radius);
 
 #endif //DENOISE_ANISO
