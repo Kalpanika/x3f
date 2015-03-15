@@ -86,7 +86,10 @@ $(BINDIR)/x3f_matrix.o: x3f_matrix.c x3f_matrix.h $(BINDIR)/.dummy
 $(BINDIR)/x3f_dngtags.o: x3f_dngtags.c x3f_dngtags.h $(BINDIR)/.dummy
 	gcc $(CFLAGS) $< -c -o $@
 
-$(BINDIR)/x3f_denoise.o: x3f_denoise.cpp x3f_denoise.h
+$(BINDIR)/x3f_denoise_utils.o: x3f_denoise_utils.cpp x3f_denoise_utils.h
+	g++ $(CFLAGS) $< -c -o $@
+
+$(BINDIR)/x3f_denoise.o: x3f_denoise.cpp x3f_denoise.h x3f_denoise_utils.h
 	g++ $(CFLAGS) $< -c -o $@
 
 $(BINDIR)/x3f_matrix_test.o: x3f_matrix_test.c x3f_matrix.h $(BINDIR)/.dummy
