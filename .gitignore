@@ -4,3 +4,4 @@ bin/*
 a.out
 .vagrant
 .DS_Store
+deps
