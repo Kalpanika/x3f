@@ -1,4 +1,9 @@
 bin
 *~
 bin/*
+deps/lib/*
+deps/src/*
 a.out
+.vagrant
+.DS_Store
+deps

@@ -6,6 +6,8 @@
  */
 
 #include "x3f_io.h"
+#include "x3f_print.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -13,25 +15,9 @@
 static void usage(char *progname)
 {
   fprintf(stderr,
-          "usage: %s [-unpack] [-noprint] [-write] <X3F-file>\n",
+          "usage: %s [-unpack] [-noprint] <X3F-file>\n",
           progname);
   exit(1);
-}
-
-static void write_x3f(x3f_t *x3f, char *infilename, char *extension)
-{
-  char outfilename[1024];
-  strcpy(outfilename, infilename);
-  strcat(outfilename, extension);
-  FILE *f_out = fopen(outfilename, "wb");
-
-  if (f_out == NULL) {
-    fprintf(stderr, "Could not open outfile %s\n", outfilename);
-  } else {
-    printf("WRITE THE X3F FILE %s\n", outfilename);
-    x3f_write_to_file(x3f, f_out);
-    fclose(f_out);
-  }
 }
 
 int main(int argc, char *argv[])
@@ -41,7 +27,6 @@ int main(int argc, char *argv[])
 
   int do_unpack_data = 0;
   int do_print_info = 1;
-  int do_write_x3f = 0;
 
   char *infilename;
 
@@ -52,8 +37,6 @@ int main(int argc, char *argv[])
       do_unpack_data = 1;
     else if (!strcmp(argv[i], "-noprint"))
       do_print_info = 0;
-    else if (!strcmp(argv[i], "-write"))
-      do_write_x3f = 1;
     else
       break;			/* Now comes the file name */
 
@@ -77,10 +60,6 @@ int main(int argc, char *argv[])
     x3f_print(x3f);
   }
 
-  if (do_write_x3f) {
-    write_x3f(x3f, infilename, ".skeleton.x3f");
-  }
-  
   if (do_unpack_data) {
     printf("LOAD RAW DATA\n");
     x3f_load_data(x3f, x3f_get_raw(x3f));
@@ -103,10 +82,6 @@ int main(int argc, char *argv[])
     if (do_print_info) {
       printf("PRINT THE UNPACKED X3F STRUCTURE\n");
       x3f_print(x3f);
-    }
-
-    if (do_write_x3f) {
-      write_x3f(x3f, infilename, ".unpacked.x3f");
     }
   }
 
