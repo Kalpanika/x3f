@@ -1,3 +1,18 @@
+
+
+
+OUT OF DATE !!!!!!!
+OUT OF DATE !!!!!!!
+OUT OF DATE !!!!!!!
+OUT OF DATE !!!!!!!
+OUT OF DATE !!!!!!!
+OUT OF DATE !!!!!!!
+
+
+TODO : needs serious rewriting!
+
+
+
 ----------------------------------------------------------------
 X3F tools is a library for accessing Sigma X3F raw image files
 ----------------------------------------------------------------

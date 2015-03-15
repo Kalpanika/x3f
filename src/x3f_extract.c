@@ -6,6 +6,11 @@
  */
 
 #include "x3f_io.h"
+#include "x3f_process.h"
+#include "x3f_print.h"
+#include "x3f_dump.h"
+#include "x3f_denoise.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -32,6 +37,7 @@ static void usage(char *progname)
           "   -crop           Crop to active area\n"
           "   -denoise        Denoise RAW data\n"
           "   -wb <WB>        Select white balance preset\n"
+          "   -ocl            Use OpenCL\n"
 	  "\n"
 	  "STRANGE STUFF\n"
           "   -offset <OFF>   Offset for SD14 and older\n"
@@ -53,6 +59,7 @@ int main(int argc, char *argv[])
   int files = 0;
   int log_hist = 0;
   char *wb = NULL;
+  int use_opencl = 0;
 
   int i;
 
@@ -102,6 +109,8 @@ int main(int argc, char *argv[])
       denoise = 1;
     else if ((!strcmp(argv[i], "-wb")) && (i+1)<argc)
       wb = argv[++i];
+    else if (!strcmp(argv[i], "-ocl"))
+      use_opencl = 1;
 
   /* Strange Stuff */
     else if ((!strcmp(argv[i], "-offset")) && (i+1)<argc)
@@ -112,6 +121,8 @@ int main(int argc, char *argv[])
       usage(argv[0]);
     else
       break;			/* Here starts list of files */
+
+  x3f_set_use_opencl(use_opencl);
 
   for (; i<argc; i++) {
     char *infilename = argv[i];
