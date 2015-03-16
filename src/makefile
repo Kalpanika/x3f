@@ -42,7 +42,7 @@ endif
 
 OPENCV = ../deps/lib/$(SYS)/opencv
 OPENCV_INC = $(OPENCV)/include
-OPENCV_HEADERS = $(shell find $(OPENCV_INC) -name '*.hpp' -or -name '*.h')
+OPENCV_HEADERS := $(shell find $(OPENCV_INC) -name '*.hpp' -or -name '*.h')
 OPENCV_LIBS = -lopencv_core -lopencv_photo -lopencv_imgproc
 
 CFLAGS = $(CFBASE) -g -O3 -Wall $(C)
