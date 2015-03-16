@@ -311,12 +311,8 @@ void morphological_op(x3f_area16_t *image, const int& in_radius, const bool& ero
 //the effect is somewhat artistic (and probably pretty useless) at low ISOs.
 void denoise_splotchify(x3f_area16_t *image, const int& in_radius)
 {
-  
-  //save the original luminosity channel
-  //uint16_t* original_data = new uint16_t[image->rows * image->columns * image->channels];
-  //memcpy(original_data, image->data, image->rows * image->columns * image->channels*sizeof(uint16_t));
   size_t i;
-  size_t x;
+  size_t x, y;
   const size_t xsize = image->columns;
   const size_t ysize = image->rows;
   const size_t channel_size = xsize*ysize;
@@ -330,49 +326,30 @@ void denoise_splotchify(x3f_area16_t *image, const int& in_radius)
   cv::Mat element = cv::getStructuringElement( morph_elem, cv::Size( 2*morph_size + 1, 2*morph_size+1 ), cv::Point( morph_size, morph_size ) );
   for (i = 0; i < image->channels; i++){
     //first, get the data, one channel at a time.
-    for (x = 0, chan_ptr = channel, image_ptr = image->data + i;
-         x < channel_size;
-         x++, chan_ptr++, image_ptr+=image->channels){
-      *chan_ptr = *image_ptr;
+    for (y = 0; y < ysize; y++){
+      for (x = 0, chan_ptr = &(channel[y*xsize]), image_ptr = &(image->data[y*image->row_stride + i]);
+           x < xsize; x++, chan_ptr++, image_ptr+=3){
+        *chan_ptr = *image_ptr;
+      }
     }
     
-    if (i > 1){//skipping the first channel
+    if (i>0){//skipping the first channel
       cv::Mat img(image->rows, image->columns, CV_16U, //apparently doesn't work on color images
               channel, sizeof(uint16_t)*xsize);
     
       cv::UMat out;
       cv::morphologyEx( img, out, 3, element );
       cv::morphologyEx( out, img, 2, element );
-    }
-    
-    for (x = 0, chan_ptr = channel, image_ptr = image->data + i;
-         x < channel_size;
-         x++, chan_ptr++, image_ptr+=image->channels){
-      *image_ptr = *chan_ptr;
+      
+      
+      for (y = 0; y < ysize; y++){
+        for (x = 0, chan_ptr = &(channel[y*xsize]), image_ptr = &(image->data[y*image->row_stride + i]);
+             x < xsize; x++, chan_ptr++, image_ptr+=3){
+          *image_ptr = *chan_ptr;
+        }
+      }
     }
   }
   delete [] channel;
-  /*
-  //the order of operations is
-  //dilate, erode, erode, dilate
-  morphological_op(image, in_radius, false);
-  morphological_op(image, in_radius, true);
-  morphological_op(image, in_radius, true);
-  morphological_op(image, in_radius, false);
-  
-  //restore luminosity channel
-  /*
-  const int ysize = image->rows; //forcing int cast to remove warning
-  const int xsize = image->columns;
-  uint16_t* image_ptr = image->data;
-  uint16_t* orig_ptr = original_data;
-  int x, y;
-  for (y = 0; y < ysize; y++){
-    for (x = 0; x < xsize; x++, image_ptr+=3, orig_ptr+=3){
-      *image_ptr = *orig_ptr;
-    }
-  }*/
-  
-  //delete [] original_data;
   
 }
