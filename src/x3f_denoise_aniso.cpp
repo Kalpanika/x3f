@@ -228,115 +228,151 @@ void denoise_iso(x3f_area16_t *image, const int& in_iterations)
 }
 
 //use these two functions as function pointers for the dilate/erosion operations
-bool give_max(const uint16_t& left, const uint16_t& right)
+inline uint16_t give_max(const uint16_t& left, const uint16_t& right)
 {
-  return left > right;
+  return left > right ? left : right;
 }
 
-bool give_min(const uint16_t& left, const uint16_t& right)
+inline uint16_t give_min(const uint16_t& left, const uint16_t& right)
 {
-  return left < right;
+  return left < right ? left : right;
 }
 
 //denoising using the morphological operations that compose the 'splotchify' algorithm
 //ideally directly implementable in opencv, come to think.
-void morphological_op(x3f_area16_t *image, const int& in_radius, bool* in_mask, const bool& erode)
+void morphological_op(x3f_area16_t *image, const int& in_radius, const bool& erode)
 {
   const int ysize = image->rows;  //forcing a cast to signed for boundary conditions
   const int xsize = image->columns;
   
-  int red = 0;
-  int green = 1;
-  int blue = 2;
-  //int alpha = 3;
-  
-  bool (*determinant)(const uint16_t&, const uint16_t&);
+  uint16_t (*determinant)(const uint16_t&, const uint16_t&);
   determinant = &give_max;
+  uint16_t seed = 0;
   if (erode){
     determinant = &give_min;
+    seed = 65535;
   }
   
-  int redMax, blueMax, greenMax;
-  int currRed, currBlue, currGreen;
-  int index = 0;
-  int currIndex;
-  int x, y;
-  int dx, dy;
   const int the_edge = in_radius*2 + 1;
+  bool** theMask = new bool*[the_edge];
+  const int sqrRad = in_radius*in_radius;
+  
+  int x, y;
+  for (y = -in_radius; y <= in_radius; y++){
+    theMask[y + in_radius] = new bool[the_edge];
+    for (x = -in_radius; x <= in_radius; x++){
+      if (x*x + y*y <= sqrRad){
+        theMask[y+in_radius][x+in_radius] = true;
+      } else {
+        theMask[y+in_radius][x+in_radius] = false;
+      }
+    }
+  }
+  
+  int dx, dy, i;
   const int jump = image->channels;
   uint16_t* outPixelData = new uint16_t[ysize*xsize*jump];
+  memcpy(outPixelData, image->data, ysize*xsize*jump*sizeof(uint16_t));
+  uint16_t* in_pxl_ptr = image->data;
+  uint16_t* out_pxl_ptr = outPixelData;
+  uint16_t* maxes = new uint16_t[jump];
   for (y = 0; y < ysize; y++){
-    for (x = 0; x < xsize; x++){
-      redMax = blueMax = greenMax = 0;
+    for (x = 0; x < xsize; x++, in_pxl_ptr+=jump, out_pxl_ptr+=jump){
+      for (i = 0; i < jump; i++){
+        *(maxes+i) = seed;
+      }
       for (dy = -in_radius; dy <= in_radius; dy++){
         if (y + dy < 0 || y + dy >= ysize) continue;
         for (dx = -in_radius; dx <= in_radius; dx++){
           if (x + dx < 0 || x + dx >= xsize) continue;
-          if (!in_mask[(y+in_radius)* the_edge + x+in_radius]) continue;
-          currIndex = ((y+dy)*xsize + (x+dx))*jump;
-          currRed = image->data[currIndex + red];
-          currGreen = image->data[currIndex+ green];
-          currBlue = image->data[currIndex + blue];
-          if (determinant(currRed, redMax)) redMax = currRed;
-          if (determinant(currBlue, blueMax)) blueMax = currBlue;
-          if (determinant(currGreen, greenMax)) greenMax = currGreen;
+          if (!theMask[dy+in_radius][dx+in_radius]) continue;
+          for (i = 0; i < jump; i++){
+            *(maxes + i) = determinant(*(outPixelData + i), *(maxes + i));
+          }
         }
       }
-      index = (y*xsize  + x)*jump;
-      outPixelData[index + red] = redMax;
-      outPixelData[index + green] = greenMax;
-      outPixelData[index + blue] = blueMax;
-      //outPixelData[index + alpha] = pixelData[index+alpha];
+      for (i = 0; i < jump; i++){
+        *(in_pxl_ptr + i) = *(maxes + i);
+      }
     }
   }
   
-  memcpy(image->data, outPixelData, ysize*xsize*jump*sizeof(uint16_t));
+  //memcpy(image->data, outPixelData, ysize*xsize*jump*sizeof(uint16_t));
   delete [] outPixelData;
+  delete [] maxes;
+  
+  for (y = -in_radius; y <= in_radius; y++){
+    delete [] theMask[y + in_radius];
+  }
+  delete [] theMask;
 }
 
 //uses morphological operations for every aggressive noise reduction for high ISO images.
 //the effect is somewhat artistic (and probably pretty useless) at low ISOs.
 void denoise_splotchify(x3f_area16_t *image, const int& in_radius)
 {
-  int the_edge = in_radius*2 + 1;
-  bool* theMask = new bool[the_edge*the_edge];
-  int sqrRad = in_radius*in_radius;
-  
-  int x, y;
-  for (y = -in_radius; y <= in_radius; y++){
-    for (x = -in_radius; x <= in_radius; x++){
-      if (x*x + y*y <= sqrRad){
-        theMask[(y+in_radius)* the_edge + x+in_radius] = true;
-      } else {
-        theMask[(y+in_radius)* the_edge + x+in_radius] = false;
-      }
-    }
-  }
   
   //save the original luminosity channel
-  uint16_t* original_data = new uint16_t[image->rows * image->columns * image->channels];
-  memcpy(original_data, image->data, image->rows * image->columns * image->channels*sizeof(uint16_t));
+  //uint16_t* original_data = new uint16_t[image->rows * image->columns * image->channels];
+  //memcpy(original_data, image->data, image->rows * image->columns * image->channels*sizeof(uint16_t));
+  size_t i;
+  size_t x;
+  const size_t xsize = image->columns;
+  const size_t ysize = image->rows;
+  const size_t channel_size = xsize*ysize;
+  uint16_t* channel = new uint16_t[channel_size];
+  uint16_t* chan_ptr = channel;
+  uint16_t* image_ptr;
   
+  int morph_elem = 2; //ellipse
+  int morph_size = in_radius;
+  
+  cv::Mat element = cv::getStructuringElement( morph_elem, cv::Size( 2*morph_size + 1, 2*morph_size+1 ), cv::Point( morph_size, morph_size ) );
+  for (i = 0; i < image->channels; i++){
+    //first, get the data, one channel at a time.
+    for (x = 0, chan_ptr = channel, image_ptr = image->data + i;
+         x < channel_size;
+         x++, chan_ptr++, image_ptr+=image->channels){
+      *chan_ptr = *image_ptr;
+    }
+    
+    if (i > 1){//skipping the first channel
+      cv::Mat img(image->rows, image->columns, CV_16U, //apparently doesn't work on color images
+              channel, sizeof(uint16_t)*xsize);
+    
+      cv::UMat out;
+      cv::morphologyEx( img, out, 3, element );
+      cv::morphologyEx( out, img, 2, element );
+    }
+    
+    for (x = 0, chan_ptr = channel, image_ptr = image->data + i;
+         x < channel_size;
+         x++, chan_ptr++, image_ptr+=image->channels){
+      *image_ptr = *chan_ptr;
+    }
+  }
+  delete [] channel;
+  /*
   //the order of operations is
   //dilate, erode, erode, dilate
-  morphological_op(image, in_radius, theMask, false);
-  morphological_op(image, in_radius, theMask, true);
-  morphological_op(image, in_radius, theMask, true);
-  morphological_op(image, in_radius, theMask, false);
-  
-  delete [] theMask;
+  morphological_op(image, in_radius, false);
+  morphological_op(image, in_radius, true);
+  morphological_op(image, in_radius, true);
+  morphological_op(image, in_radius, false);
   
   //restore luminosity channel
+  /*
   const int ysize = image->rows; //forcing int cast to remove warning
   const int xsize = image->columns;
   uint16_t* image_ptr = image->data;
   uint16_t* orig_ptr = original_data;
+  int x, y;
   for (y = 0; y < ysize; y++){
     for (x = 0; x < xsize; x++, image_ptr+=3, orig_ptr+=3){
       *image_ptr = *orig_ptr;
     }
-  }
+  }*/
   
-  delete [] original_data;
+  //delete [] original_data;
   
 }

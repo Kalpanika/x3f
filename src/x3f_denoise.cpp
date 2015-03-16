@@ -3,6 +3,7 @@
 
 
 #include "x3f_denoise_utils.h"
+#include "x3f_denoise_aniso.h"
 #include "x3f_denoise.h"
 
 using namespace cv;
@@ -45,7 +46,8 @@ void x3f_denoise(x3f_area16_t *image, x3f_denoise_type_t type)
   d->BMT_to_YUV(image);
   Mat img(image->rows, image->columns, CV_16UC3,
           image->data, sizeof(uint16_t)*image->row_stride);
-  denoise_nlm(img, d->h);
+  //denoise_nlm(img, d->h);
+  denoise_splotchify(image, 4);
   d->YUV_to_BMT(image);
 }
 
