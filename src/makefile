@@ -115,7 +115,6 @@ $(BINDIR):
 
 clean:
 	-@rm ../bin/*/*.o
-	-@rm ../bin/*/.dummy
 	-@rm *~ ../doc/*~
 
 clobber: clean
