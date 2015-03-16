@@ -4,6 +4,10 @@
    including color conversions and conversions to/from float type images
  */
 
+#ifndef __cplusplus
+#error This file can only be included from C++
+#endif
+
 #include "x3f_io.h"
 
 #include <opencv2/core.hpp>
