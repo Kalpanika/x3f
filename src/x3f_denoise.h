@@ -19,6 +19,7 @@ extern void x3f_expand_quattro(x3f_area16_t *image,
 			       x3f_area16_t *qtop,
 			       x3f_area16_t *expanded,
 			       x3f_area16_t *active_exp);
+
 extern void x3f_set_use_opencl(int flag);
 
 #ifdef __cplusplus

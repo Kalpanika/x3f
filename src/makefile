@@ -56,7 +56,7 @@ VPATH = $(OPENCV)/lib		# Used by make to find prerequisites
 
 all: $(addprefix $(BINDIR)/,x3f_extract$(EXE) x3f_io_test$(EXE) x3f_matrix_test$(EXE))
 
-$(BINDIR)/x3f_extract$(EXE): $(addprefix $(BINDIR)/,x3f_extract.o x3f_io.o x3f_process.o x3f_meta.o x3f_image.o x3f_print.o x3f_dump.o x3f_matrix.o x3f_dngtags.o x3f_denoise.o) $(OPENCV_LIBS)
+$(BINDIR)/x3f_extract$(EXE): $(addprefix $(BINDIR)/,x3f_extract.o x3f_io.o x3f_process.o x3f_meta.o x3f_image.o x3f_print.o x3f_dump.o x3f_matrix.o x3f_dngtags.o x3f_denoise_utils.o x3f_denoise_aniso.o x3f_denoise.o) $(OPENCV_LIBS)
 	g++ $^ -o $@ $(LDFLAGS) -lm -ltiff
 
 $(BINDIR)/x3f_io_test$(EXE): $(addprefix $(BINDIR)/,x3f_io_test.o x3f_io.o x3f_print.o)
@@ -92,7 +92,13 @@ $(BINDIR)/x3f_matrix.o: x3f_matrix.c x3f_matrix.h | $(BINDIR)
 $(BINDIR)/x3f_dngtags.o: x3f_dngtags.c x3f_dngtags.h | $(BINDIR)
 	gcc $(CFLAGS) $< -c -o $@
 
-$(BINDIR)/x3f_denoise.o: x3f_denoise.cpp x3f_denoise.h x3f_io.h $(OPENCV_HEADERS) | $(BINDIR)
+$(BINDIR)/x3f_denoise_utils.o: x3f_denoise_utils.cpp x3f_denoise_utils.h x3f_io.h $(OPENCV_HEADERS) | $(BINDIR)
+	g++ $(CFLAGS) -I$(OPENCV_INC) $< -c -o $@
+
+$(BINDIR)/x3f_denoise_aniso.o: x3f_denoise_aniso.cpp x3f_denoise_aniso.h x3f_denoise_utils.h x3f_io.h $(OPENCV_HEADERS) | $(BINDIR)
+	g++ $(CFLAGS) -I$(OPENCV_INC) $< -c -o $@
+
+$(BINDIR)/x3f_denoise.o: x3f_denoise.cpp x3f_denoise.h x3f_denoise_utils.h x3f_denoise_aniso.h x3f_io.h $(OPENCV_HEADERS) | $(BINDIR)
 	g++ $(CFLAGS) -I$(OPENCV_INC) $< -c -o $@
 
 $(BINDIR)/x3f_matrix_test.o: x3f_matrix_test.c x3f_matrix.h | $(BINDIR)
