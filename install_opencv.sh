@@ -2,7 +2,7 @@
 
 if [ -z $1 ]; then
     echo usage $0 "<SYS>"
-    echo Please run '"make install_opencv"'
+    echo Please run '"make"'
     exit 1
 else
     SYS=$1
