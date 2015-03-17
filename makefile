@@ -1,7 +1,7 @@
 # Set the SYS variable
 include sys.mk
 
-.PHONY: default all clean clobber install_opencv
+.PHONY: default all clean clobber clean_opencv
 
 default: all
 
@@ -11,7 +11,10 @@ all clean clobber:
 
 OPENCV = deps/lib/$(SYS)/opencv
 
-all: | $(OPENCV)
+all: | $(OPENCV)/.success
 
-$(OPENCV) install_opencv:
+$(OPENCV)/.success:
 	./install_opencv.sh $(SYS)
+
+clean_opencv:
+	-@rm -r $(OPENCV)

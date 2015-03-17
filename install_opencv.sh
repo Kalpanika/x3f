@@ -40,7 +40,6 @@ else
 fi
 
 echo Build Opencv
-. ./lib_path
 mkdir -p $OCV_BLD || exit 1
 mkdir -p $OCV_LIB || exit 1
 cd $OCV_BLD || exit 1
@@ -49,4 +48,5 @@ cmake -D CMAKE_INSTALL_PREFIX=$OCV_LIB \
 make -j $CORES install || exit 1
 cd $ROOT || exit 1
 
-echo Ready, now you can run "'make'"
+touch $OCV_LIB/.success || exit 1
+echo Successfully installed OpenCV in $OCV_LIB
