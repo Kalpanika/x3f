@@ -40,7 +40,7 @@ else
 fi
 
 echo Build Opencv
-source ./lib_path
+. ./lib_path
 mkdir -p $OCV_BLD || exit 1
 mkdir -p $OCV_LIB || exit 1
 cd $OCV_BLD || exit 1
