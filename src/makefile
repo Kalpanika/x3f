@@ -44,6 +44,7 @@ OPENCV = ../deps/lib/$(SYS)/opencv
 OPENCV_INC = $(OPENCV)/include
 OPENCV_HEADERS := $(shell find $(OPENCV_INC) -name '*.hpp' -or -name '*.h')
 OPENCV_LIBS = -lopencv_core -lopencv_photo -lopencv_imgproc
+OPENCV_LDFLAGS = -Wl,-rpath,$(abspath $(OPENCV)/lib)
 
 CFLAGS = $(CFBASE) -g -O3 -Wall $(C)
 LDFLAGS = $(LDBASE) $(L)
@@ -57,7 +58,7 @@ VPATH = $(OPENCV)/lib		# Used by make to find prerequisites
 all: $(addprefix $(BINDIR)/,x3f_extract$(EXE) x3f_io_test$(EXE) x3f_matrix_test$(EXE))
 
 $(BINDIR)/x3f_extract$(EXE): $(addprefix $(BINDIR)/,x3f_extract.o x3f_io.o x3f_process.o x3f_meta.o x3f_image.o x3f_print.o x3f_dump.o x3f_matrix.o x3f_dngtags.o x3f_denoise_utils.o x3f_denoise_aniso.o x3f_denoise.o) $(OPENCV_LIBS)
-	g++ $^ -o $@ $(LDFLAGS) -lm -ltiff
+	g++ $^ -o $@ $(LDFLAGS) $(OPENCV_LDFLAGS) -lm -ltiff
 
 $(BINDIR)/x3f_io_test$(EXE): $(addprefix $(BINDIR)/,x3f_io_test.o x3f_io.o x3f_print.o)
 	gcc $^ -o $@ $(LDFLAGS)
