@@ -60,6 +60,8 @@ BINDIR = ../bin/$(SYS)
 # Build dependencies
 # -----------------------------------------------------------
 
+.PHONY: all clean clobber
+
 all: $(addprefix $(BINDIR)/,x3f_extract$(EXE) x3f_io_test$(EXE) x3f_matrix_test$(EXE))
 
 $(BINDIR)/x3f_extract$(EXE): $(addprefix $(BINDIR)/,x3f_extract.o x3f_io.o x3f_process.o x3f_meta.o x3f_image.o x3f_print.o x3f_dump.o x3f_matrix.o x3f_dngtags.o x3f_denoise_utils.o x3f_denoise_aniso.o x3f_denoise.o) $(OCV_LIBS) $(TIFF_LIBS)
