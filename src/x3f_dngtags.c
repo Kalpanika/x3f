@@ -7,6 +7,7 @@
 
 #include "x3f_dngtags.h"
 
+#include <stddef.h>
 #include <tiffio.h>
 
 static TIFFExtendProc previous_tag_extender = NULL;
@@ -43,5 +44,5 @@ void x3f_dngtags_install_extender(void)
   if (invoked) return;
   invoked = 1;
 
-  previous_tag_extender = TIFFSetTagExtender(tag_extender); 
+  previous_tag_extender = TIFFSetTagExtender(tag_extender);
 }
