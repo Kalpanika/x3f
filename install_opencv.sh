@@ -43,8 +43,9 @@ echo Build Opencv
 mkdir -p $OCV_BLD || exit 1
 mkdir -p $OCV_LIB || exit 1
 cd $OCV_BLD || exit 1
-cmake -D CMAKE_INSTALL_PREFIX=$OCV_LIB \
-      -D CMAKE_BUILD_TYPE=RELEASE -D WITH_TBB=ON $OCV_SRC || exit 1
+cmake -D CMAKE_INSTALL_PREFIX=$OCV_LIB -D CMAKE_BUILD_TYPE=RELEASE \
+      -D WITH_TBB=ON -D BUILD_TBB=ON -D BUILD_TIFF=ON -D BUILD_SHARED_LIBS=OFF \
+       $OCV_SRC || exit 1
 make -j $CORES install || exit 1
 cd $ROOT || exit 1
 

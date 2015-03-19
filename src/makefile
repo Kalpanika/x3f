@@ -40,25 +40,30 @@ endif
 endif
 endif
 
-OPENCV = ../deps/lib/$(SYS)/opencv
-OPENCV_INC = $(OPENCV)/include
-OPENCV_HEADERS := $(shell find $(OPENCV_INC) -name '*.hpp' -or -name '*.h')
-OPENCV_LIBS = -lopencv_core -lopencv_photo -lopencv_imgproc
-OPENCV_LDFLAGS = -Wl,-rpath,$(abspath $(OPENCV)/lib)
+OCV = ../deps/lib/$(SYS)/opencv
+OCV_INC = $(OCV)/include
+OCV_HEADERS := $(shell find $(OCV_INC)/opencv2 -name '*.hpp' -or -name '*.h')
+OCV_CFLAGS = -I$(OCV_INC)
+OCV_LIBS = $(addprefix $(OCV)/lib/libopencv_,photo.a imgproc.a core.a) $(addprefix $(OCV)/share/OpenCV/3rdparty/lib/lib,ippicv.a tbb.a) -lz -ldl -lpthread
+
+TIFF_INC1 = ../deps/src/opencv/3rdparty/libtiff
+TIFF_INC2 = ../deps/src/$(SYS)/opencv_build/3rdparty/libtiff
+TIFF_HEADERS = $(addprefix $(TIFF_INC1)/,tiffio.h tiff.h tiffvers.h) $(TIFF_INC2)/tif_config.h
+TIFF_CFLAGS = -I$(TIFF_INC1) -I$(TIFF_INC2)
+TIFF_LIBS = $(OCV)/share/OpenCV/3rdparty/lib/liblibtiff.a -lz
 
 CFLAGS = $(CFBASE) -g -O3 -Wall $(C)
 LDFLAGS = $(LDBASE) $(L)
 
 BINDIR = ../bin/$(SYS)
-VPATH = $(OPENCV)/lib		# Used by make to find prerequisites
 
 # Build dependencies
 # -----------------------------------------------------------
 
 all: $(addprefix $(BINDIR)/,x3f_extract$(EXE) x3f_io_test$(EXE) x3f_matrix_test$(EXE))
 
-$(BINDIR)/x3f_extract$(EXE): $(addprefix $(BINDIR)/,x3f_extract.o x3f_io.o x3f_process.o x3f_meta.o x3f_image.o x3f_print.o x3f_dump.o x3f_matrix.o x3f_dngtags.o x3f_denoise_utils.o x3f_denoise_aniso.o x3f_denoise.o) $(OPENCV_LIBS)
-	g++ $^ -o $@ $(LDFLAGS) $(OPENCV_LDFLAGS) -lm -ltiff
+$(BINDIR)/x3f_extract$(EXE): $(addprefix $(BINDIR)/,x3f_extract.o x3f_io.o x3f_process.o x3f_meta.o x3f_image.o x3f_print.o x3f_dump.o x3f_matrix.o x3f_dngtags.o x3f_denoise_utils.o x3f_denoise_aniso.o x3f_denoise.o) $(OCV_LIBS) $(TIFF_LIBS)
+	g++ $^ -o $@ $(LDFLAGS) -lm
 
 $(BINDIR)/x3f_io_test$(EXE): $(addprefix $(BINDIR)/,x3f_io_test.o x3f_io.o x3f_print.o)
 	gcc $^ -o $@ $(LDFLAGS)
@@ -84,23 +89,23 @@ $(BINDIR)/x3f_print.o: x3f_print.c x3f_print.h x3f_io.h | $(BINDIR)
 $(BINDIR)/x3f_dump.o: x3f_dump.c x3f_dump.h x3f_io.h | $(BINDIR)
 	gcc $(CFLAGS) $< -c -o $@
 
-$(BINDIR)/x3f_process.o: x3f_process.c x3f_process.h x3f_io.h x3f_meta.h x3f_image.h x3f_matrix.h x3f_dngtags.h x3f_denoise.h | $(BINDIR)
-	gcc $(CFLAGS) $< -c -o $@
+$(BINDIR)/x3f_process.o: x3f_process.c x3f_process.h x3f_io.h x3f_meta.h x3f_image.h x3f_matrix.h x3f_dngtags.h x3f_denoise.h $(TIFF_HEADERS) | $(BINDIR)
+	gcc $(CFLAGS) $(TIFF_CFLAGS) $< -c -o $@
 
 $(BINDIR)/x3f_matrix.o: x3f_matrix.c x3f_matrix.h | $(BINDIR)
 	gcc $(CFLAGS) $< -c -o $@
 
-$(BINDIR)/x3f_dngtags.o: x3f_dngtags.c x3f_dngtags.h | $(BINDIR)
-	gcc $(CFLAGS) $< -c -o $@
+$(BINDIR)/x3f_dngtags.o: x3f_dngtags.c x3f_dngtags.h $(TIFF_HEADERS) | $(BINDIR)
+	gcc $(CFLAGS) $(TIFF_CFLAGS) $< -c -o $@
 
-$(BINDIR)/x3f_denoise_utils.o: x3f_denoise_utils.cpp x3f_denoise_utils.h x3f_io.h $(OPENCV_HEADERS) | $(BINDIR)
-	g++ $(CFLAGS) -I$(OPENCV_INC) $< -c -o $@
+$(BINDIR)/x3f_denoise_utils.o: x3f_denoise_utils.cpp x3f_denoise_utils.h x3f_io.h $(OCV_HEADERS) | $(BINDIR)
+	g++ $(CFLAGS) $(OCV_CFLAGS) $< -c -o $@
 
-$(BINDIR)/x3f_denoise_aniso.o: x3f_denoise_aniso.cpp x3f_denoise_aniso.h x3f_denoise_utils.h x3f_io.h $(OPENCV_HEADERS) | $(BINDIR)
-	g++ $(CFLAGS) -I$(OPENCV_INC) $< -c -o $@
+$(BINDIR)/x3f_denoise_aniso.o: x3f_denoise_aniso.cpp x3f_denoise_aniso.h x3f_denoise_utils.h x3f_io.h $(OCV_HEADERS) | $(BINDIR)
+	g++ $(CFLAGS) $(OCV_CFLAGS) $< -c -o $@
 
-$(BINDIR)/x3f_denoise.o: x3f_denoise.cpp x3f_denoise.h x3f_denoise_utils.h x3f_denoise_aniso.h x3f_io.h $(OPENCV_HEADERS) | $(BINDIR)
-	g++ $(CFLAGS) -I$(OPENCV_INC) $< -c -o $@
+$(BINDIR)/x3f_denoise.o: x3f_denoise.cpp x3f_denoise.h x3f_denoise_utils.h x3f_denoise_aniso.h x3f_io.h $(OCV_HEADERS) | $(BINDIR)
+	g++ $(CFLAGS) $(OCV_CFLAGS) $< -c -o $@
 
 $(BINDIR)/x3f_matrix_test.o: x3f_matrix_test.c x3f_matrix.h | $(BINDIR)
 	gcc $(CFLAGS) $< -c -o $@
