@@ -1,7 +1,7 @@
 #!/bin/sh
 
 if [ -z $1 ]; then
-    echo usage $0 "<SYS>"
+    echo usage $0 "<SYS> [<cmake toolchain file>]"
     echo Please run '"make"'
     exit 1
 else
@@ -27,13 +27,22 @@ OCV_LIB=$LIB/opencv
 OCV_URL=https://github.com/erikrk/opencv.git
 OCV_HASH=82c54104d6901e03027240cd9c6866f6b2509d0a
 
-OCV_FLAGS="-D CMAKE_BUILD_TYPE=RELEASE -D WITH_TBB=ON -D BUILD_TBB=ON \
-           -D BUILD_TIFF=ON -D BUILD_SHARED_LIBS=OFF \
-           -D WITH_OPENEXR=OFF -D WITH_JPEG=OFF -D WITH_JASPER=OFF \
-           -D WITH_PNG=OFF -D WITH_WEBP=OFF \
+OCV_FLAGS="-D CMAKE_BUILD_TYPE=RELEASE -D BUILD_SHARED_LIBS=OFF \
+           -D BUILD_TIFF=ON -D WITH_JPEG=OFF -D WITH_JASPER=OFF \
+           -D WITH_PNG=OFF -D WITH_WEBP=OFF -D WITH_OPENEXR=OFF \
            -D BUILD_TESTS=OFF -D BUILD_PERF_TESTS=OFF -D BUILD_DOCS=OFF"
 
-if [ -e $OCV_SRC ] ; then
+if [ $SYS = windows ]; then
+    OCV_FLAGS="$OCV_FLAGS -D BUILD_ZLIB=ON"
+else
+    OCV_FLAGS="$OCV_FLAGS -D WITH_TBB=ON -D BUILD_TBB=ON"
+fi
+
+if [ -n $2 ]; then
+    OCV_FLAGS="$OCV_FLAGS -D CMAKE_TOOLCHAIN_FILE=$ROOT/$2"
+fi
+
+if [ -e $OCV_SRC ]; then
     echo Fetch opencv
     cd $OCV_SRC || exit 1
     git fetch || exit 1

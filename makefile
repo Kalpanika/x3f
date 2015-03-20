@@ -14,7 +14,7 @@ OPENCV = deps/lib/$(SYS)/opencv
 all dist: | $(OPENCV)/.success
 
 $(OPENCV)/.success:
-	./install_opencv.sh $(SYS)
+	./install_opencv.sh $(SYS) $(CMAKE_TOOLCHAIN)
 
 clean_opencv:
-	-@rm -r $(OPENCV)
+	-@rm -rf deps/lib/*/opencv
