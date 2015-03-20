@@ -127,11 +127,12 @@ DIST = $(NAME)-$(VER)-$(SYS)
 DIST_DIR = ../dist/$(DIST)
 DIST_TGZ = ../dist/$(DIST).tar.gz
 DIST_FILES = README doc/readme.txt doc/copyright.txt bin/x3f_extract
+TARFLAGS = --owner=root --group=root
 
 dist: $(DIST_TGZ)
 
 $(DIST_TGZ): $(addprefix $(DIST_DIR)/,$(DIST_FILES))
-	tar czf $@ -C ../dist $(addprefix $(DIST)/,$(DIST_FILES))
+	tar $(TARFLAGS) -czf $@ -C ../dist $(addprefix $(DIST)/,$(DIST_FILES))
 
 $(DIST_DIR)/bin/%: ../bin/$(SYS)/%
 	install -D -m 755 -s $< $@
