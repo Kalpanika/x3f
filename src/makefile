@@ -41,26 +41,25 @@ endif
 endif
 
 OCV = ../deps/lib/$(SYS)/opencv
+
+ifeq ($(SYS), windows)
+ZLIB = $(OCV)/share/OpenCV/3rdparty/lib/libzlib.a
+OCV_AUX = $(ZLIB)
+else
+ZLIB = -lz
+OCV_AUX = $(OCV)/share/OpenCV/3rdparty/lib/libtbb.a -ldl -lpthread $(ZLIB)
+endif
+
 OCV_INC = $(OCV)/include
 OCV_HEADERS := $(shell find $(OCV_INC)/opencv2 -name '*.hpp' -or -name '*.h')
 OCV_CFLAGS = -I$(OCV_INC)
-OCV_LIBS = $(addprefix $(OCV)/lib/libopencv_,photo.a imgproc.a core.a)
-ifeq ($(SYS), windows)
-OCV_LIBS += $(OCV)/share/OpenCV/3rdparty/lib/libzlib.a
-else
-OCV_LIBS += $(addprefix $(OCV)/share/OpenCV/3rdparty/lib/lib,ippicv.a tbb.a) -lz -ldl -lpthread
-endif
+OCV_LIBS = $(addprefix $(OCV)/lib/libopencv_,photo.a imgproc.a core.a) $(OCV_AUX)
 
 TIFF_INC1 = ../deps/src/opencv/3rdparty/libtiff
 TIFF_INC2 = ../deps/src/$(SYS)/opencv_build/3rdparty/libtiff
 TIFF_HEADERS = $(addprefix $(TIFF_INC1)/,tiffio.h tiff.h tiffvers.h) $(TIFF_INC2)/tif_config.h
 TIFF_CFLAGS = -I$(TIFF_INC1) -I$(TIFF_INC2)
-TIFF_LIBS = $(OCV)/share/OpenCV/3rdparty/lib/liblibtiff.a
-ifeq ($(SYS), windows)
-TIFF_LIBS += $(OCV)/share/OpenCV/3rdparty/lib/libzlib.a
-else
-TIFF_LIBS += -lz
-endif
+TIFF_LIBS = $(OCV)/share/OpenCV/3rdparty/lib/liblibtiff.a $(ZLIB)
 
 CFLAGS = $(CFBASE) -g -O3 -Wall $(C)
 LDFLAGS = $(LDBASE) $(L)
