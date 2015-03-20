@@ -39,7 +39,7 @@ else
 fi
 
 echo Build Opencv
-git checkout $OCV_HASH
+git checkout $OCV_HASH || exit 1
 mkdir -p $OCV_BLD || exit 1
 mkdir -p $OCV_LIB || exit 1
 cd $OCV_BLD || exit 1
