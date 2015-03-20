@@ -1,5 +1,6 @@
 bin/
 deps/
+dist/
 *~
 a.out
 .vagrant

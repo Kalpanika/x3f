@@ -60,7 +60,7 @@ BINDIR = ../bin/$(SYS)
 # Build dependencies
 # -----------------------------------------------------------
 
-.PHONY: all clean clobber
+.PHONY: all dist clean clobber
 
 all: $(addprefix $(BINDIR)/,x3f_extract$(EXE) x3f_io_test$(EXE) x3f_matrix_test$(EXE))
 
@@ -118,12 +118,35 @@ $(BINDIR)/x3f_matrix_test$(EXE): $(addprefix $(BINDIR)/,x3f_matrix_test.o x3f_ma
 $(BINDIR):
 	mkdir $(BINDIR)
 
+# Packaging
+# -----------------------------------------------------------
+
+NAME = x3f_tools
+VER := $(shell git describe --always --dirty)
+DIST = $(NAME)-$(VER)-$(SYS)
+DIST_DIR = ../dist/$(DIST)
+DIST_TGZ = ../dist/$(DIST).tar.gz
+DIST_FILES = README doc/changes.txt doc/copyright.txt bin/x3f_extract
+
+dist: $(DIST_TGZ)
+
+$(DIST_TGZ): $(addprefix $(DIST_DIR)/,$(DIST_FILES))
+	tar czf $@ -C ../dist $(addprefix $(DIST)/,$(DIST_FILES))
+
+$(DIST_DIR)/bin/%: ../bin/$(SYS)/%
+	install -D -m 755 -s $< $@
+
+$(DIST_DIR)/%: ../%
+	install -D -m 644 $< $@
+
 # Clean up dependencies
 # -----------------------------------------------------------
 
 clean:
 	-@rm ../bin/*/*.o
 	-@rm *~ ../doc/*~
+	-@rm -r ../dist/$(NAME)-*-*/
 
 clobber: clean
 	-@rm -r ../bin/windows ../bin/osx ../bin/linux ../bin/generic
+	-@rm ../dist/*.tar.gz
