@@ -136,7 +136,7 @@ VER := $(shell git describe --always --dirty)
 DIST = $(NAME)-$(VER)-$(SYS)
 DIST_DIR = ../dist/$(DIST)
 DIST_TGZ = ../dist/$(DIST).tar.gz
-DIST_FILES = README doc/readme.txt doc/copyright.txt bin/x3f_extract
+DIST_FILES = README doc/readme.txt doc/copyright.txt bin/x3f_extract$(EXE)
 TARFLAGS = --owner=root --group=root
 
 dist: $(DIST_TGZ)
