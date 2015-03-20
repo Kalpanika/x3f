@@ -11,7 +11,12 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <assert.h>
+
+#if defined(_WIN32) || defined (_WIN64)
+#include <windows.h>
+#else
 #include <iconv.h>
+#endif
 
 /* --------------------------------------------------------------------- */
 /* Hacky external flags                                                 */
@@ -1093,6 +1098,17 @@ static void x3f_load_image_verbatim(x3f_info_t *I, x3f_directory_entry_t *DE)
   ID->data_size = read_data_block(&ID->data, I, DE, 0);
 }
 
+#if defined(_WIN32) || defined (_WIN64)
+static char *utf16le_to_utf8(utf16_t *str)
+{
+  size_t osize = WideCharToMultiByte(CP_UTF8, 0, str, -1, NULL, 0, NULL, NULL);
+  char *buf = malloc(osize);
+
+  WideCharToMultiByte(CP_UTF8, 0, str, -1, buf, osize, NULL, NULL);
+
+  return buf;
+}
+#else
 static char *utf16le_to_utf8(utf16_t *str)
 {
   iconv_t ic = iconv_open("UTF-8", "UTF-16LE");
@@ -1100,7 +1116,7 @@ static char *utf16le_to_utf8(utf16_t *str)
   char *buf, *ibuf, *obuf;
 
   assert(ic != (iconv_t)-1);
-  
+
   for (isize=0; str[isize]; isize++);
   isize *= 2;			/* Size in bytes */
   osize = 2*isize;		/* Worst case scenario */
@@ -1116,6 +1132,7 @@ static char *utf16le_to_utf8(utf16_t *str)
 
   return realloc(buf, obuf-buf+1);
 }
+#endif
 
 static void x3f_load_property_list(x3f_info_t *I, x3f_directory_entry_t *DE)
 {
@@ -1869,7 +1886,7 @@ static void x3f_load_camf(x3f_info_t *I, x3f_directory_entry_t *DE)
   switch (CAMF->type) {
   case 2:			/* Older SD9-SD14 */
     x3f_load_camf_decode_type2(CAMF);
-    break; 
+    break;
   case 4:			/* TRUE ... Merrill */
     x3f_load_camf_decode_type4(CAMF);
     break;
