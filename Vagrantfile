@@ -3,8 +3,7 @@
 
 $script = <<SCRIPT
 apt-get install -y build-essential
-apt-get install -y libtbb-dev
-apt-get install -y libtiff5-dev
+apt-get install -y zlib1g-dev
 apt-get install -y git
 apt-get install -y cmake
 SCRIPT

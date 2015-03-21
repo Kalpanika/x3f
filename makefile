@@ -1,12 +1,20 @@
 # Set the SYS variable
 include sys.mk
 
-.PHONY: all clean clobber install_opencv
+.PHONY: default all dist clean clobber clean_opencv
 
 default: all
 
-all clean clobber:
+all dist clean clobber:
 	$(MAKE) -C src $@
 
-install_opencv:
+
+OPENCV = deps/lib/$(SYS)/opencv
+
+all dist: | $(OPENCV)/.success
+
+$(OPENCV)/.success:
 	./install_opencv.sh $(SYS)
+
+clean_opencv:
+	-@rm -r $(OPENCV)
