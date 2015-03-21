@@ -156,8 +156,8 @@ $(DIST_DIR)/%: ../%
 clean:
 	-@rm ../bin/*/*.o
 	-@rm *~ ../doc/*~
-	-@rm -r ../dist/$(NAME)-*-*/
+	-@rm -r ../dist/$(NAME)-*/
 
 clobber: clean
-	-@rm -r ../bin/windows ../bin/osx ../bin/linux ../bin/generic
-	-@rm ../dist/*.tar.gz
+	-@rm -r ../bin/*-*/
+	-@rm ../dist/$(NAME)-*.tar.gz
