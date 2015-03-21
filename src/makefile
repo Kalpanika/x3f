@@ -17,22 +17,23 @@ include ../sys.mk
 # Set compilation and load flags etc
 # -----------------------------------------------------------
 
-ifeq (windows, $(SYS))
+ifeq (windows, $(TARGET_SYS))
   EXE = .exe
   CFBASE =
   LDBASE = -static
 else
-ifeq (linux, $(SYS))
+ifeq (linux, $(TARGET_SYS))
   EXE =
   CFBASE =
   LDBASE =
 else
-ifeq (osx, $(SYS))
+ifeq (osx-universal, $(TARGET))
   EXE =
   ARCH = -arch i386 -arch x86_64
   CFBASE = $(ARCH)
   LDBASE = $(ARCH)
 else
+  $(warning WARNING: Unknown target: $(TARGET))
   EXE =
   CFBASE =
   LDBASE =
@@ -40,9 +41,9 @@ endif
 endif
 endif
 
-OCV = ../deps/lib/$(SYS)/opencv
+OCV = ../deps/lib/$(TARGET)/opencv
 
-ifeq ($(SYS), windows)
+ifeq ($(TARGET_SYS), windows)
 ZLIB = $(OCV)/share/OpenCV/3rdparty/lib/libzlib.a
 OCV_AUX = $(ZLIB)
 else
@@ -56,7 +57,7 @@ OCV_CFLAGS = -I$(OCV_INC)
 OCV_LIBS = $(addprefix $(OCV)/lib/libopencv_,photo.a imgproc.a core.a) $(OCV_AUX)
 
 TIFF_INC1 = ../deps/src/opencv/3rdparty/libtiff
-TIFF_INC2 = ../deps/src/$(SYS)/opencv_build/3rdparty/libtiff
+TIFF_INC2 = ../deps/src/$(TARGET)/opencv_build/3rdparty/libtiff
 TIFF_HEADERS = $(addprefix $(TIFF_INC1)/,tiffio.h tiff.h tiffvers.h) $(TIFF_INC2)/tif_config.h
 TIFF_CFLAGS = -I$(TIFF_INC1) -I$(TIFF_INC2)
 TIFF_LIBS = $(OCV)/share/OpenCV/3rdparty/lib/liblibtiff.a $(ZLIB)
@@ -64,7 +65,7 @@ TIFF_LIBS = $(OCV)/share/OpenCV/3rdparty/lib/liblibtiff.a $(ZLIB)
 CFLAGS = $(CFBASE) -g -O3 -Wall $(C)
 LDFLAGS = $(LDBASE) $(L)
 
-BINDIR = ../bin/$(SYS)
+BINDIR = ../bin/$(TARGET)
 
 # Build dependencies
 # -----------------------------------------------------------
@@ -132,7 +133,7 @@ $(BINDIR):
 
 NAME = x3f_tools
 VER := $(shell git describe --always --dirty)
-DIST = $(NAME)-$(VER)-$(SYS)
+DIST = $(NAME)-$(VER)-$(TARGET)
 DIST_DIR = ../dist/$(DIST)
 DIST_TGZ = ../dist/$(DIST).tar.gz
 DIST_FILES = README doc/readme.txt doc/copyright.txt bin/x3f_extract$(EXE)
@@ -143,7 +144,7 @@ dist: $(DIST_TGZ)
 $(DIST_TGZ): $(addprefix $(DIST_DIR)/,$(DIST_FILES))
 	tar $(TARFLAGS) -czf $@ -C ../dist $(addprefix $(DIST)/,$(DIST_FILES))
 
-$(DIST_DIR)/bin/%: ../bin/$(SYS)/%
+$(DIST_DIR)/bin/%: $(BINDIR)/%
 	install -D -m 755 -s $< $@
 
 $(DIST_DIR)/%: ../%

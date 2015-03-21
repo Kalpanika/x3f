@@ -9,12 +9,12 @@ all dist clean clobber:
 	$(MAKE) -C src $@
 
 
-OPENCV = deps/lib/$(SYS)/opencv
+OPENCV = deps/lib/$(TARGET)/opencv
 
 all dist: | $(OPENCV)/.success
 
 $(OPENCV)/.success:
-	./install_opencv.sh $(SYS) $(CMAKE_TOOLCHAIN)
+	./install_opencv.sh $(TARGET) $(CMAKE_TOOLCHAIN)
 
 clean_opencv:
 	-@rm -rf deps/lib/*/opencv
