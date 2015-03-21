@@ -136,13 +136,22 @@ VER := $(shell git describe --always --dirty)
 DIST = $(NAME)-$(VER)-$(TARGET)
 DIST_DIR = ../dist/$(DIST)
 DIST_TGZ = ../dist/$(DIST).tar.gz
+DIST_ZIP = ../dist/$(DIST).zip
 DIST_FILES = README doc/readme.txt doc/copyright.txt bin/x3f_extract$(EXE)
 TARFLAGS = --owner=root --group=root
 
+ifeq ($(TARGET_SYS), windows)
+dist: $(DIST_ZIP)
+else
 dist: $(DIST_TGZ)
+endif
 
 $(DIST_TGZ): $(addprefix $(DIST_DIR)/,$(DIST_FILES))
 	tar $(TARFLAGS) -czf $@ -C ../dist $(addprefix $(DIST)/,$(DIST_FILES))
+
+$(DIST_ZIP): $(addprefix $(DIST_DIR)/,$(DIST_FILES))
+	rm -f $@
+	cd ../dist && zip $(abspath $@) $(addprefix $(DIST)/,$(DIST_FILES))
 
 $(DIST_DIR)/bin/%: $(BINDIR)/%
 	install -D -m 755 -s $< $@
@@ -161,3 +170,4 @@ clean:
 clobber: clean
 	-@rm -r ../bin/*-*/
 	-@rm ../dist/$(NAME)-*.tar.gz
+	-@rm ../dist/$(NAME)-*.zip
