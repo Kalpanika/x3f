@@ -45,11 +45,12 @@ OCV = ../deps/lib/$(TARGET)/opencv
 
 ifeq ($(TARGET_SYS), windows)
 ZLIB = $(OCV)/share/OpenCV/3rdparty/lib/libzlib.a
-OCV_AUX = $(ZLIB)
+OCV_AUX =
 else
 ZLIB = -lz
-OCV_AUX = $(OCV)/share/OpenCV/3rdparty/lib/libtbb.a -ldl -lpthread $(ZLIB)
+OCV_AUX = -ldl -lpthread
 endif
+OCV_AUX += $(OCV)/share/OpenCV/3rdparty/lib/libtbb.a $(ZLIB)
 
 OCV_INC = $(OCV)/include
 OCV_HEADERS := $(shell find $(OCV_INC)/opencv2 -name '*.hpp' -or -name '*.h')
