@@ -18,7 +18,8 @@ static void denoise_nlm(Mat& img, float h)
   float h1[3] = {0.0, h, h}, h2[3] = {0.0, h/8, h/4};
 
   std::cout << "BEGIN denoising\n";
-  fastNlMeansDenoisingAbs(img, out, std::vector<float>(h1, h1+3), 3, 11);
+  fastNlMeansDenoising(img, out, std::vector<float>(h1, h1+3),
+		       3, 11, NORM_L1);
   std::cout << "END denoising\n";
 
   std::cout << "BEGIN V median filtering\n";
@@ -31,7 +32,8 @@ static void denoise_nlm(Mat& img, float h)
 
   std::cout << "BEGIN low-frequency denoising\n";
   resize(out, sub, Size(), 1.0/4, 1.0/4, INTER_AREA);
-  fastNlMeansDenoisingAbs(sub, sub_dn, std::vector<float>(h2, h2+3), 3, 21);
+  fastNlMeansDenoising(sub, sub_dn, std::vector<float>(h2, h2+3),
+		       3, 21, NORM_L1);
   subtract(sub, sub_dn, sub_res, noArray(), CV_16S);
   resize(sub_res, res, out.size(), 0.0, 0.0, INTER_CUBIC);
   subtract(out, res, out, noArray(), CV_16U);
@@ -98,7 +100,8 @@ void x3f_expand_quattro(x3f_area16_t *image, x3f_area16_t *active,
     float h[3] = {0.0, d->h, d->h*2};
 
     std::cout << "BEGIN Quattro full-resolution denoising\n";
-    fastNlMeansDenoisingAbs(act_exp, out, std::vector<float>(h, h+3), 3, 11);
+    fastNlMeansDenoising(act_exp, out, std::vector<float>(h, h+3),
+			 3, 11, NORM_L1);
     std::cout << "END Quattro full-resolution denoising\n";
 
     out.copyTo(act_exp);
