@@ -30,7 +30,7 @@ else
 ifeq (osx, $(TARGET_SYS))
   EXE =
   CFBASE = $(SDKFLAGS) -Wno-pragmas
-  LDBASE = $(SDKFLAGS) -lz -liconv
+  LDBASE = $(SDKFLAGS) -Wl,-dead_strip_dylibs -lz -liconv
 else
   $(warning WARNING: Unknown target: $(TARGET))
   EXE =
