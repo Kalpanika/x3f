@@ -19,12 +19,26 @@ dist-64:
 	$(MAKE) TARGET=windows-x86_64 dist
 endif
 
+ifeq ($(TARGET), osx-universal)
+
+all dist: deps/lib/osx-x86_64/opencv/.success deps/lib/osx-i386/opencv/.success
+
+deps/lib/osx-x86_64/opencv/.success:
+	$(MAKE) TARGET=osx-x86_64 $@
+
+deps/lib/osx-i386/opencv/.success:
+	$(MAKE) TARGET=osx-i386 $@
+
+else
+
 OPENCV = deps/lib/$(TARGET)/opencv
 
 all dist: | $(OPENCV)/.success
 
 $(OPENCV)/.success:
 	./install_opencv.sh $(TARGET) $(CMAKE_TOOLCHAIN)
+
+endif
 
 clean_opencv:
 	-@rm -rf deps/lib/*/opencv

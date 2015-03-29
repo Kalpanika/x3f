@@ -36,10 +36,14 @@ endif
 CC =
 CXX =
 CMAKE_TOOLCHAIN =
+LIPO =
 
 ifeq ($(HOST), $(TARGET))
   CC = gcc
   CXX = g++
+ifeq ($(HOST), osx)
+  LIPO = lipo
+endif
 else				# Cross compilation
 ifeq ($(HOST_SYS), linux)
 ifeq ($(TARGET), windows-x86_64)
@@ -61,12 +65,24 @@ ifeq ($(TARGET), osx-i386)
   CC = i386-apple-darwin9-gcc
   CXX = i386-apple-darwin9-g++
   CMAKE_TOOLCHAIN = i386-apple-darwin9.cmake
+else
+ifeq ($(TARGET), osx-universal)
+  LIPO = x86_64-apple-darwin9-lipo
 endif
 endif
 endif
 endif
 endif
 endif
+endif
+
+ifeq ($(TARGET), osx-universal)
+
+ifndef LIPO
+  $(error Building universal binaries for target $(TARGET) on host $(HOST) is unsupported)
+endif
+
+else
 
 ifndef CC
   $(error C compilation for target $(TARGET) on host $(HOST) is unsupported)
@@ -74,6 +90,8 @@ endif
 
 ifndef CXX
   $(error C++ compilation for target $(TARGET) on host $(HOST) is unsupported)
+endif
+
 endif
 
 TARGET_SYS = $(shell echo $(TARGET) | sed "s/-.*$$//")
