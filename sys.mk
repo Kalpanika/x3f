@@ -32,16 +32,19 @@ HOST = $(HOST_SYS)-$(HOST_CPU)
 ifndef TARGET
   TARGET = $(HOST)
 endif
+TARGET_SYS = $(shell echo $(TARGET) | sed "s/-.*$$//")
+TARGET_CPU = $(shell echo $(TARGET) | sed "s/^$(TARGET_SYS)-//")
 
 CC =
 CXX =
 CMAKE_TOOLCHAIN =
 LIPO =
+SDKFLAGS =
 
 ifeq ($(HOST), $(TARGET))
   CC = gcc
   CXX = g++
-ifeq ($(HOST), osx)
+ifeq ($(HOST_SYS), osx)
   LIPO = lipo
 endif
 else				# Cross compilation
@@ -60,17 +63,27 @@ ifeq ($(TARGET), osx-x86_64)
   CC = x86_64-apple-darwin9-gcc
   CXX = x86_64-apple-darwin9-g++
   CMAKE_TOOLCHAIN = x86_64-apple-darwin9.cmake
+  SDKFLAGS = -mmacosx-version-min=10.5 -arch x86_64
 else
 ifeq ($(TARGET), osx-i386)
   CC = i386-apple-darwin9-gcc
   CXX = i386-apple-darwin9-g++
   CMAKE_TOOLCHAIN = i386-apple-darwin9.cmake
+  SDKFLAGS = -mmacosx-version-min=10.5 -arch i386
 else
 ifeq ($(TARGET), osx-universal)
   LIPO = x86_64-apple-darwin9-lipo
 endif
 endif
 endif
+endif
+endif
+else
+ifeq ($(HOST_SYS), osx)
+ifeq ($(TARGET_SYS), osx)
+  CC = gcc
+  CXX = g++
+  SDKFLAGS = -isysroot /Developer/SDKs/MacOSX10.5.sdk -mmacosx-version-min=10.5 -arch $(TARGET_CPU)
 endif
 endif
 endif
@@ -93,6 +106,3 @@ ifndef CXX
 endif
 
 endif
-
-TARGET_SYS = $(shell echo $(TARGET) | sed "s/-.*$$//")
-TARGET_CPU = $(shell echo $(TARGET) | sed "s/^$(TARGET_SYS)-//")

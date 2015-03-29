@@ -29,8 +29,8 @@ ifeq (linux, $(TARGET_SYS))
 else
 ifeq (osx, $(TARGET_SYS))
   EXE =
-  CFBASE = -arch $(TARGET_CPU) -Wno-pragmas
-  LDBASE = -arch $(TARGET_CPU) -lz -liconv -mmacosx-version-min=10.5
+  CFBASE = $(SDKFLAGS) -Wno-pragmas
+  LDBASE = $(SDKFLAGS) -lz -liconv
 else
   $(warning WARNING: Unknown target: $(TARGET))
   EXE =
