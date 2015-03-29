@@ -40,6 +40,8 @@ CXX =
 CMAKE_TOOLCHAIN =
 LIPO =
 SDKFLAGS =
+STRIP = strip
+INSTFLAGS =
 
 ifeq ($(HOST), $(TARGET))
   CC = gcc
@@ -64,15 +66,18 @@ ifeq ($(TARGET), osx-x86_64)
   CXX = x86_64-apple-darwin9-g++
   CMAKE_TOOLCHAIN = x86_64-apple-darwin9.cmake
   SDKFLAGS = -mmacosx-version-min=10.5 -arch x86_64
+  STRIP = x86_64-apple-darwin9-strip
 else
 ifeq ($(TARGET), osx-i386)
   CC = i386-apple-darwin9-gcc
   CXX = i386-apple-darwin9-g++
   CMAKE_TOOLCHAIN = i386-apple-darwin9.cmake
   SDKFLAGS = -mmacosx-version-min=10.5 -arch i386
+  STRIP = i386-apple-darwin9-strip
 else
 ifeq ($(TARGET), osx-universal)
   LIPO = x86_64-apple-darwin9-lipo
+  STRIP = x86_64-apple-darwin9-strip
 endif
 endif
 endif
@@ -87,6 +92,10 @@ ifeq ($(TARGET_SYS), osx)
 endif
 endif
 endif
+endif
+
+ifneq ($(STRIP), strip)
+  INSTFLAGS = --strip-program=$(STRIP)
 endif
 
 ifeq ($(TARGET), osx-universal)

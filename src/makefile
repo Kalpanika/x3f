@@ -173,7 +173,7 @@ $(DIST_ZIP): $(addprefix $(DIST_DIR)/,$(DIST_FILES))
 	cd ../dist && zip $(abspath $@) $(addprefix $(DIST)/,$(DIST_FILES))
 
 $(DIST_DIR)/bin/%: $(BINDIR)/%
-	install -D -m 755 -s $< $@
+	install $(INSTFLAGS) -D -m 755 -s $< $@
 
 $(DIST_DIR)/%: ../%
 	install -D -m 644 $< $@

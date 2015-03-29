@@ -1,7 +1,7 @@
 # Set the SYS variable
 include sys.mk
 
-.PHONY: default all dist dist-all dist-32 dist-64 clean clobber clean_opencv
+.PHONY: default all dist clean clobber clean_opencv
 
 default: all
 
@@ -9,7 +9,12 @@ all dist clean clobber:
 	$(MAKE) -C src $@
 
 ifeq ($(HOST), linux-x86_64)
-dist-all: dist-64 dist-32
+.PHONY: dist-all dist-osx dist-32 dist-64
+
+dist-all: dist-osx dist-32 dist-64
+
+dist-osx:
+	$(MAKE) TARGET=osx-universal dist
 
 dist-32:
 	$(MAKE) TARGET=windows-i686 dist
