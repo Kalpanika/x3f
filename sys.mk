@@ -51,6 +51,18 @@ ifeq ($(TARGET), windows-i686)
   CC = i686-w64-mingw32-gcc
   CXX = i686-w64-mingw32-g++
   CMAKE_TOOLCHAIN = i686-w64-mingw32.cmake
+else
+ifeq ($(TARGET), osx-x86_64)
+  CC = x86_64-apple-darwin9-gcc
+  CXX = x86_64-apple-darwin9-g++
+  CMAKE_TOOLCHAIN = x86_64-apple-darwin9.cmake
+else
+ifeq ($(TARGET), osx-i386)
+  CC = i386-apple-darwin9-gcc
+  CXX = i386-apple-darwin9-g++
+  CMAKE_TOOLCHAIN = i386-apple-darwin9.cmake
+endif
+endif
 endif
 endif
 endif

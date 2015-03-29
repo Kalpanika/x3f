@@ -34,9 +34,15 @@ OCV_FLAGS="-D CMAKE_BUILD_TYPE=RELEASE -D BUILD_SHARED_LIBS=OFF \
            -D BUILD_TESTS=OFF -D BUILD_PERF_TESTS=OFF -D BUILD_DOCS=OFF \
            -D BUILD_opencv_apps=OFF"
 
+if [[ $TARGET =~ ^osx- ]]; then
+    OCV_FLAGS="$OCV_FLAGS -D ENABLE_PRECOMPILED_HEADERS=OFF"
+fi
+
 if [[ $TARGET =~ ^windows- ]]; then
     OCV_FLAGS="$OCV_FLAGS -D BUILD_ZLIB=ON \
                           -D OPENCV_EXTRA_CXX_FLAGS=-DUSE_WINTHREAD"
+else
+    OCV_FLAGS="$OCV_FLAGS -D OPENCV_EXTRA_CXX_FLAGS=-DUSE_PTHREAD"
 fi
 
 if [ -n $2 ]; then

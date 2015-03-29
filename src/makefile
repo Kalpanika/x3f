@@ -25,13 +25,12 @@ else
 ifeq (linux, $(TARGET_SYS))
   EXE =
   CFBASE =
-  LDBASE =
+  LDBASE = -lz -ldl -lpthread
 else
-ifeq (osx-universal, $(TARGET))
+ifeq (osx, $(TARGET_SYS))
   EXE =
-  ARCH = -arch i386 -arch x86_64
-  CFBASE = $(ARCH)
-  LDBASE = $(ARCH)
+  CFBASE = -arch $(TARGET_CPU) -Wno-pragmas
+  LDBASE = -arch $(TARGET_CPU) -lz -liconv -mmacosx-version-min=10.5
 else
   $(warning WARNING: Unknown target: $(TARGET))
   EXE =
@@ -45,12 +44,10 @@ OCV = ../deps/lib/$(TARGET)/opencv
 
 ifeq ($(TARGET_SYS), windows)
 ZLIB = $(OCV)/share/OpenCV/3rdparty/lib/libzlib.a
-OCV_AUX =
 else
-ZLIB = -lz
-OCV_AUX = -ldl -lpthread
+ZLIB =
 endif
-OCV_AUX += $(OCV)/share/OpenCV/3rdparty/lib/libtbb.a $(ZLIB)
+OCV_AUX = $(OCV)/share/OpenCV/3rdparty/lib/libtbb.a $(ZLIB)
 
 OCV_INC = $(OCV)/include
 OCV_HEADERS := $(shell find $(OCV_INC)/opencv2 -name '*.hpp' -or -name '*.h')
@@ -64,6 +61,7 @@ TIFF_CFLAGS = -I$(TIFF_INC1) -I$(TIFF_INC2)
 TIFF_LIBS = $(OCV)/share/OpenCV/3rdparty/lib/liblibtiff.a $(ZLIB)
 
 CFLAGS = $(CFBASE) -g -O3 -Wall $(C)
+CXXFLAGS = $(CFLAGS) -fvisibility-inlines-hidden
 LDFLAGS = $(LDBASE) $(L)
 
 BINDIR = ../bin/$(TARGET)
@@ -112,13 +110,13 @@ $(BINDIR)/x3f_dngtags.o: x3f_dngtags.c x3f_dngtags.h $(TIFF_HEADERS) | $(BINDIR)
 	$(CC) $(CFLAGS) $(TIFF_CFLAGS) $< -c -o $@
 
 $(BINDIR)/x3f_denoise_utils.o: x3f_denoise_utils.cpp x3f_denoise_utils.h x3f_io.h $(OCV_HEADERS) | $(BINDIR)
-	$(CXX) $(CFLAGS) $(OCV_CFLAGS) $< -c -o $@
+	$(CXX) $(CXXFLAGS) $(OCV_CFLAGS) $< -c -o $@
 
 $(BINDIR)/x3f_denoise_aniso.o: x3f_denoise_aniso.cpp x3f_denoise_aniso.h x3f_denoise_utils.h x3f_io.h $(OCV_HEADERS) | $(BINDIR)
-	$(CXX) $(CFLAGS) $(OCV_CFLAGS) $< -c -o $@
+	$(CXX) $(CXXFLAGS) $(OCV_CFLAGS) $< -c -o $@
 
 $(BINDIR)/x3f_denoise.o: x3f_denoise.cpp x3f_denoise.h x3f_denoise_utils.h x3f_denoise_aniso.h x3f_io.h $(OCV_HEADERS) | $(BINDIR)
-	$(CXX) $(CFLAGS) $(OCV_CFLAGS) $< -c -o $@
+	$(CXX) $(CXXFLAGS) $(OCV_CFLAGS) $< -c -o $@
 
 $(BINDIR)/x3f_matrix_test.o: x3f_matrix_test.c x3f_matrix.h | $(BINDIR)
 	$(CC) $(CFLAGS) $< -c -o $@
