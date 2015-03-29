@@ -32,10 +32,18 @@ OCV_FLAGS="-D CMAKE_BUILD_TYPE=RELEASE -D BUILD_SHARED_LIBS=OFF \
            -D BUILD_TIFF=ON -D WITH_JPEG=OFF -D WITH_JASPER=OFF \
            -D WITH_PNG=OFF -D WITH_WEBP=OFF -D WITH_OPENEXR=OFF \
            -D BUILD_TESTS=OFF -D BUILD_PERF_TESTS=OFF -D BUILD_DOCS=OFF \
-           -D BUILD_opencv_apps=OFF"
+           -D BUILD_opencv_python2=OFF -D BUILD_opencv_python3=OFF \
+           -D BUILD_opencv_java=OFF -D BUILD_opencv_apps=OFF"
+OPENCV_EXTRA_FLAGS=
 
 if [[ $TARGET =~ ^osx- ]]; then
     OCV_FLAGS="$OCV_FLAGS -D ENABLE_PRECOMPILED_HEADERS=OFF"
+    if [ `uname -s` = Darwin ]; then
+	OPENCV_EXTRA_FLAGS="$OPENCV_EXTRA_FLAGS \
+                            -isysroot /Developer/SDKs/MacOSX10.5.sdk"
+    fi
+    OPENCV_EXTRA_FLAGS="$OPENCV_EXTRA_FLAGS -mmacosx-version-min=10.5 \
+                        -arch `echo $TARGET | sed 's/^osx-//'` -Wno-pragmas"
 fi
 
 if [[ $TARGET =~ ^windows- ]]; then
@@ -65,7 +73,8 @@ git checkout $OCV_HASH || exit 1
 mkdir -p $OCV_BLD || exit 1
 mkdir -p $OCV_LIB || exit 1
 cd $OCV_BLD || exit 1
-cmake $OCV_FLAGS -D CMAKE_INSTALL_PREFIX=$OCV_LIB $OCV_SRC || exit 1
+cmake $OCV_FLAGS -D OPENCV_EXTRA_FLAGS="$OPENCV_EXTRA_FLAGS" \
+      -D CMAKE_INSTALL_PREFIX=$OCV_LIB $OCV_SRC || exit 1
 make -j $CORES install || exit 1
 touch $OCV_LIB/.success || exit 1
 echo Successfully installed OpenCV in $OCV_LIB
