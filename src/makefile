@@ -30,7 +30,7 @@ else
 ifeq (osx, $(TARGET_SYS))
   EXE =
   CFBASE = $(SDKFLAGS) -Wno-pragmas
-  LDBASE = $(SDKFLAGS) -Wl,-dead_strip_dylibs -lz -liconv
+  LDBASE = $(SDKFLAGS) -Wl,-dead_strip_dylibs -liconv -framework OpenCL
 else
   $(warning WARNING: Unknown target: $(TARGET))
   EXE =
@@ -42,10 +42,9 @@ endif
 
 OCV = ../deps/lib/$(TARGET)/opencv
 
-ifeq ($(TARGET_SYS), windows)
-ZLIB = $(OCV)/share/OpenCV/3rdparty/lib/libzlib.a
-else
 ZLIB =
+ifneq ($(TARGET_SYS), linux)
+ZLIB = $(OCV)/share/OpenCV/3rdparty/lib/libzlib.a
 endif
 OCV_AUX = $(OCV)/share/OpenCV/3rdparty/lib/libtbb.a $(ZLIB)
 

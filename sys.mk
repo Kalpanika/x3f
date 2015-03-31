@@ -62,22 +62,22 @@ ifeq ($(TARGET), windows-i686)
   CMAKE_TOOLCHAIN = i686-w64-mingw32.cmake
 else
 ifeq ($(TARGET), osx-x86_64)
-  CC = x86_64-apple-darwin9-gcc
-  CXX = x86_64-apple-darwin9-g++
-  CMAKE_TOOLCHAIN = x86_64-apple-darwin9.cmake
-  SDKFLAGS = -mmacosx-version-min=10.5 -arch x86_64
-  STRIP = x86_64-apple-darwin9-strip
+  CC = x86_64-apple-darwin11-gcc
+  CXX = x86_64-apple-darwin11-g++
+  CMAKE_TOOLCHAIN = x86_64-apple-darwin11.cmake
+  SDKFLAGS = -mmacosx-version-min=10.7 -arch x86_64
+  STRIP = x86_64-apple-darwin11-strip
 else
 ifeq ($(TARGET), osx-i386)
-  CC = i386-apple-darwin9-gcc
-  CXX = i386-apple-darwin9-g++
-  CMAKE_TOOLCHAIN = i386-apple-darwin9.cmake
-  SDKFLAGS = -mmacosx-version-min=10.5 -arch i386
-  STRIP = i386-apple-darwin9-strip
+  CC = i386-apple-darwin11-gcc
+  CXX = i386-apple-darwin11-g++
+  CMAKE_TOOLCHAIN = i386-apple-darwin11.cmake
+  SDKFLAGS = -mmacosx-version-min=10.7 -arch i386
+  STRIP = i386-apple-darwin11-strip
 else
 ifeq ($(TARGET), osx-universal)
-  LIPO = x86_64-apple-darwin9-lipo
-  STRIP = x86_64-apple-darwin9-strip
+  LIPO = x86_64-apple-darwin11-lipo
+  STRIP = x86_64-apple-darwin11-strip
 endif
 endif
 endif
@@ -88,7 +88,7 @@ ifeq ($(HOST_SYS), osx)
 ifeq ($(TARGET_SYS), osx)
   CC = gcc
   CXX = g++
-  SDKFLAGS = -isysroot /Developer/SDKs/MacOSX10.5.sdk -mmacosx-version-min=10.5 -arch $(TARGET_CPU)
+  SDKFLAGS = -isysroot /Developer/SDKs/MacOSX10.7.sdk -mmacosx-version-min=10.7 -arch $(TARGET_CPU)
 endif
 endif
 endif

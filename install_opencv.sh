@@ -39,21 +39,25 @@ OPENCV_EXTRA_FLAGS=
 if [[ $TARGET =~ ^osx- ]]; then
     if [ `uname -s` = Darwin ]; then
 	OPENCV_EXTRA_FLAGS="$OPENCV_EXTRA_FLAGS \
-                            -isysroot /Developer/SDKs/MacOSX10.5.sdk"
+                            -isysroot /Developer/SDKs/MacOSX10.7.sdk"
     else
-	# APPLE is not defined automatically when cross-compiling
+	# APPLE and UNIX are not defined automatically when cross-compiling
+	OCV_FLAGS="$OCV_FLAGS -D APPLE=1 -D UNIX=1"
 	# Precompiled headers do not work with OSXCross
-	OCV_FLAGS="$OCV_FLAGS -D APPLE=1 -D ENABLE_PRECOMPILED_HEADERS=OFF"
+        OCV_FLAGS="$OCV_FLAGS -D ENABLE_PRECOMPILED_HEADERS=OFF"
 	# Workaround for cmake bug
 	mkdir -p $SRC/cmake_workaround || exit 1
-	ln -fs `which x86_64-apple-darwin9-install_name_tool` \
-	       $SRC/cmake_workaround/install_name_tool || exit 1
+	TOOL=x86_64-apple-darwin11-install_name_tool
+	TOOL_PATH=`which $TOOL` || {
+	    echo Could not find $TOOL
+	    echo Make sure to run '`osxcross-env`' to set PATH
+	    exit 1
+	}
+	ln -fs $TOOL_PATH $SRC/cmake_workaround/install_name_tool || exit 1
 	PATH="$PATH:$SRC/cmake_workaround"
     fi
-    OPENCV_EXTRA_FLAGS="$OPENCV_EXTRA_FLAGS -mmacosx-version-min=10.5 \
+    OPENCV_EXTRA_FLAGS="$OPENCV_EXTRA_FLAGS -mmacosx-version-min=10.7 \
                         -arch `echo $TARGET | sed 's/^osx-//'` -Wno-pragmas"
-    # The 10.5 SDK is lacking OpenCL support
-    OCV_FLAGS="$OCV_FLAGS -D WITH_OPENCL=OFF"
 fi
 
 if [[ $TARGET =~ ^windows- ]]; then
