@@ -1520,11 +1520,16 @@ static int write_camera_profile(x3f_t *x3f, char *wb,
 static FILE *tmpfile_win(void)
 {
   char dir[MAX_PATH], file[MAX_PATH];
+  HANDLE h;
 
   if (!GetTempPath(MAX_PATH, dir)) return NULL;
   if (!GetTempFileName(dir, "x3f", 0, file)) return NULL;
 
-  return fopen(file, "w+b");	/* TODO: file is not deleted */
+  h = CreateFile(file, GENERIC_READ | GENERIC_WRITE, 0, NULL, CREATE_ALWAYS,
+		 FILE_ATTRIBUTE_NORMAL | FILE_FLAG_DELETE_ON_CLOSE, NULL);
+  if (h == INVALID_HANDLE_VALUE) return NULL;
+
+  return fdopen(_open_osfhandle((intptr_t)h, 0), "w+b");
 }
 #endif
 
