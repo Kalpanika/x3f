@@ -1524,6 +1524,7 @@ static x3f_return_t write_camera_profiles(x3f_t *x3f, char *wb,
   assert(num >= 1);
   if (!write_camera_profile(x3f, wb, &profiles[0], tiff))
     return X3F_ARGUMENT_ERROR;
+  TIFFSetField(tiff, TIFFTAG_ASSHOTPROFILENAME, profiles[0].name);
   if (num == 1) return X3F_OK;
 
   profile_offsets = alloca((num-1)*sizeof(uint32_t));
