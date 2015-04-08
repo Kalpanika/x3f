@@ -105,6 +105,4 @@ do {							\
   _dstp[7] = (_srcu&0x00000000000000ff) >> 0;		\
  } while (0)
 
-extern void x3f_dngtags_install_extender(void);
-
 #endif	/* X3F_DNGTAGS_H */

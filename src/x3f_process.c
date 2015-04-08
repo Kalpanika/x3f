@@ -1602,8 +1602,6 @@ x3f_return_t x3f_dump_raw_data_as_dng(x3f_t *x3f,
       image.channels != 3)
     return X3F_ARGUMENT_ERROR;
 
-  x3f_dngtags_install_extender();
-
   f_out = TIFFOpen(outfilename, "w");
   if (f_out == NULL) {
     free(image.buf);

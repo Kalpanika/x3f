@@ -37,12 +37,7 @@ static void tag_extender(TIFF *tiff)
     previous_tag_extender(tiff);
 }
 
-void x3f_dngtags_install_extender(void)
+__attribute__((constructor)) static void install_tag_extender(void)
 {
-  static int invoked = 0;
-
-  if (invoked) return;
-  invoked = 1;
-
   previous_tag_extender = TIFFSetTagExtender(tag_extender);
 }
