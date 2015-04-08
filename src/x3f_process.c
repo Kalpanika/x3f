@@ -11,6 +11,7 @@
 #include <math.h>
 #include <stdio.h>
 #include <assert.h>
+#include <unistd.h>
 #include <tiffio.h>
 
 static int sum_area(x3f_t *x3f, char *name,
@@ -173,6 +174,23 @@ static int get_raw_to_xyz(x3f_t *x3f, char *wb, double *raw_to_xyz)
 
   x3f_3x3_diag(gain, gain_mat);
   x3f_3x3_3x3_mul(bmt_to_xyz, gain_mat, raw_to_xyz);
+
+  printf("raw_to_xyz\n");
+  x3f_3x3_print(raw_to_xyz);
+
+  return 1;
+}
+
+static int get_raw_to_xyz_noconvert(x3f_t *x3f, char *wb, double *raw_to_xyz)
+{
+  double adobergb_to_xyz[9], gain[9], gain_mat[9];
+
+  if (!get_gain(x3f, wb, gain)) return 0;
+  /* TODO: assuming working space to be Adobe RGB. Is that acceptable? */
+  x3f_AdobeRGB_to_XYZ(adobergb_to_xyz);
+
+  x3f_3x3_diag(gain, gain_mat);
+  x3f_3x3_3x3_mul(adobergb_to_xyz, gain_mat, raw_to_xyz);
 
   printf("raw_to_xyz\n");
   x3f_3x3_print(raw_to_xyz);
@@ -1462,20 +1480,114 @@ static int write_spatial_gain(x3f_t *x3f, x3f_area16_t *image, char *wb,
   return 1;
 }
 
+typedef struct {
+  char *name;
+  int (*get_raw_to_xyz)(x3f_t *x3f, char *wb, double *raw_to_xyz);
+} camera_profile_t;
+
+static const camera_profile_t camera_profiles[] = {
+  {"Default", get_raw_to_xyz},
+  {"Unconverted", get_raw_to_xyz_noconvert},
+};
+
+static int write_camera_profile(x3f_t *x3f, char *wb,
+				const camera_profile_t *profile,
+				TIFF *tiff)
+{
+  double raw_to_xyz[9], xyz_to_raw[9];
+  float color_matrix1[9];
+
+  if (!profile->get_raw_to_xyz(x3f, wb, raw_to_xyz)) {
+    fprintf(stderr, "Could not get raw_to_xyz for white balance: %s\n", wb);
+    return 0;
+  }
+  x3f_3x3_inverse(raw_to_xyz, xyz_to_raw);
+  vec_double_to_float(xyz_to_raw, color_matrix1, 9);
+  TIFFSetField(tiff, TIFFTAG_COLORMATRIX1, 9, color_matrix1);
+
+  TIFFSetField(tiff, TIFFTAG_PROFILENAME, profile->name);
+  /* Tell the raw converter to refrain from clipping the dark areas */
+  TIFFSetField(tiff, TIFFTAG_DEFAULTBLACKRENDER, 1);
+
+  return 1;
+}
+
+static x3f_return_t write_camera_profiles(x3f_t *x3f, char *wb,
+					  const camera_profile_t *profiles,
+					  int num,
+					  TIFF *tiff)
+{
+  FILE *tiff_file;
+  uint32_t *profile_offsets;
+  int i;
+
+  assert(num >= 1);
+  if (!write_camera_profile(x3f, wb, &profiles[0], tiff))
+    return X3F_ARGUMENT_ERROR;
+  if (num == 1) return X3F_OK;
+
+  profile_offsets = alloca((num-1)*sizeof(uint32_t));
+
+  tiff_file = fdopen(dup(TIFFFileno(tiff)), "w+");
+  if (!tiff_file) return X3F_OUTFILE_ERROR;
+
+  for (i=1; i < num; i++) {
+    FILE *tmp;
+    TIFF *tmp_tiff;
+#define BUFSIZE 1024
+    char buf[BUFSIZE];
+    int offset, count;
+
+    if (!(tmp = tmpfile())) {
+      fclose(tiff_file);
+      return X3F_OUTFILE_ERROR;
+    }
+    if (!(tmp_tiff = TIFFFdOpen(dup(fileno(tmp)), "", "wb"))) { /* Big endian */
+      fclose(tmp);
+      fclose(tiff_file);
+      return X3F_OUTFILE_ERROR;
+    }
+    if (!write_camera_profile(x3f, wb, &profiles[i], tmp_tiff)) {
+      fclose(tmp);
+      TIFFClose(tmp_tiff);
+      fclose(tiff_file);
+      return X3F_ARGUMENT_ERROR;
+    }
+    TIFFWriteDirectory(tmp_tiff);
+    TIFFClose(tmp_tiff);
+
+    fseek(tiff_file, 0, SEEK_END);
+    offset = (ftell(tiff_file)+1) & ~1; /* 2-byte alignment */
+    fseek(tiff_file, offset, SEEK_SET);
+    profile_offsets[i-1] = offset;
+
+    fputs("MMCR", tiff_file);	/* DNG camera profile magic in big endian */
+    fseek(tmp, 4, SEEK_SET);	/* Skip over the standard TIFF magic */
+
+    while((count = fread(buf, 1, BUFSIZE, tmp)))
+      fwrite(buf, 1, count, tiff_file);
+
+    fclose(tmp);
+  }
+
+  fclose(tiff_file);
+  TIFFSetField(tiff, TIFFTAG_EXTRACAMERAPROFILES, num-1, profile_offsets);
+  return X3F_OK;
+}
+
 /* extern */
 x3f_return_t x3f_dump_raw_data_as_dng(x3f_t *x3f,
 				      char *outfilename,
 				      int denoise,
 				      char *wb)
 {
+  x3f_return_t ret;
   TIFF *f_out;
   uint64_t sub_ifds[1] = {0};
 #define THUMBSIZE 100
   uint8_t thumbnail[3*THUMBSIZE];
 
   double sensor_iso, capture_iso;
-  double raw_to_xyz[9], xyz_to_raw[9];
-  float color_matrix[9];
   double gain[3], gain_inv[3];
   float as_shot_neutral[3];
   float black_level[3];
@@ -1519,15 +1631,15 @@ x3f_return_t x3f_dump_raw_data_as_dng(x3f_t *x3f,
     TIFFSetField(f_out, TIFFTAG_BASELINEEXPOSURE, baseline_exposure);
   }
 
-  if (!get_raw_to_xyz(x3f, wb, raw_to_xyz)) {
-    fprintf(stderr, "Could not get raw_to_xyz for white balance: %s\n", wb);
-    free(image.buf);
+  ret = write_camera_profiles(x3f, wb, camera_profiles,
+			      sizeof(camera_profiles)/sizeof(camera_profile_t),
+			      f_out);
+  if (ret != X3F_OK) {
+    fprintf(stderr, "Could not write camera profiles\n");
     TIFFClose(f_out);
-    return X3F_ARGUMENT_ERROR;
+    free(image.buf);
+    return ret;
   }
-  x3f_3x3_inverse(raw_to_xyz, xyz_to_raw);
-  vec_double_to_float(xyz_to_raw, color_matrix, 9);
-  TIFFSetField(f_out, TIFFTAG_COLORMATRIX1, 9, color_matrix);
 
   if (!get_gain(x3f, wb, gain)) {
     fprintf(stderr, "Could not get gain for white balance: %s\n", wb);
