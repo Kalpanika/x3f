@@ -12,6 +12,7 @@
 #include <stdio.h>
 #include <assert.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include <tiffio.h>
 
 static int sum_area(x3f_t *x3f, char *name,
@@ -1529,7 +1530,7 @@ static FILE *tmpfile_win(void)
 		 FILE_ATTRIBUTE_NORMAL | FILE_FLAG_DELETE_ON_CLOSE, NULL);
   if (h == INVALID_HANDLE_VALUE) return NULL;
 
-  return fdopen(_open_osfhandle((intptr_t)h, 0), "w+b");
+  return fdopen(_open_osfhandle((intptr_t)h, O_RDWR | O_BINARY), "w+b");
 }
 #endif
 
@@ -1597,6 +1598,12 @@ static x3f_return_t write_camera_profiles(x3f_t *x3f, char *wb,
   return X3F_OK;
 }
 
+#if defined(_WIN32) || defined(_WIN64)
+#define BINMODE O_BINARY
+#else
+#define BINMODE 0
+#endif
+
 /* extern */
 x3f_return_t x3f_dump_raw_data_as_dng(x3f_t *x3f,
 				      char *outfilename,
@@ -1604,6 +1611,7 @@ x3f_return_t x3f_dump_raw_data_as_dng(x3f_t *x3f,
 				      char *wb)
 {
   x3f_return_t ret;
+  int fd = open(outfilename, O_RDWR | BINMODE | O_CREAT | O_TRUNC , 0444);
   TIFF *f_out;
   uint64_t sub_ifds[1] = {0};
 #define THUMBSIZE 100
@@ -1618,15 +1626,17 @@ x3f_return_t x3f_dump_raw_data_as_dng(x3f_t *x3f,
   image_levels_t ilevels;
   int row;
 
+  if (fd == -1) return X3F_OUTFILE_ERROR;
+  if (!(f_out = TIFFFdOpen(fd, outfilename, "w"))) {
+    close(fd);
+    return X3F_OUTFILE_ERROR;
+  }
+
   if (wb == NULL) wb = x3f_get_wb(x3f);
   if (!get_image(x3f, &image, &ilevels, NONE, 0, denoise, wb) ||
-      image.channels != 3)
+      image.channels != 3) {
+    TIFFClose(f_out);
     return X3F_ARGUMENT_ERROR;
-
-  f_out = TIFFOpen(outfilename, "w");
-  if (f_out == NULL) {
-    free(image.buf);
-    return X3F_OUTFILE_ERROR;
   }
 
   TIFFSetField(f_out, TIFFTAG_SUBFILETYPE, FILETYPE_REDUCEDIMAGE);
