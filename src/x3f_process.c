@@ -1621,7 +1621,7 @@ x3f_return_t x3f_dump_raw_data_as_dng(x3f_t *x3f,
   TIFFSetField(f_out, TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_RGB);
   TIFFSetField(f_out, TIFFTAG_ORIENTATION, ORIENTATION_TOPLEFT);
   TIFFSetField(f_out, TIFFTAG_DNGVERSION, "\001\004\000\000");
-  TIFFSetField(f_out, TIFFTAG_DNGBACKWARDVERSION, "\001\003\000\000");
+  TIFFSetField(f_out, TIFFTAG_DNGBACKWARDVERSION, "\001\004\000\000");
   TIFFSetField(f_out, TIFFTAG_SUBIFD, 1, sub_ifds);
   /* Prevent clipping of dark areas in DNG processing software */
   TIFFSetField(f_out, TIFFTAG_DEFAULTBLACKRENDER, 1);
@@ -1665,7 +1665,7 @@ x3f_return_t x3f_dump_raw_data_as_dng(x3f_t *x3f,
   TIFFSetField(f_out, TIFFTAG_SAMPLESPERPIXEL, 3);
   TIFFSetField(f_out, TIFFTAG_BITSPERSAMPLE, 16);
   TIFFSetField(f_out, TIFFTAG_PLANARCONFIG, PLANARCONFIG_CONTIG);
-  TIFFSetField(f_out, TIFFTAG_COMPRESSION, COMPRESSION_NONE);
+  TIFFSetField(f_out, TIFFTAG_COMPRESSION, COMPRESSION_ADOBE_DEFLATE);
   TIFFSetField(f_out, TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_LINEARRAW);
   /* Prevent further chroma denoising in DNG processing software */
   TIFFSetField(f_out, TIFFTAG_CHROMABLURRADIUS, 0.0);
