@@ -1512,6 +1512,22 @@ static int write_camera_profile(x3f_t *x3f, char *wb,
   return 1;
 }
 
+#if defined(__WIN32) || defined (__WIN64)
+/* tmpfile() is broken on Windows */
+#include <windows.h>
+
+#define tmpfile tmpfile_win
+static FILE *tmpfile_win(void)
+{
+  char dir[MAX_PATH], file[MAX_PATH];
+
+  if (!GetTempPath(MAX_PATH, dir)) return NULL;
+  if (!GetTempFileName(dir, "x3f", 0, file)) return NULL;
+
+  return fopen(file, "w+b");	/* TODO: file is not deleted */
+}
+#endif
+
 static x3f_return_t write_camera_profiles(x3f_t *x3f, char *wb,
 					  const camera_profile_t *profiles,
 					  int num,
@@ -1529,7 +1545,7 @@ static x3f_return_t write_camera_profiles(x3f_t *x3f, char *wb,
 
   profile_offsets = alloca((num-1)*sizeof(uint32_t));
 
-  tiff_file = fdopen(dup(TIFFFileno(tiff)), "w+");
+  tiff_file = fdopen(dup(TIFFFileno(tiff)), "w+b");
   if (!tiff_file) return X3F_OUTFILE_ERROR;
 
   for (i=1; i < num; i++) {
