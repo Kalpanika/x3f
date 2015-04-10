@@ -1479,8 +1479,8 @@ typedef struct {
 
 /* TODO: more mixes should be defined */
 static double grayscale_mix_std[3] = {1.0/3.0, 1.0/3.0, 1.0/3.0};
-static double grayscale_mix_red[3] = {1.5, -0.5, 0.0};
-static double grayscale_mix_blue[3] = {0, -0.5, 1.5};
+static double grayscale_mix_red[3] = {2.0, -1.0, 0.0};
+static double grayscale_mix_blue[3] = {0, -1.0, 2.0};
 
 static const camera_profile_t camera_profiles[] = {
   {"Default", get_bmt_to_xyz, NULL},
