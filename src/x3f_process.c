@@ -1474,11 +1474,20 @@ static int write_spatial_gain(x3f_t *x3f, x3f_area16_t *image, char *wb,
 typedef struct {
   char *name;
   int (*get_bmt_to_xyz)(x3f_t *x3f, char *wb, double *raw_to_xyz);
+  double *grayscale_mix;
 } camera_profile_t;
 
+/* TODO: more mixes should be defined */
+static double grayscale_mix_std[3] = {1.0/3.0, 1.0/3.0, 1.0/3.0};
+static double grayscale_mix_red[3] = {1.5, -0.5, 0.0};
+static double grayscale_mix_blue[3] = {0, -0.5, 1.5};
+
 static const camera_profile_t camera_profiles[] = {
-  {"Default", get_bmt_to_xyz},
-  {"Unconverted", get_bmt_to_xyz_noconvert},
+  {"Default", get_bmt_to_xyz, NULL},
+  {"Grayscale", get_bmt_to_xyz_noconvert, grayscale_mix_std},
+  {"Grayscale (red filter)", get_bmt_to_xyz_noconvert, grayscale_mix_red},
+  {"Grayscale (blue filter)", get_bmt_to_xyz_noconvert, grayscale_mix_blue},
+  {"Unconverted", get_bmt_to_xyz_noconvert, NULL},
 };
 
 static int write_camera_profile(x3f_t *x3f, char *wb,
@@ -1495,6 +1504,21 @@ static int write_camera_profile(x3f_t *x3f, char *wb,
   x3f_3x3_inverse(bmt_to_xyz, xyz_to_bmt);
   vec_double_to_float(xyz_to_bmt, color_matrix1, 9);
   TIFFSetField(tiff, TIFFTAG_COLORMATRIX1, 9, color_matrix1);
+
+  if (profile->grayscale_mix) {
+    double d50_xyz[3] = {0.96422, 1.00000, 0.82521};
+    double grayscale_mix_mat[9], ones[9], d50_xyz_mat[9];
+    double bmt_to_grayscale[9], bmt_to_d50[9];
+    float forward_matrix1[9];
+
+    x3f_3x3_diag(profile->grayscale_mix, grayscale_mix_mat);
+    x3f_3x3_ones(ones);
+    x3f_3x3_3x3_mul(ones, grayscale_mix_mat, bmt_to_grayscale);
+    x3f_3x3_diag(d50_xyz, d50_xyz_mat);
+    x3f_3x3_3x3_mul(d50_xyz_mat, bmt_to_grayscale, bmt_to_d50);
+    vec_double_to_float(bmt_to_d50, forward_matrix1, 9);
+    TIFFSetField(tiff, TIFFTAG_FORWARDMATRIX1, 9, forward_matrix1);
+  }
 
   TIFFSetField(tiff, TIFFTAG_PROFILENAME, profile->name);
   /* Tell the raw converter to refrain from clipping the dark areas */
