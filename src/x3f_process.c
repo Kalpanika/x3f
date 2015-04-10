@@ -182,20 +182,10 @@ static int get_raw_to_xyz(x3f_t *x3f, char *wb, double *raw_to_xyz)
   return 1;
 }
 
-static int get_raw_to_xyz_noconvert(x3f_t *x3f, char *wb, double *raw_to_xyz)
+static int get_bmt_to_xyz_noconvert(x3f_t *x3f, char *wb, double *bmt_to_xyz)
 {
-  double adobergb_to_xyz[9], gain[9], gain_mat[9];
-
-  if (!get_gain(x3f, wb, gain)) return 0;
   /* TODO: assuming working space to be Adobe RGB. Is that acceptable? */
-  x3f_AdobeRGB_to_XYZ(adobergb_to_xyz);
-
-  x3f_3x3_diag(gain, gain_mat);
-  x3f_3x3_3x3_mul(adobergb_to_xyz, gain_mat, raw_to_xyz);
-
-  printf("raw_to_xyz\n");
-  x3f_3x3_print(raw_to_xyz);
-
+  x3f_AdobeRGB_to_XYZ(bmt_to_xyz);
   return 1;
 }
 
@@ -1483,27 +1473,27 @@ static int write_spatial_gain(x3f_t *x3f, x3f_area16_t *image, char *wb,
 
 typedef struct {
   char *name;
-  int (*get_raw_to_xyz)(x3f_t *x3f, char *wb, double *raw_to_xyz);
+  int (*get_bmt_to_xyz)(x3f_t *x3f, char *wb, double *raw_to_xyz);
 } camera_profile_t;
 
 static const camera_profile_t camera_profiles[] = {
-  {"Default", get_raw_to_xyz},
-  {"Unconverted", get_raw_to_xyz_noconvert},
+  {"Default", get_bmt_to_xyz},
+  {"Unconverted", get_bmt_to_xyz_noconvert},
 };
 
 static int write_camera_profile(x3f_t *x3f, char *wb,
 				const camera_profile_t *profile,
 				TIFF *tiff)
 {
-  double raw_to_xyz[9], xyz_to_raw[9];
+  double bmt_to_xyz[9], xyz_to_bmt[9];
   float color_matrix1[9];
 
-  if (!profile->get_raw_to_xyz(x3f, wb, raw_to_xyz)) {
-    fprintf(stderr, "Could not get raw_to_xyz for white balance: %s\n", wb);
+  if (!profile->get_bmt_to_xyz(x3f, wb, bmt_to_xyz)) {
+    fprintf(stderr, "Could not get bmt_to_xyz for white balance: %s\n", wb);
     return 0;
   }
-  x3f_3x3_inverse(raw_to_xyz, xyz_to_raw);
-  vec_double_to_float(xyz_to_raw, color_matrix1, 9);
+  x3f_3x3_inverse(bmt_to_xyz, xyz_to_bmt);
+  vec_double_to_float(xyz_to_bmt, color_matrix1, 9);
   TIFFSetField(tiff, TIFFTAG_COLORMATRIX1, 9, color_matrix1);
 
   TIFFSetField(tiff, TIFFTAG_PROFILENAME, profile->name);
@@ -1618,8 +1608,8 @@ x3f_return_t x3f_dump_raw_data_as_dng(x3f_t *x3f,
   uint8_t thumbnail[3*THUMBSIZE];
 
   double sensor_iso, capture_iso;
-  double gain[3], gain_inv[3];
-  float as_shot_neutral[3];
+  double gain[3], gain_inv[3], gain_inv_mat[9];
+  float as_shot_neutral[3], camera_calibration1[9];
   float black_level[3];
   uint32_t active_area[4];
   x3f_area16_t image;
@@ -1677,9 +1667,14 @@ x3f_return_t x3f_dump_raw_data_as_dng(x3f_t *x3f,
     free(image.buf);
     return X3F_ARGUMENT_ERROR;
   }
+
   x3f_3x1_invert(gain, gain_inv);
   vec_double_to_float(gain_inv, as_shot_neutral, 3);
   TIFFSetField(f_out, TIFFTAG_ASSHOTNEUTRAL, 3, as_shot_neutral);
+
+  x3f_3x3_diag(gain_inv, gain_inv_mat);
+  vec_double_to_float(gain_inv_mat, camera_calibration1, 9);
+  TIFFSetField(f_out, TIFFTAG_CAMERACALIBRATION1, 9, camera_calibration1);
 
   memset(thumbnail, 0, 3*THUMBSIZE); /* TODO: Thumbnail is all black */
   for (row=0; row < THUMBSIZE; row++)
