@@ -64,7 +64,7 @@ void x3f_3x3_3x3_mul(double *a, double *b, double *c)
   M22(c) = M20(a)*M02(b) + M21(a)*M12(b) + M22(a)*M22(b);
 }
 
-/* Calculate the inverse of a 3x3 matrix 
+/* Calculate the inverse of a 3x3 matrix
    http://en.wikipedia.org/wiki/Invertible_matrix */
 void x3f_3x3_inverse(double *a, double *ainv)
 {
@@ -84,7 +84,7 @@ void x3f_3x3_inverse(double *a, double *ainv)
   I = +(M00(a)*M11(a)-M01(a)*M10(a));
 
   det = M00(a)*A + M01(a)*B + M02(a)*C;
-    
+
   M00(ainv) = A/det; M01(ainv) = D/det; M02(ainv) = G/det;
   M10(ainv) = B/det; M11(ainv) = E/det; M12(ainv) = H/det;
   M20(ainv) = C/det; M21(ainv) = F/det; M22(ainv) = I/det;
@@ -103,6 +103,13 @@ void x3f_3x3_identity(double *a)
   M00(a) = 1.0; M01(a) = 0.0; M02(a) = 0.0;
   M10(a) = 0.0; M11(a) = 1.0; M12(a) = 0.0;
   M20(a) = 0.0; M21(a) = 0.0; M22(a) = 1.0;
+}
+
+void x3f_3x3_ones(double *a)
+{
+  M00(a) = 1.0; M01(a) = 1.0; M02(a) = 1.0;
+  M10(a) = 1.0; M11(a) = 1.0; M12(a) = 1.0;
+  M20(a) = 1.0; M21(a) = 1.0; M22(a) = 1.0;
 }
 
 /* Print a 3x1 matrix */
@@ -144,7 +151,7 @@ void x3f_ProPhotoRGB_to_XYZ(double *a)
 /* http://www.adobe.com/digitalimag/pdfs/AdobeRGB1998.pdf */
 void x3f_XYZ_to_AdobeRGB(double *a)
 {
-  M00(a) = +2.04159; M01(a) = -0.56501; M02(a) = -0.33473;
+  M00(a) = +2.04159; M01(a) = -0.56501; M02(a) = -0.34473;
   M10(a) = -0.96924; M11(a) = +1.87597; M12(a) = +0.04156;
   M20(a) = +0.01344; M21(a) = -0.11836; M22(a) = +1.01517;
 }
