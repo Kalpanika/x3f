@@ -57,6 +57,7 @@ int main(int argc, char *argv[])
   raw_file_type_t file_type = DNG;
   x3f_color_encoding_t color_encoding = NONE;
   int files = 0;
+  int errors = 0;
   int log_hist = 0;
   char *wb = NULL;
   int use_opencl = 0;
@@ -133,6 +134,7 @@ int main(int argc, char *argv[])
 
     if (f_in == NULL) {
       fprintf(stderr, "Could not open infile %s\n", infilename);
+      errors++;
       goto clean_up;
     }
 
@@ -141,6 +143,7 @@ int main(int argc, char *argv[])
 
     if (x3f == NULL) {
       fprintf(stderr, "Could not read infile %s\n", infilename);
+      errors++;
       goto clean_up;
     }
 
@@ -154,9 +157,11 @@ int main(int argc, char *argv[])
       strcat(outfilename, ".jpg");
 
       printf("Dump JPEG to %s\n", outfilename);
-      if (X3F_OK != (ret=x3f_dump_jpeg(x3f, outfilename)))
+      if (X3F_OK != (ret=x3f_dump_jpeg(x3f, outfilename))) {
         fprintf(stderr, "Could not dump JPEG to %s: %s\n",
 		outfilename, x3f_err(ret));
+	errors++;
+      }
     }
 
     if (extract_meta || extract_raw) {
@@ -174,9 +179,11 @@ int main(int argc, char *argv[])
       strcat(outfilename, ".meta");
 
       printf("Dump META DATA to %s\n", outfilename);
-      if (X3F_OK != (ret=x3f_dump_meta_data(x3f, outfilename)))
+      if (X3F_OK != (ret=x3f_dump_meta_data(x3f, outfilename))) {
         fprintf(stderr, "Could not dump META DATA to %s: %s\n",
 		outfilename, x3f_err(ret));
+	errors++;
+      }
     }
 
     if (extract_raw) {
@@ -186,12 +193,14 @@ int main(int argc, char *argv[])
       printf("Load RAW block from %s\n", infilename);
       if (file_type == RAW) {
         if (X3F_OK != x3f_load_image_block(x3f, x3f_get_raw(x3f))) {
-          fprintf(stderr, "Could not load unconverted RAW from memory\n");
+          fprintf(stderr, "Could not load unconverted RAW from file\n");
+	  errors++;
           goto clean_up;
         }
       } else {
         if (X3F_OK != x3f_load_data(x3f, x3f_get_raw(x3f))) {
-          fprintf(stderr, "Could not load RAW from memory\n");
+          fprintf(stderr, "Could not load RAW from file\n");
+	  errors++;
           goto clean_up;
         }
       }
@@ -233,9 +242,11 @@ int main(int argc, char *argv[])
 	break;
       }
 
-      if (X3F_OK != ret_dump)
+      if (X3F_OK != ret_dump) {
         fprintf(stderr, "Could not dump RAW to %s: %s\n",
 		outfilename, x3f_err(ret_dump));
+	errors++;
+      }
     }
 
   clean_up:
@@ -249,5 +260,7 @@ int main(int argc, char *argv[])
   if (files == 0)
     usage(argv[0]);
 
-  return 0;
+  printf("Files processed: %d\terrors: %d\n", files, errors);
+
+  return errors > 0;
 }
