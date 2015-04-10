@@ -1,8 +1,8 @@
 /* X3F_EXTRACT.C - Extracting images from X3F files
- * 
+ *
  * Copyright 2010 (c) - Roland Karlsson (roland@proxel.se)
  * BSD-style - see doc/copyright.txt
- * 
+ *
  */
 
 #include "x3f_io.h"
@@ -23,8 +23,8 @@ static void usage(char *progname)
           "usage: %s <SWITCHES> <file1> ...\n"
           "   -jpg            Dump embedded JPG. Turn off RAW dumping\n"
           "   -raw            Dump RAW area undecoded\n"
-          "   -tiff           Dump RAW as 3x16 bit TIFF (default)\n"
-          "   -dng            Dump RAW as DNG LinearRaw\n"
+          "   -tiff           Dump RAW as 3x16 bit TIFF\n"
+          "   -dng            Dump RAW as DNG LinearRaw (default)\n"
           "   -ppm-ascii      Dump RAW/color as 3x16 bit PPM/P3 (ascii)\n"
           "                   NOTE: 16 bit PPM/P3 is not generally supported\n"
           "   -ppm            Dump RAW/color as 3x16 bit PPM/P6 (binary)\n"
@@ -54,7 +54,7 @@ int main(int argc, char *argv[])
   int extract_raw = 1;
   int crop = 0;
   int denoise = 0;
-  raw_file_type_t file_type = TIFF;
+  raw_file_type_t file_type = DNG;
   x3f_color_encoding_t color_encoding = NONE;
   int files = 0;
   int log_hist = 0;
