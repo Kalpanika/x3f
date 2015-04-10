@@ -247,7 +247,7 @@
 	return 1;
     }
 
-  fprintf(stderr, "CAMF poperty '%s' not found in list '%s'\n", name, list);
+  fprintf(stderr, "CAMF property '%s' not found in list '%s'\n", name, list);
 
   return 0;
 }
