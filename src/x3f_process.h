@@ -25,13 +25,6 @@ extern int x3f_get_image(x3f_t *x3f,
 			 int denoise,
 			 char *wb);
 
-extern x3f_return_t x3f_dump_raw_data_as_ppm(x3f_t *x3f, char *outfilename,
-                                             x3f_color_encoding_t encoding,
-					     int crop,
-					     int denoise,
-					     char *wb,
-                                             int binary);
-
 extern x3f_return_t x3f_dump_raw_data_as_tiff(x3f_t *x3f, char *outfilename,
 					      x3f_color_encoding_t encoding,
 					      int crop,
