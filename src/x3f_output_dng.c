@@ -13,6 +13,7 @@
 #include <tiffio.h>
 #include <math.h>
 #include <string.h>
+#include <assert.h>
 
 static void vec_double_to_float(double *a, float *b, int len)
 {
@@ -278,7 +279,7 @@ x3f_return_t x3f_dump_raw_data_as_dng(x3f_t *x3f,
 				      char *wb)
 {
   x3f_return_t ret;
-  int fd = open(outfilename, O_RDWR | BINMODE | O_CREAT | O_TRUNC , 0444);
+  int fd = open(outfilename, O_RDWR | BINMODE | O_CREAT | O_TRUNC, 0444);
   TIFF *f_out;
   uint64_t sub_ifds[1] = {0};
 #define THUMBSIZE 100
