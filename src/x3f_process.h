@@ -17,6 +17,10 @@ typedef struct {
   uint32_t white[3];
 } x3f_image_levels_t;
 
+extern int x3f_get_gain(x3f_t *x3f, char *wb, double *gain);
+extern int x3f_get_bmt_to_xyz(x3f_t *x3f, char *wb, double *bmt_to_xyz);
+extern int x3f_get_raw_to_xyz(x3f_t *x3f, char *wb, double *raw_to_xyz);
+
 extern int x3f_get_image(x3f_t *x3f,
 			 x3f_area16_t *image,
 			 x3f_image_levels_t *ilevels,
@@ -24,8 +28,5 @@ extern int x3f_get_image(x3f_t *x3f,
 			 int crop,
 			 int denoise,
 			 char *wb);
-
-extern x3f_return_t x3f_dump_raw_data_as_dng(x3f_t *x3f, char *outfilename,
-					     int denoise, char *wb);
 
 #endif
