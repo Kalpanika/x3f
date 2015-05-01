@@ -148,8 +148,8 @@ static int write_camera_profile(x3f_t *x3f, char *wb,
 				const camera_profile_t *profile,
 				TIFF *tiff)
 {
-  double bmt_to_xyz[9], xyz_to_bmt[9];
-  float color_matrix1[9];
+  double bmt_to_xyz[9], xyz_to_bmt[9], bmt_to_d50[9];
+  float color_matrix1[9], forward_matrix1[9];
 
   if (!profile->get_bmt_to_xyz(x3f, wb, bmt_to_xyz)) {
     fprintf(stderr, "Could not get bmt_to_xyz for white balance: %s\n", wb);
@@ -161,18 +161,22 @@ static int write_camera_profile(x3f_t *x3f, char *wb,
 
   if (profile->grayscale_mix) {
     double d50_xyz[3] = {0.96422, 1.00000, 0.82521};
-    double grayscale_mix_mat[9], ones[9], d50_xyz_mat[9];
-    double bmt_to_grayscale[9], bmt_to_d50[9];
-    float forward_matrix1[9];
+    double grayscale_mix_mat[9], ones[9], d50_xyz_mat[9], bmt_to_grayscale[9];
 
     x3f_3x3_diag(profile->grayscale_mix, grayscale_mix_mat);
     x3f_3x3_ones(ones);
     x3f_3x3_3x3_mul(ones, grayscale_mix_mat, bmt_to_grayscale);
     x3f_3x3_diag(d50_xyz, d50_xyz_mat);
     x3f_3x3_3x3_mul(d50_xyz_mat, bmt_to_grayscale, bmt_to_d50);
-    vec_double_to_float(bmt_to_d50, forward_matrix1, 9);
-    TIFFSetField(tiff, TIFFTAG_FORWARDMATRIX1, 9, forward_matrix1);
   }
+  else {
+    double d65_to_d50[9];
+
+    x3f_Bradford_D65_to_D50(d65_to_d50);
+    x3f_3x3_3x3_mul(d65_to_d50, bmt_to_xyz, bmt_to_d50);
+  }
+  vec_double_to_float(bmt_to_d50, forward_matrix1, 9);
+  TIFFSetField(tiff, TIFFTAG_FORWARDMATRIX1, 9, forward_matrix1);
 
   TIFFSetField(tiff, TIFFTAG_PROFILENAME, profile->name);
   /* Tell the raw converter to refrain from clipping the dark areas */
@@ -345,11 +349,18 @@ x3f_return_t x3f_dump_raw_data_as_dng(x3f_t *x3f,
     free(image.buf);
     return X3F_ARGUMENT_ERROR;
   }
-
   x3f_3x1_invert(gain, gain_inv);
   vec_double_to_float(gain_inv, as_shot_neutral, 3);
   TIFFSetField(f_out, TIFFTAG_ASSHOTNEUTRAL, 3, as_shot_neutral);
 
+#define WB_D65 "Overcast"
+  if (!x3f_get_gain(x3f, WB_D65, gain)) {
+    fprintf(stderr, "Could not get gain for white balance: %s\n", WB_D65);
+    TIFFClose(f_out);
+    free(image.buf);
+    return X3F_ARGUMENT_ERROR;
+  }
+  x3f_3x1_invert(gain, gain_inv);
   x3f_3x3_diag(gain_inv, gain_inv_mat);
   vec_double_to_float(gain_inv_mat, camera_calibration1, 9);
   TIFFSetField(f_out, TIFFTAG_CAMERACALIBRATION1, 9, camera_calibration1);
