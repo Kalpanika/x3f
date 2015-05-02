@@ -8,13 +8,42 @@ default: all
 all dist clean clobber:
 	$(MAKE) -C src $@
 
+ifeq ($(HOST), linux-x86_64)
+.PHONY: dist-all dist-osx dist-32 dist-64
 
-OPENCV = deps/lib/$(SYS)/opencv
+dist-all: dist-osx dist-32 dist-64
+
+dist-osx:
+	$(MAKE) TARGET=osx-universal dist
+
+dist-32:
+	$(MAKE) TARGET=windows-i686 dist
+
+dist-64:
+	$(MAKE) TARGET=linux-x86_64 dist
+	$(MAKE) TARGET=windows-x86_64 dist
+endif
+
+ifeq ($(TARGET), osx-universal)
+
+all dist: deps/lib/osx-x86_64/opencv/.success deps/lib/osx-i386/opencv/.success
+
+deps/lib/osx-x86_64/opencv/.success:
+	$(MAKE) TARGET=osx-x86_64 $@
+
+deps/lib/osx-i386/opencv/.success:
+	$(MAKE) TARGET=osx-i386 $@
+
+else
+
+OPENCV = deps/lib/$(TARGET)/opencv
 
 all dist: | $(OPENCV)/.success
 
 $(OPENCV)/.success:
-	./install_opencv.sh $(SYS)
+	./install_opencv.sh $(TARGET) $(CMAKE_TOOLCHAIN)
+
+endif
 
 clean_opencv:
-	-@rm -r $(OPENCV)
+	-@rm -rf deps/lib/*/opencv

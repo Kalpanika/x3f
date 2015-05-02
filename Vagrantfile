@@ -3,6 +3,7 @@
 
 $script = <<SCRIPT
 apt-get install -y build-essential
+apt-get install -y mingw-w64
 apt-get install -y zlib1g-dev
 apt-get install -y git
 apt-get install -y cmake
