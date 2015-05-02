@@ -129,7 +129,7 @@ void x3f_3x3_print(double *a)
 }
 
 /* Conversion matrices for color spaces. NOTE - the result is, of
-   course, linear and needs som gamma encoding or similar.  */
+   course, linear and needs some gamma encoding or similar.  */
 
 /* http://www.color.org/ROMMRGB.pdf */
 /* http://en.wikipedia.org/wiki/ProPhoto_RGB_color_space */
