@@ -29,6 +29,10 @@ static void tag_extender(TIFF *tiff)
      "OpcodeList3"},
     {TIFFTAG_DEFAULTBLACKRENDER, 1, 1, TIFF_LONG, FIELD_CUSTOM, 1, 0,
      "DefaultBlackRender"},
+    {TIFFTAG_FORWARDMATRIX1, -1, -1, TIFF_SRATIONAL, FIELD_CUSTOM, 1, 1,
+     "ForwardMatrix1"},
+    {TIFFTAG_FORWARDMATRIX2, -1, -1, TIFF_SRATIONAL, FIELD_CUSTOM, 1, 1,
+     "ForwardMatrix2"},
   };
 
   TIFFMergeFieldInfo(tiff, tags, sizeof(tags)/sizeof(tags[0]));
@@ -37,12 +41,7 @@ static void tag_extender(TIFF *tiff)
     previous_tag_extender(tiff);
 }
 
-void x3f_dngtags_install_extender(void)
+__attribute__((constructor)) static void install_tag_extender(void)
 {
-  static int invoked = 0;
-
-  if (invoked) return;
-  invoked = 1;
-
   previous_tag_extender = TIFFSetTagExtender(tag_extender);
 }

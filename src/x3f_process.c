@@ -11,6 +11,8 @@
 #include <math.h>
 #include <stdio.h>
 #include <assert.h>
+#include <unistd.h>
+#include <fcntl.h>
 #include <tiffio.h>
 
 static int sum_area(x3f_t *x3f, char *name,
@@ -177,6 +179,13 @@ static int get_raw_to_xyz(x3f_t *x3f, char *wb, double *raw_to_xyz)
   printf("raw_to_xyz\n");
   x3f_3x3_print(raw_to_xyz);
 
+  return 1;
+}
+
+static int get_bmt_to_xyz_noconvert(x3f_t *x3f, char *wb, double *bmt_to_xyz)
+{
+  /* TODO: assuming working space to be Adobe RGB. Is that acceptable? */
+  x3f_AdobeRGB_to_XYZ(bmt_to_xyz);
   return 1;
 }
 
@@ -1462,39 +1471,186 @@ static int write_spatial_gain(x3f_t *x3f, x3f_area16_t *image, char *wb,
   return 1;
 }
 
+typedef struct {
+  char *name;
+  int (*get_bmt_to_xyz)(x3f_t *x3f, char *wb, double *raw_to_xyz);
+  double *grayscale_mix;
+} camera_profile_t;
+
+/* TODO: more mixes should be defined */
+static double grayscale_mix_std[3] = {1.0/3.0, 1.0/3.0, 1.0/3.0};
+static double grayscale_mix_red[3] = {2.0, -1.0, 0.0};
+static double grayscale_mix_blue[3] = {0.0, -1.0, 2.0};
+
+static const camera_profile_t camera_profiles[] = {
+  {"Default", get_bmt_to_xyz, NULL},
+  {"Grayscale", get_bmt_to_xyz_noconvert, grayscale_mix_std},
+  {"Grayscale (red filter)", get_bmt_to_xyz_noconvert, grayscale_mix_red},
+  {"Grayscale (blue filter)", get_bmt_to_xyz_noconvert, grayscale_mix_blue},
+  {"Unconverted", get_bmt_to_xyz_noconvert, NULL},
+};
+
+static int write_camera_profile(x3f_t *x3f, char *wb,
+				const camera_profile_t *profile,
+				TIFF *tiff)
+{
+  double bmt_to_xyz[9], xyz_to_bmt[9];
+  float color_matrix1[9];
+
+  if (!profile->get_bmt_to_xyz(x3f, wb, bmt_to_xyz)) {
+    fprintf(stderr, "Could not get bmt_to_xyz for white balance: %s\n", wb);
+    return 0;
+  }
+  x3f_3x3_inverse(bmt_to_xyz, xyz_to_bmt);
+  vec_double_to_float(xyz_to_bmt, color_matrix1, 9);
+  TIFFSetField(tiff, TIFFTAG_COLORMATRIX1, 9, color_matrix1);
+
+  if (profile->grayscale_mix) {
+    double d50_xyz[3] = {0.96422, 1.00000, 0.82521};
+    double grayscale_mix_mat[9], ones[9], d50_xyz_mat[9];
+    double bmt_to_grayscale[9], bmt_to_d50[9];
+    float forward_matrix1[9];
+
+    x3f_3x3_diag(profile->grayscale_mix, grayscale_mix_mat);
+    x3f_3x3_ones(ones);
+    x3f_3x3_3x3_mul(ones, grayscale_mix_mat, bmt_to_grayscale);
+    x3f_3x3_diag(d50_xyz, d50_xyz_mat);
+    x3f_3x3_3x3_mul(d50_xyz_mat, bmt_to_grayscale, bmt_to_d50);
+    vec_double_to_float(bmt_to_d50, forward_matrix1, 9);
+    TIFFSetField(tiff, TIFFTAG_FORWARDMATRIX1, 9, forward_matrix1);
+  }
+
+  TIFFSetField(tiff, TIFFTAG_PROFILENAME, profile->name);
+  /* Tell the raw converter to refrain from clipping the dark areas */
+  TIFFSetField(tiff, TIFFTAG_DEFAULTBLACKRENDER, 1);
+
+  return 1;
+}
+
+#if defined(__WIN32) || defined (__WIN64)
+/* tmpfile() is broken on Windows */
+#include <windows.h>
+
+#define tmpfile tmpfile_win
+static FILE *tmpfile_win(void)
+{
+  char dir[MAX_PATH], file[MAX_PATH];
+  HANDLE h;
+
+  if (!GetTempPath(MAX_PATH, dir)) return NULL;
+  if (!GetTempFileName(dir, "x3f", 0, file)) return NULL;
+
+  h = CreateFile(file, GENERIC_READ | GENERIC_WRITE, 0, NULL, CREATE_ALWAYS,
+		 FILE_ATTRIBUTE_NORMAL | FILE_FLAG_DELETE_ON_CLOSE, NULL);
+  if (h == INVALID_HANDLE_VALUE) return NULL;
+
+  return fdopen(_open_osfhandle((intptr_t)h, O_RDWR | O_BINARY), "w+b");
+}
+#endif
+
+static x3f_return_t write_camera_profiles(x3f_t *x3f, char *wb,
+					  const camera_profile_t *profiles,
+					  int num,
+					  TIFF *tiff)
+{
+  FILE *tiff_file;
+  uint32_t *profile_offsets;
+  int i;
+
+  assert(num >= 1);
+  if (!write_camera_profile(x3f, wb, &profiles[0], tiff))
+    return X3F_ARGUMENT_ERROR;
+  TIFFSetField(tiff, TIFFTAG_ASSHOTPROFILENAME, profiles[0].name);
+  if (num == 1) return X3F_OK;
+
+  profile_offsets = alloca((num-1)*sizeof(uint32_t));
+
+  tiff_file = fdopen(dup(TIFFFileno(tiff)), "w+b");
+  if (!tiff_file) return X3F_OUTFILE_ERROR;
+
+  for (i=1; i < num; i++) {
+    FILE *tmp;
+    TIFF *tmp_tiff;
+#define BUFSIZE 1024
+    char buf[BUFSIZE];
+    int offset, count;
+
+    if (!(tmp = tmpfile())) {
+      fclose(tiff_file);
+      return X3F_OUTFILE_ERROR;
+    }
+    if (!(tmp_tiff = TIFFFdOpen(dup(fileno(tmp)), "", "wb"))) { /* Big endian */
+      fclose(tmp);
+      fclose(tiff_file);
+      return X3F_OUTFILE_ERROR;
+    }
+    if (!write_camera_profile(x3f, wb, &profiles[i], tmp_tiff)) {
+      fclose(tmp);
+      TIFFClose(tmp_tiff);
+      fclose(tiff_file);
+      return X3F_ARGUMENT_ERROR;
+    }
+    TIFFWriteDirectory(tmp_tiff);
+    TIFFClose(tmp_tiff);
+
+    fseek(tiff_file, 0, SEEK_END);
+    offset = (ftell(tiff_file)+1) & ~1; /* 2-byte alignment */
+    fseek(tiff_file, offset, SEEK_SET);
+    profile_offsets[i-1] = offset;
+
+    fputs("MMCR", tiff_file);	/* DNG camera profile magic in big endian */
+    fseek(tmp, 4, SEEK_SET);	/* Skip over the standard TIFF magic */
+
+    while((count = fread(buf, 1, BUFSIZE, tmp)))
+      fwrite(buf, 1, count, tiff_file);
+
+    fclose(tmp);
+  }
+
+  fclose(tiff_file);
+  TIFFSetField(tiff, TIFFTAG_EXTRACAMERAPROFILES, num-1, profile_offsets);
+  return X3F_OK;
+}
+
+#if defined(_WIN32) || defined(_WIN64)
+#define BINMODE O_BINARY
+#else
+#define BINMODE 0
+#endif
+
 /* extern */
 x3f_return_t x3f_dump_raw_data_as_dng(x3f_t *x3f,
 				      char *outfilename,
 				      int denoise,
 				      char *wb)
 {
+  x3f_return_t ret;
+  int fd = open(outfilename, O_RDWR | BINMODE | O_CREAT | O_TRUNC , 0444);
   TIFF *f_out;
   uint64_t sub_ifds[1] = {0};
 #define THUMBSIZE 100
   uint8_t thumbnail[3*THUMBSIZE];
 
   double sensor_iso, capture_iso;
-  double raw_to_xyz[9], xyz_to_raw[9];
-  float color_matrix[9];
-  double gain[3], gain_inv[3];
-  float as_shot_neutral[3];
+  double gain[3], gain_inv[3], gain_inv_mat[9];
+  float as_shot_neutral[3], camera_calibration1[9];
   float black_level[3];
   uint32_t active_area[4];
   x3f_area16_t image;
   image_levels_t ilevels;
   int row;
 
+  if (fd == -1) return X3F_OUTFILE_ERROR;
+  if (!(f_out = TIFFFdOpen(fd, outfilename, "w"))) {
+    close(fd);
+    return X3F_OUTFILE_ERROR;
+  }
+
   if (wb == NULL) wb = x3f_get_wb(x3f);
   if (!get_image(x3f, &image, &ilevels, NONE, 0, denoise, wb) ||
-      image.channels != 3)
+      image.channels != 3) {
+    TIFFClose(f_out);
     return X3F_ARGUMENT_ERROR;
-
-  x3f_dngtags_install_extender();
-
-  f_out = TIFFOpen(outfilename, "w");
-  if (f_out == NULL) {
-    free(image.buf);
-    return X3F_OUTFILE_ERROR;
   }
 
   TIFFSetField(f_out, TIFFTAG_SUBFILETYPE, FILETYPE_REDUCEDIMAGE);
@@ -1508,7 +1664,7 @@ x3f_return_t x3f_dump_raw_data_as_dng(x3f_t *x3f,
   TIFFSetField(f_out, TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_RGB);
   TIFFSetField(f_out, TIFFTAG_ORIENTATION, ORIENTATION_TOPLEFT);
   TIFFSetField(f_out, TIFFTAG_DNGVERSION, "\001\004\000\000");
-  TIFFSetField(f_out, TIFFTAG_DNGBACKWARDVERSION, "\001\003\000\000");
+  TIFFSetField(f_out, TIFFTAG_DNGBACKWARDVERSION, "\001\004\000\000");
   TIFFSetField(f_out, TIFFTAG_SUBIFD, 1, sub_ifds);
   /* Prevent clipping of dark areas in DNG processing software */
   TIFFSetField(f_out, TIFFTAG_DEFAULTBLACKRENDER, 1);
@@ -1519,15 +1675,15 @@ x3f_return_t x3f_dump_raw_data_as_dng(x3f_t *x3f,
     TIFFSetField(f_out, TIFFTAG_BASELINEEXPOSURE, baseline_exposure);
   }
 
-  if (!get_raw_to_xyz(x3f, wb, raw_to_xyz)) {
-    fprintf(stderr, "Could not get raw_to_xyz for white balance: %s\n", wb);
-    free(image.buf);
+  ret = write_camera_profiles(x3f, wb, camera_profiles,
+			      sizeof(camera_profiles)/sizeof(camera_profile_t),
+			      f_out);
+  if (ret != X3F_OK) {
+    fprintf(stderr, "Could not write camera profiles\n");
     TIFFClose(f_out);
-    return X3F_ARGUMENT_ERROR;
+    free(image.buf);
+    return ret;
   }
-  x3f_3x3_inverse(raw_to_xyz, xyz_to_raw);
-  vec_double_to_float(xyz_to_raw, color_matrix, 9);
-  TIFFSetField(f_out, TIFFTAG_COLORMATRIX1, 9, color_matrix);
 
   if (!get_gain(x3f, wb, gain)) {
     fprintf(stderr, "Could not get gain for white balance: %s\n", wb);
@@ -1535,9 +1691,14 @@ x3f_return_t x3f_dump_raw_data_as_dng(x3f_t *x3f,
     free(image.buf);
     return X3F_ARGUMENT_ERROR;
   }
+
   x3f_3x1_invert(gain, gain_inv);
   vec_double_to_float(gain_inv, as_shot_neutral, 3);
   TIFFSetField(f_out, TIFFTAG_ASSHOTNEUTRAL, 3, as_shot_neutral);
+
+  x3f_3x3_diag(gain_inv, gain_inv_mat);
+  vec_double_to_float(gain_inv_mat, camera_calibration1, 9);
+  TIFFSetField(f_out, TIFFTAG_CAMERACALIBRATION1, 9, camera_calibration1);
 
   memset(thumbnail, 0, 3*THUMBSIZE); /* TODO: Thumbnail is all black */
   for (row=0; row < THUMBSIZE; row++)
@@ -1552,7 +1713,7 @@ x3f_return_t x3f_dump_raw_data_as_dng(x3f_t *x3f,
   TIFFSetField(f_out, TIFFTAG_SAMPLESPERPIXEL, 3);
   TIFFSetField(f_out, TIFFTAG_BITSPERSAMPLE, 16);
   TIFFSetField(f_out, TIFFTAG_PLANARCONFIG, PLANARCONFIG_CONTIG);
-  TIFFSetField(f_out, TIFFTAG_COMPRESSION, COMPRESSION_NONE);
+  TIFFSetField(f_out, TIFFTAG_COMPRESSION, COMPRESSION_ADOBE_DEFLATE);
   TIFFSetField(f_out, TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_LINEARRAW);
   /* Prevent further chroma denoising in DNG processing software */
   TIFFSetField(f_out, TIFFTAG_CHROMABLURRADIUS, 0.0);

@@ -21,6 +21,8 @@
 #define TIFFTAG_OPCODELIST2 51009
 #define TIFFTAG_OPCODELIST3 51022
 #define TIFFTAG_DEFAULTBLACKRENDER 51110
+#define TIFFTAG_FORWARDMATRIX1 50964
+#define TIFFTAG_FORWARDMATRIX2 50965
 
 #define DNG_OPCODEFLAG_OPTIONAL 1
 #define DNG_OPCODEFLAG_SKIPPREVIEW 2
@@ -104,7 +106,5 @@ do {							\
   _dstp[6] = (_srcu&0x000000000000ff00) >> 8;		\
   _dstp[7] = (_srcu&0x00000000000000ff) >> 0;		\
  } while (0)
-
-extern void x3f_dngtags_install_extender(void);
 
 #endif	/* X3F_DNGTAGS_H */

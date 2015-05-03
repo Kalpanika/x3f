@@ -16,6 +16,7 @@ extern void x3f_3x3_inverse(double *a, double *ainv);
 
 extern void x3f_3x3_identity(double *a);
 extern void x3f_3x3_diag(double *a, double *b);
+extern void x3f_3x3_ones(double *a);
 
 extern void x3f_3x1_print(double *a);
 extern void x3f_3x3_print(double *a);
