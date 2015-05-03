@@ -72,5 +72,5 @@ clean_deps:
 	rm -rf $(VIRTUALENVDIR)
 
 test_files:
-	@if test -d x3f_test_files; then echo "Test files alread cloned"; else git clone $(X3F_TEST_FILES_REPO)
+	@if test -d x3f_test_files; then echo "Test files alread cloned"; else git clone $(X3F_TEST_FILES_REPO); fi
 	@cd x3f_test_files && git fetch && git checkout $(X3F_TEST_FILES_COMMIT)
