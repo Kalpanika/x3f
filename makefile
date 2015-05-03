@@ -1,7 +1,15 @@
+X3F_TEST_FILES_REPO=git@github.com:Kalpanika/x3f_test_files.git
+X3F_TEST_FILES_COMMIT=fb0d6ea0ee17b1e50652dc9a961759a04449121a
+VENV?=venv
+VIRTUALENVDIR?=$(CURDIR)/$(VENV)
+REQUIREMENTS?=$(CURDIR)/requirements.txt
+VIRTUALENV=virtualenv
+BEHAVE=venv/bin/behave
+
 # Set the SYS variable
 include sys.mk
 
-.PHONY: default all dist clean clobber clean_opencv
+.PHONY: default all dist clean clobber clean_opencv deps check_deps check clean_deps
 
 default: all
 
@@ -47,3 +55,22 @@ endif
 
 clean_opencv:
 	-@rm -rf deps/lib/*/opencv
+
+check_deps:  $(VIRTUALENVDIR) $(VIRTUALENVDIR)/.setup.touch test_files
+	@hash $(VIRTUALENV) || echo "$(VIRTUALENV) is not installed in the path, please install it."
+
+$(VIRTUALENVDIR):
+	virtualenv $(VENV)
+
+$(VIRTUALENVDIR)/.setup.touch: $(REQUIREMENTS) | $(VENV)
+	$(VENV)/bin/pip install -r $< && touch $@
+
+check: check_deps
+	$(BEHAVE)
+
+clean_deps:
+	rm -rf $(VIRTUALENVDIR)
+
+test_files:
+	@if test -d x3f_test_files; then echo "Test files alread cloned"; else git clone $(X3F_TEST_FILES_REPO)
+	@cd x3f_test_files && git fetch && git checkout $(X3F_TEST_FILES_COMMIT)
