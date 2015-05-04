@@ -1,6 +1,6 @@
-X3F_TEST_FILES_REPO=git@github.com:Kalpanika/x3f_test_files.git
+X3F_TEST_FILES_REPO=https://github.com/Kalpanika/x3f_test_files.git
 X3F_TEST_FILES_COMMIT=3ffc10d0a65f14b53f34c979d2327673677748f7
-VENV?=venv
+VENV=venv
 VIRTUALENVDIR=$(CURDIR)/$(VENV)
 REQUIREMENTS?=$(CURDIR)/requirements.txt
 VIRTUALENV=virtualenv
