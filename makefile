@@ -9,7 +9,7 @@ BEHAVE=venv/bin/behave
 # Set the SYS variable
 include sys.mk
 
-.PHONY: default all dist clean clobber clean_opencv deps check_deps check clean_deps
+.PHONY: default all dist clean clobber clean_opencv deps check clean_deps
 
 default: all
 
@@ -65,7 +65,7 @@ $(VIRTUALENVDIR):
 $(VIRTUALENVDIR)/.setup.touch: $(REQUIREMENTS) | $(VENV)
 	$(VENV)/bin/pip install -r $< && touch $@
 
-check: check_deps
+check: check_deps dist
 	$(BEHAVE)
 
 clean_deps:
