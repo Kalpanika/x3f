@@ -1,5 +1,6 @@
 X3F_TEST_FILES_REPO=https://github.com/Kalpanika/x3f_test_files.git
 X3F_TEST_FILES_COMMIT=3ffc10d0a65f14b53f34c979d2327673677748f7
+X3F_TEST_FILES=x3f_test_files
 VENV=venv
 VIRTUALENVDIR=$(CURDIR)/$(VENV)
 REQUIREMENTS?=$(CURDIR)/requirements.txt
@@ -70,8 +71,8 @@ check: check_deps dist
 
 clean_deps:
 	rm -rf $(VENV)
-	rm -rf x3f_test_files
+	rm -rf $(X3F_TEST_FILES)
 
 test_files:
-	@if test -d x3f_test_files; then echo "Test files alread cloned"; else git clone $(X3F_TEST_FILES_REPO); fi
-	@if test -e x3f_test_files/$(X3F_TEST_FILES_COMMIT); then echo "Already pulled to commit $(X3F_TEST_FILES_COMMIT)"; else cd x3f_test_files && git fetch && git checkout $(X3F_TEST_FILES_COMMIT) && cd .. && touch x3f_test_files/$(X3F_TEST_FILES_COMMIT); fi
+	@if test -d $(X3F_TEST_FILES); then echo "Test files alread cloned"; else git clone $(X3F_TEST_FILES_REPO); fi
+	@if test -e $(X3F_TEST_FILES)/$(X3F_TEST_FILES_COMMIT); then echo "Already pulled to commit $(X3F_TEST_FILES_COMMIT)"; else cd $(X3F_TEST_FILES) && git fetch && git checkout $(X3F_TEST_FILES_COMMIT) && cd .. && touch $(X3F_TEST_FILES)/$(X3F_TEST_FILES_COMMIT); fi
