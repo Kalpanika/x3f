@@ -8,7 +8,9 @@ import time
 @given(u'an input image {image} without a {converted_image}')
 def step_impl(context, image, converted_image):
     assert os.path.isfile(image)
-    assert not os.path.isfile(converted_image)
+    if os.path.isfile(converted_image):
+        os.chmod(converted_image, 0666)
+        os.remove(converted_image)
 
 
 @when(u'the {image} is converted by the code to {file_type}')
