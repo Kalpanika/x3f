@@ -1,7 +1,7 @@
 X3F_TEST_FILES_REPO=git@github.com:Kalpanika/x3f_test_files.git
-X3F_TEST_FILES_COMMIT=fb0d6ea0ee17b1e50652dc9a961759a04449121a
+X3F_TEST_FILES_COMMIT=3ffc10d0a65f14b53f34c979d2327673677748f7
 VENV?=venv
-VIRTUALENVDIR?=$(CURDIR)/$(VENV)
+VIRTUALENVDIR=$(CURDIR)/$(VENV)
 REQUIREMENTS?=$(CURDIR)/requirements.txt
 VIRTUALENV=virtualenv
 BEHAVE=venv/bin/behave
@@ -60,7 +60,7 @@ check_deps:  $(VIRTUALENVDIR) $(VIRTUALENVDIR)/.setup.touch test_files
 	@hash $(VIRTUALENV) || echo "$(VIRTUALENV) is not installed in the path, please install it."
 
 $(VIRTUALENVDIR):
-	virtualenv $(VENV)
+	virtualenv $(VIRTUALENVDIR)
 
 $(VIRTUALENVDIR)/.setup.touch: $(REQUIREMENTS) | $(VENV)
 	$(VENV)/bin/pip install -r $< && touch $@
@@ -69,7 +69,7 @@ check: check_deps dist
 	$(BEHAVE)
 
 clean_deps:
-	rm -rf $(VIRTUALENVDIR)
+	rm -rf $(VENV)
 	rm -rf x3f_test_files
 
 test_files:
