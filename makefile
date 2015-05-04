@@ -70,6 +70,7 @@ check: check_deps dist
 
 clean_deps:
 	rm -rf $(VIRTUALENVDIR)
+	rm -rf x3f_test_files
 
 test_files:
 	@if test -d x3f_test_files; then echo "Test files alread cloned"; else git clone $(X3F_TEST_FILES_REPO); fi
