@@ -15,3 +15,14 @@ Examples: images
 | x3f_test_files/_SDI8284.X3F | TIFF | x3f_test_files/_SDI8284.X3F.tif | 26199384d894ae723292e5ecc40ad194 |
 | x3f_test_files/_SDI8284.X3F | PPM | x3f_test_files/_SDI8284.X3F.ppm | 06c85f54fe3a954d4e564efbbb8d8a8b |
 | x3f_test_files/_SDI8284.X3F | JPG | x3f_test_files/_SDI8284.X3F.jpg | 87cd494d3bc4eab4e481de6afeb058de |
+
+
+Scenario Outline: denoised conversions will produce the exact same outputs
+   Given an input image <image> without a <converted_image>
+    when the <image> is denoised and converted by the code
+    then the <converted_image> has the right <md5> hash value
+
+Examples: images
+| image | converted_image | md5 |
+| x3f_test_files/_SDI8040.X3F | x3f_test_files/_SDI8040.X3F.dng | eb505f78e5972247bf60830d3848d67f |
+| x3f_test_files/_SDI8284.X3F | x3f_test_files/_SDI8284.X3F.dng | 30e4102721a4275a16231101186edac6 |

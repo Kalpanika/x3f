@@ -5,6 +5,25 @@ import os
 import time
 
 
+def get_dist_name():
+    # since the executable isn't in a guaranteed spot on various platforms,
+    # have to find the executable to run.  Going to only run the first one found.
+    # note that this approach requires that the makefile make dist as part of 
+    # making check
+    all_found_executables = subprocess.check_output(['find', './dist', '-executable', '-type', 'f'])
+    found_executable = all_found_executables.split('\n')[0]
+    print(found_executable)  # print statements are only executed by behave 
+    # when the behavior fails, so this print is usually silenced if all is well
+    return found_executable
+
+
+def run_conversion(args):
+    print(args)
+    running_proc = subprocess.Popen(args)
+    while running_proc.poll() is None:
+        time.sleep(0.1)
+
+
 @given(u'an input image {image} without a {converted_image}')
 def step_impl(context, image, converted_image):
     assert os.path.isfile(image)
@@ -15,14 +34,7 @@ def step_impl(context, image, converted_image):
 
 @when(u'the {image} is converted by the code to {file_type}')
 def step_impl(context, image, file_type):
-    # since the executable isn't in a guaranteed spot on various platforms,
-    # have to find the executable to run.  Going to only run the first one found.
-    # note that this approach requires that the makefile make dist as part of 
-    # making check
-    all_found_executables = subprocess.check_output(['find', './dist', '-executable', '-type', 'f'])
-    found_executable = all_found_executables.split('\n')[0]
-    print(found_executable)  # print statements are only executed by behave 
-    # when the behavior fails, so this print is usually silenced if all is well
+    found_executable = get_dist_name()
     file_flag = '-dng'  # the default
     if file_type == 'TIFF':
         file_flag = '-tiff'
@@ -31,10 +43,14 @@ def step_impl(context, image, file_type):
     if file_type == 'PPM':
         file_flag = '-ppm'
     args = [found_executable, file_flag, image]
-    print(args)
-    running_proc = subprocess.Popen(args)
-    while running_proc.poll() is None:
-        time.sleep(0.1)
+    run_conversion(args)
+
+
+@when(u'the {image} is denoised and converted by the code')
+def step_impl(context, image):
+    found_executable = get_dist_name()
+    args = [found_executable, '-dng', '-denoise', image]
+    run_conversion(args)
 
 
 @then(u'the {converted_image} has the right {md5} hash value')
