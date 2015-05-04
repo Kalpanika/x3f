@@ -9,7 +9,7 @@ BEHAVE=venv/bin/behave
 # Set the SYS variable
 include sys.mk
 
-.PHONY: default all dist clean clobber clean_opencv deps check clean_deps
+.PHONY: default all dist clean clobber clean_opencv check clean_deps
 
 default: all
 
