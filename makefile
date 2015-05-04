@@ -74,4 +74,4 @@ clean_deps:
 
 test_files:
 	@if test -d x3f_test_files; then echo "Test files alread cloned"; else git clone $(X3F_TEST_FILES_REPO); fi
-	@cd x3f_test_files && git fetch && git checkout $(X3F_TEST_FILES_COMMIT)
+	@if test -e x3f_test_files/$(X3F_TEST_FILES_COMMIT); then echo "Already pulled to commit $(X3F_TEST_FILES_COMMIT)"; else cd x3f_test_files && git fetch && git checkout $(X3F_TEST_FILES_COMMIT) && cd .. && touch x3f_test_files/$(X3F_TEST_FILES_COMMIT); fi
