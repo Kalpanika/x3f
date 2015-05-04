@@ -67,7 +67,7 @@ $(VIRTUALENVDIR)/.setup.touch: $(REQUIREMENTS) | $(VENV)
 	$(VENV)/bin/pip install -r $< && touch $@
 
 check: check_deps dist
-	$(BEHAVE)
+	DIST_LOC=dist/x3f_tools-$(shell git describe --always --dirty)-$(TARGET)/bin/x3f_extract $(BEHAVE)
 
 clean_deps:
 	rm -rf $(VENV)
@@ -75,4 +75,4 @@ clean_deps:
 
 test_files:
 	@if test -d $(X3F_TEST_FILES); then echo "Test files alread cloned"; else git clone $(X3F_TEST_FILES_REPO); fi
-	@if test -e $(X3F_TEST_FILES)/$(X3F_TEST_FILES_COMMIT); then echo "Already pulled to commit $(X3F_TEST_FILES_COMMIT)"; else cd $(X3F_TEST_FILES) && git fetch && git checkout $(X3F_TEST_FILES_COMMIT) && cd .. && touch $(X3F_TEST_FILES)/$(X3F_TEST_FILES_COMMIT); fi
+	@if test -e $(X3F_TEST_FILES)/$(X3F_TEST_FILES_COMMIT).tfile; then echo "Already pulled to commit $(X3F_TEST_FILES_COMMIT)"; else cd $(X3F_TEST_FILES) && if test -e *.tfile; then rm *.tfile; fi && git fetch && git checkout $(X3F_TEST_FILES_COMMIT) && cd .. && touch $(X3F_TEST_FILES)/$(X3F_TEST_FILES_COMMIT).tfile; fi

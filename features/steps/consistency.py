@@ -6,12 +6,7 @@ import time
 
 
 def get_dist_name():
-    # since the executable isn't in a guaranteed spot on various platforms,
-    # have to find the executable to run.  Going to only run the first one found.
-    # note that this approach requires that the makefile make dist as part of 
-    # making check
-    all_found_executables = subprocess.check_output(['find', './dist', '-executable', '-type', 'f'])
-    found_executable = all_found_executables.split('\n')[0]
+    found_executable = os.getenv('DIST_LOC', 'dist_location_not_set')
     print(found_executable)  # print statements are only executed by behave 
     # when the behavior fails, so this print is usually silenced if all is well
     return found_executable
