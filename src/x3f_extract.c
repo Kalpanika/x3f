@@ -26,6 +26,7 @@ static void usage(char *progname)
   fprintf(stderr,
           "usage: %s <SWITCHES> <file1> ...\n"
           "   -jpg            Dump embedded JPG. Turn off RAW dumping\n"
+          "   -meta           Dump metadata. Turn off RAW dumping\n"
           "   -raw            Dump RAW area undecoded\n"
           "   -tiff           Dump RAW as 3x16 bit TIFF\n"
           "   -dng            Dump RAW as DNG LinearRaw (default)\n"
