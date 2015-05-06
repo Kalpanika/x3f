@@ -17,6 +17,7 @@ def run_conversion(args):
     running_proc = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)  # suppressing output
     while running_proc.poll() is None:
         time.sleep(0.1)
+    assert running_proc.returncode is 0
 
 
 @given(u'an input image {image} without a {converted_image}')
