@@ -50,7 +50,7 @@ Examples: images
 | x3f_test_files/_SDI8040.X3F | x3f_test_files/_SDI8040.X3F.tif | c15d8761cbcaffd2ab381b9549a31e6b |
 | x3f_test_files/_SDI8284.X3F | x3f_test_files/_SDI8284.X3F.tif | 8411d4327bf6e71be8f4f8161b98a6b4 |
 
-@noskip
+
 Scenario Outline: conversions to tiff will produce the exact same outputs
    Given an input image <image> without a <converted_image>
     when the <image> is converted to tiff <output_format>
