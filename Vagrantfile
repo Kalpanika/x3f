@@ -2,11 +2,10 @@
 # vi: set ft=ruby :
 
 $script = <<SCRIPT
-apt-get install -y build-essential
-apt-get install -y mingw-w64
-apt-get install -y zlib1g-dev
-apt-get install -y git
-apt-get install -y cmake
+apt-get install -y python-software-properties software-properties-common python-virtualenv python-dev python-pip
+apt-get install -y build-essential mingw-w64 zlib1g-dev git cmake 
+pip install -U setuptools
+pip install virtualenv
 SCRIPT
 
 VAGRANTFILE_API_VERSION = "2"
