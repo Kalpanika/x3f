@@ -29,7 +29,7 @@ Examples: images
 | x3f_test_files/_SDI8284.X3F | LOGHIST | x3f_test_files/_SDI8284.X3F.csv | 9a8f38c290c52858200166282daba772 |
 
 
-Scenario Outline: denoised conversions will produce the exact same outputs
+Scenario Outline: denoised conversions to dng will produce the exact same outputs
    Given an input image <image> without a <converted_image>
     when the <image> is denoised and converted by the code
     then the <converted_image> has the right <md5> hash value
@@ -40,7 +40,7 @@ Examples: images
 | x3f_test_files/_SDI8284.X3F | x3f_test_files/_SDI8284.X3F.dng | 30e4102721a4275a16231101186edac6 |
 
 
-Scenario Outline: denoised conversions will produce the exact same outputs
+Scenario Outline: denoised conversions to tiff will produce the exact same outputs
    Given an input image <image> without a <converted_image>
     when the <image> is denoised and converted by the code to a cropped color TIFF
     then the <converted_image> has the right <md5> hash value
@@ -51,7 +51,7 @@ Examples: images
 | x3f_test_files/_SDI8284.X3F | x3f_test_files/_SDI8284.X3F.tif | 8411d4327bf6e71be8f4f8161b98a6b4 |
 
 
-Scenario Outline: denoised conversions will produce the exact same outputs
+Scenario Outline: conversions to tiff will produce the exact same outputs
    Given an input image <image> without a <converted_image>
     when the <image> is converted to tiff <output_format>
     then the <converted_image> has the right <md5> hash value
