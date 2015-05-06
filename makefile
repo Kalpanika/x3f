@@ -57,6 +57,12 @@ endif
 clean_opencv:
 	-@rm -rf deps/lib/*/opencv
 
+ifeq ($(TARGET_SYS), windows)
+EXE = .exe
+else
+EXE =
+endif
+
 check_deps:  $(VIRTUALENVDIR) $(VIRTUALENVDIR)/.setup.touch test_files
 	@hash $(VIRTUALENV) || echo "$(VIRTUALENV) is not installed in the path, please install it."
 
@@ -67,7 +73,7 @@ $(VIRTUALENVDIR)/.setup.touch: $(REQUIREMENTS) | $(VENV)
 	$(VENV)/bin/pip install -r $< && touch $@
 
 check: check_deps dist
-	DIST_LOC=dist/x3f_tools-$(shell git describe --always --dirty)-$(TARGET)/bin/x3f_extract $(BEHAVE)
+	DIST_LOC=dist/x3f_tools-$(shell git describe --always --dirty)-$(TARGET)/bin/x3f_extract$(EXE) $(BEHAVE)
 
 clean_deps:
 	rm -rf $(VENV)
