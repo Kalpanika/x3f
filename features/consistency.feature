@@ -50,7 +50,7 @@ Examples: images
 | x3f_test_files/_SDI8040.X3F | x3f_test_files/_SDI8040.X3F.tif | c15d8761cbcaffd2ab381b9549a31e6b |
 | x3f_test_files/_SDI8284.X3F | x3f_test_files/_SDI8284.X3F.tif | 8411d4327bf6e71be8f4f8161b98a6b4 |
 
-
+@noskip
 Scenario Outline: conversions to tiff will produce the exact same outputs
    Given an input image <image> without a <converted_image>
     when the <image> is converted to tiff <output_format>
@@ -65,8 +65,8 @@ Examples: images
 | x3f_test_files/_SDI8040.X3F | COLOR_PROPHOTO_RGB | x3f_test_files/_SDI8040.X3F.tif | 719320a87c58c47d9a7879e483e6845d |
 
 | x3f_test_files/_SDI8284.X3F | CROP | x3f_test_files/_SDI8284.X3F.tif | e5924b175fe0c0a3ca66b01d12146b42 |
-| x3f_test_files/_SDI8040.X3F | UNPROCESSED | x3f_test_files/_SDI8040.X3F.tif | 6ed59ebfad84c57f2b9eb8531c61d17c |
-| x3f_test_files/_SDI8040.X3F | QTOP | x3f_test_files/_SDI8040.X3F.tif | 71cb77239a7a864611469254f9a3a277 |
-| x3f_test_files/_SDI8040.X3F | COLOR_SRGB | x3f_test_files/_SDI8040.X3F.tif | 86eadcd7f2d7c4fc7043e0a5a05a2887 |
-| x3f_test_files/_SDI8040.X3F | COLOR_ADOBE_RGB | x3f_test_files/_SDI8040.X3F.tif | b1d0ccd9b268d6e6112036a56661d60a |
-| x3f_test_files/_SDI8040.X3F | COLOR_PROPHOTO_RGB | x3f_test_files/_SDI8040.X3F.tif | 719320a87c58c47d9a7879e483e6845d |
+| x3f_test_files/_SDI8284.X3F | UNPROCESSED | x3f_test_files/_SDI8284.X3F.tif | b7215ba5bb0f5a576650512b88f6e199 |
+| x3f_test_files/_SDI8284.X3F | QTOP | x3f_test_files/_SDI8284.X3F.tif | 5fce6a9990adc4400adb13f102caca3f |
+| x3f_test_files/_SDI8284.X3F | COLOR_SRGB | x3f_test_files/_SDI8284.X3F.tif | 494b747b2ad9489977a44e830fcc7d18 |
+| x3f_test_files/_SDI8284.X3F | COLOR_ADOBE_RGB | x3f_test_files/_SDI8284.X3F.tif | c9cfc3a694f24f909b4b5c99759996c8 |
+| x3f_test_files/_SDI8284.X3F | COLOR_PROPHOTO_RGB | x3f_test_files/_SDI8284.X3F.tif | dbc7db4d8e8602a3da4aada07c079b1c |
