@@ -2,15 +2,14 @@ X3F_TEST_FILES_REPO=https://github.com/Kalpanika/x3f_test_files.git
 X3F_TEST_FILES_COMMIT=3ffc10d0a65f14b53f34c979d2327673677748f7
 X3F_TEST_FILES=x3f_test_files
 VENV=venv
-VIRTUALENVDIR=$(CURDIR)/$(VENV)
-REQUIREMENTS?=$(CURDIR)/requirements.txt
+REQUIREMENTS=requirements.txt
 VIRTUALENV=virtualenv
 BEHAVE=venv/bin/behave
 
 # Set the SYS variable
 include sys.mk
 
-.PHONY: default all dist clean clobber clean_opencv check clean_deps
+.PHONY: default all dist clean clobber clean_opencv
 
 default: all
 
@@ -57,19 +56,21 @@ endif
 clean_opencv:
 	-@rm -rf deps/lib/*/opencv
 
+
 ifeq ($(TARGET_SYS), windows)
 EXE = .exe
 else
 EXE =
 endif
 
-check_deps:  $(VIRTUALENVDIR) $(VIRTUALENVDIR)/.setup.touch test_files
-	@hash $(VIRTUALENV) || echo "$(VIRTUALENV) is not installed in the path, please install it."
+.PHONY: check check_deps test_files clean_deps
 
-$(VIRTUALENVDIR):
-	virtualenv $(VIRTUALENVDIR)
+check_deps: $(VENV)/.setup.touch test_files
 
-$(VIRTUALENVDIR)/.setup.touch: $(REQUIREMENTS) | $(VENV)
+$(VENV):
+	virtualenv $@
+
+$(VENV)/.setup.touch: $(REQUIREMENTS) | $(VENV)
 	$(VENV)/bin/pip install -r $< && touch $@
 
 check: check_deps dist
