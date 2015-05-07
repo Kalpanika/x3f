@@ -8,7 +8,7 @@ Scenario Outline: conversions to various outputs will produce exactly the same i
 
 Examples: images
 | image | file_type | converted_image | md5 |
-| x3f_test_files/_SDI8040.X3F | DNG | x3f_test_files/_SDI8040.X3F.dng | 7ac2cd52a6f45a08bb87eede4b24caa4 |
+| x3f_test_files/_SDI8040.X3F | DNG | x3f_test_files/_SDI8040.X3F.dng | 5a31b26ab81a2d1d12107f1fd8bc9c12 |
 | x3f_test_files/_SDI8040.X3F | TIFF | x3f_test_files/_SDI8040.X3F.tif | cb67d12ec0a4fd318a426276f527f1a9 |
 | x3f_test_files/_SDI8040.X3F | PPM | x3f_test_files/_SDI8040.X3F.ppm | a2bea89af18bb24efd289b73007b2413 |
 | x3f_test_files/_SDI8040.X3F | JPG | x3f_test_files/_SDI8040.X3F.jpg | 357f126f6435345642bfbc6171745d00 |
@@ -18,7 +18,7 @@ Examples: images
 | x3f_test_files/_SDI8040.X3F | HISTOGRAM | x3f_test_files/_SDI8040.X3F.csv | 8ad3868b2c7b871555932a783c16397d |
 | x3f_test_files/_SDI8040.X3F | LOGHIST | x3f_test_files/_SDI8040.X3F.csv | 0c23a7767659c894b81ba64326517eba |
 
-| x3f_test_files/_SDI8284.X3F | DNG | x3f_test_files/_SDI8284.X3F.dng | da01042050d2293b4634bb70404a8e5e |
+| x3f_test_files/_SDI8284.X3F | DNG | x3f_test_files/_SDI8284.X3F.dng | e8bfc6373dd66753b540f3b604f9d657 |
 | x3f_test_files/_SDI8284.X3F | TIFF | x3f_test_files/_SDI8284.X3F.tif | 26199384d894ae723292e5ecc40ad194 |
 | x3f_test_files/_SDI8284.X3F | PPM | x3f_test_files/_SDI8284.X3F.ppm | 06c85f54fe3a954d4e564efbbb8d8a8b |
 | x3f_test_files/_SDI8284.X3F | JPG | x3f_test_files/_SDI8284.X3F.jpg | 87cd494d3bc4eab4e481de6afeb058de |
@@ -36,8 +36,8 @@ Scenario Outline: denoised conversions to dng will produce the exact same output
 
 Examples: images
 | image | converted_image | md5 |
-| x3f_test_files/_SDI8040.X3F | x3f_test_files/_SDI8040.X3F.dng | eb505f78e5972247bf60830d3848d67f |
-| x3f_test_files/_SDI8284.X3F | x3f_test_files/_SDI8284.X3F.dng | 30e4102721a4275a16231101186edac6 |
+| x3f_test_files/_SDI8040.X3F | x3f_test_files/_SDI8040.X3F.dng | 06ab38041552b592340bebfad7fc52ba |
+| x3f_test_files/_SDI8284.X3F | x3f_test_files/_SDI8284.X3F.dng | 5deed4f972edf2bbd1fde5024a5f21f8 |
 
 
 Scenario Outline: denoised conversions to tiff will produce the exact same outputs
