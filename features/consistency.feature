@@ -29,6 +29,20 @@ Examples: images
 | x3f_test_files/_SDI8284.X3F | LOGHIST | x3f_test_files/_SDI8284.X3F.csv | 9a8f38c290c52858200166282daba772 |
 
 
+Scenario Outline: conversions to various compressed outputs will produce exactly the same images
+   Given an input image <image> without a <converted_image>
+    when the <image> is converted and compressed by the code to <file_type>
+    then the <converted_image> has the right <md5> hash value
+
+Examples: images
+| image | file_type | converted_image | md5 |
+| x3f_test_files/_SDI8040.X3F | DNG | x3f_test_files/_SDI8040.X3F.dng | 3d4a5a997ea4305d8df2cec35acea45f |
+| x3f_test_files/_SDI8040.X3F | TIFF | x3f_test_files/_SDI8040.X3F.tif | 94e05ac8c234d733fffd5e00ac068203 |
+
+| x3f_test_files/_SDI8284.X3F | DNG | x3f_test_files/_SDI8284.X3F.dng | 0473fb45cc26be75496a98daaf7ce221 |
+| x3f_test_files/_SDI8284.X3F | TIFF | x3f_test_files/_SDI8284.X3F.tif | 2d71f992245597acc49f80d27f036d27 |
+
+
 Scenario Outline: denoised conversions to dng will produce the exact same outputs
    Given an input image <image> without a <converted_image>
     when the <image> is denoised and converted by the code
