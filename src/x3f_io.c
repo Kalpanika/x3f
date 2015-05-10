@@ -814,8 +814,8 @@ static void true_decode_one_color(x3f_image_data_t *ID, int color)
   int32_t row_start_acc[2][2];
   uint32_t rows = ID->rows;
   uint32_t cols = ID->columns;
-  uint16_t *dst = TRU->x3rgb16.data + color;
-  uint32_t planes = 3;
+  x3f_area16_t *area = &TRU->x3rgb16;
+  uint16_t *dst = area->data + color;
 
   set_bit_state(&BS, TRU->plane_address[color]);
 
@@ -824,14 +824,13 @@ static void true_decode_one_color(x3f_image_data_t *ID, int color)
   row_start_acc[1][0] = seed;
   row_start_acc[1][1] = seed;
 
-  if (ID->type_format == X3F_IMAGE_RAW_QUATTRO &&
-      Q->quattro_layout) {
+  if (ID->type_format == X3F_IMAGE_RAW_QUATTRO) {
     rows = Q->plane[color].rows;
     cols = Q->plane[color].columns;
 
-    if (color == 2) {
-      planes = 1;
-      dst = Q->top16.data;
+    if (Q->quattro_layout && color == 2) {
+      area = &Q->top16;
+      dst = area->data;
     }
     printf("Quattro decode one color (%d) rows=%d cols=%d\n",
 	   color, rows, cols);
@@ -839,6 +838,8 @@ static void true_decode_one_color(x3f_image_data_t *ID, int color)
     printf("TRUE decode one color (%d) rows=%d cols=%d\n",
 	   color, rows, cols);
   }
+
+  assert(rows == area->rows && cols >= area->columns);
 
   for (row = 0; row < rows; row++) {
     int col;
@@ -857,8 +858,11 @@ static void true_decode_one_color(x3f_image_data_t *ID, int color)
       if (col < 2)
 	row_start_acc[odd_row][odd_col] = value;
 
+      /* Discard additional data at the right for binned Quattro plane 2 */
+      if (col >= area->columns) continue;
+
       *dst = value;
-      dst += planes;
+      dst += area->channels;
     }
   }
 }
