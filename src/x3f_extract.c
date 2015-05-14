@@ -65,8 +65,10 @@ static int check_dir(char *Path)
   if ((ret = stat(Path, &filestat)) != 0)
     return ret;
 
-  if (!S_ISDIR(filestat.st_mode))
-    return ENOTDIR; /* Not strictly correct */
+  if (!S_ISDIR(filestat.st_mode)) {
+    errno = ENOTDIR;
+    return -1;
+  }
 
   return 0;
 }
@@ -75,11 +77,11 @@ static void make_outpaths(const char *inpath, const char *outdir,
 			  const char *ext,
 			  char *tmppath, char *outpath)
 {
-  char *plainoutpath;
+  const char *plainoutpath;
   char pathbuffer[1024];
 
   if (outdir == NULL) {
-    plainoutpath = (char *)inpath;
+    plainoutpath = inpath;
   } else {
     char *ptr = strrchr(inpath, '/');
 
@@ -224,7 +226,8 @@ int main(int argc, char *argv[])
 		tmpfilename, x3f_err(ret));
 	errors++;
       } else {
-	rename(tmpfilename, outfilename);
+	if (rename(tmpfilename, outfilename) != 0)
+	  fprintf(stderr, "Couldn't ren %s to %s\n", tmpfilename, outfilename);
       }
     }
 
@@ -248,7 +251,8 @@ int main(int argc, char *argv[])
 		tmpfilename, x3f_err(ret));
 	errors++;
       } else {
-	rename(tmpfilename, outfilename);
+	if (rename(tmpfilename, outfilename) != 0)
+	  fprintf(stderr, "Couldn't ren %s to %s\n", tmpfilename, outfilename);
       }
     }
 
@@ -312,7 +316,8 @@ int main(int argc, char *argv[])
 		tmpfilename, x3f_err(ret_dump));
 	errors++;
       } else {
-	rename(tmpfilename, outfilename);
+	if (rename(tmpfilename, outfilename) != 0)
+	  fprintf(stderr, "Couldn't ren %s to %s\n", tmpfilename, outfilename);
       }
     }
 
