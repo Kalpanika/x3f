@@ -25,6 +25,7 @@ static void usage(char *progname)
 {
   fprintf(stderr,
           "usage: %s <SWITCHES> <file1> ...\n"
+          "   -o <DIR>        Use <DIR> as output dir\n"
           "   -jpg            Dump embedded JPG. Turn off RAW dumping\n"
           "   -raw            Dump RAW area undecoded\n"
           "   -tiff           Dump RAW as 3x16 bit TIFF\n"
@@ -51,6 +52,54 @@ static void usage(char *progname)
   exit(1);
 }
 
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#include <errno.h>
+
+static int check_dir(char *Path)
+{
+  struct stat filestat;
+  int ret;
+
+  if ((ret = stat(Path, &filestat)) != 0)
+    return ret;
+
+  if (!S_ISDIR(filestat.st_mode))
+    return ENOTDIR; /* Not strictly correct */
+
+  return 0;
+}
+
+static void make_outpaths(const char *inpath, const char *outdir,
+			  const char *ext,
+			  char *tmppath, char *outpath)
+{
+  char *plainoutpath;
+  char pathbuffer[1024];
+
+  if (outdir == NULL) {
+    plainoutpath = (char *)inpath;
+  } else {
+    char *ptr = strrchr(inpath, '/');
+
+    strcpy(pathbuffer, outdir);
+    strcat(pathbuffer, "/");
+    if (ptr == NULL) {
+      strcat(pathbuffer, inpath);
+    } else {
+      strcat(pathbuffer, ptr+1);
+    }
+
+    plainoutpath = pathbuffer;
+  }
+
+  strcpy(outpath, plainoutpath);
+  strcat(outpath, ext);
+  strcpy(tmppath, outpath);
+  strcat(tmppath, ".tmp");
+}
+
 int main(int argc, char *argv[])
 {
   int extract_jpg = 0;
@@ -65,6 +114,7 @@ int main(int argc, char *argv[])
   int log_hist = 0;
   char *wb = NULL;
   int use_opencl = 0;
+  char *outdir = NULL;
 
   int i;
 
@@ -104,6 +154,9 @@ int main(int argc, char *argv[])
 	usage(argv[0]);
       }
     }
+    else if (!strcmp(argv[i], "-o") && (i+1)<argc) {
+      outdir = argv[++i];
+    }
     else if (!strcmp(argv[i], "-unprocessed"))
       color_encoding = UNPROCESSED;
     else if (!strcmp(argv[i], "-qtop"))
@@ -126,6 +179,11 @@ int main(int argc, char *argv[])
       usage(argv[0]);
     else
       break;			/* Here starts list of files */
+
+  if (outdir != NULL && check_dir(outdir) != 0) {
+    fprintf(stderr, "Could not find outdir %s\n", outdir);
+    usage(argv[0]);
+  }
 
   x3f_set_use_opencl(use_opencl);
 
@@ -152,19 +210,21 @@ int main(int argc, char *argv[])
     }
 
     if (extract_jpg) {
+      char tmpfilename[1024];
       char outfilename[1024];
       x3f_return_t ret;
 
       x3f_load_data(x3f, x3f_get_thumb_jpeg(x3f));
 
-      strcpy(outfilename, infilename);
-      strcat(outfilename, ".jpg");
+      make_outpaths(infilename, outdir, ".jpg", tmpfilename, outfilename);
 
       printf("Dump JPEG to %s\n", outfilename);
-      if (X3F_OK != (ret=x3f_dump_jpeg(x3f, outfilename))) {
+      if (X3F_OK != (ret=x3f_dump_jpeg(x3f, tmpfilename))) {
         fprintf(stderr, "Could not dump JPEG to %s: %s\n",
-		outfilename, x3f_err(ret));
+		tmpfilename, x3f_err(ret));
 	errors++;
+      } else {
+	rename(tmpfilename, outfilename);
       }
     }
 
@@ -176,21 +236,24 @@ int main(int argc, char *argv[])
     }
 
     if (extract_meta) {
+      char tmpfilename[1024];
       char outfilename[1024];
       x3f_return_t ret;
 
-      strcpy(outfilename, infilename);
-      strcat(outfilename, ".meta");
+      make_outpaths(infilename, outdir, ".meta", tmpfilename, outfilename);
 
       printf("Dump META DATA to %s\n", outfilename);
-      if (X3F_OK != (ret=x3f_dump_meta_data(x3f, outfilename))) {
+      if (X3F_OK != (ret=x3f_dump_meta_data(x3f, tmpfilename))) {
         fprintf(stderr, "Could not dump META DATA to %s: %s\n",
-		outfilename, x3f_err(ret));
+		tmpfilename, x3f_err(ret));
 	errors++;
+      } else {
+	rename(tmpfilename, outfilename);
       }
     }
 
     if (extract_raw) {
+      char tmpfilename[1024];
       char outfilename[1024];
       x3f_return_t ret_dump = X3F_OK;
 
@@ -209,37 +272,35 @@ int main(int argc, char *argv[])
         }
       }
 
-      strcpy(outfilename, infilename);
-
       switch (file_type) {
       case RAW:
-	strcat(outfilename, ".raw");
+	make_outpaths(infilename, outdir, ".raw", tmpfilename, outfilename);
 	printf("Dump RAW block to %s\n", outfilename);
-	ret_dump = x3f_dump_raw_data(x3f, outfilename);
+	ret_dump = x3f_dump_raw_data(x3f, tmpfilename);
 	break;
       case TIFF:
-	strcat(outfilename, ".tif");
+	make_outpaths(infilename, outdir, ".tif", tmpfilename, outfilename);
 	printf("Dump RAW as TIFF to %s\n", outfilename);
-	ret_dump = x3f_dump_raw_data_as_tiff(x3f, outfilename,
+	ret_dump = x3f_dump_raw_data_as_tiff(x3f, tmpfilename,
 					     color_encoding, crop, denoise, wb);
 	break;
       case DNG:
-	strcat(outfilename, ".dng");
+	make_outpaths(infilename, outdir, ".dng", tmpfilename, outfilename);
 	printf("Dump RAW as DNG to %s\n", outfilename);
-	ret_dump = x3f_dump_raw_data_as_dng(x3f, outfilename, denoise, wb);
+	ret_dump = x3f_dump_raw_data_as_dng(x3f, tmpfilename, denoise, wb);
 	break;
       case PPMP3:
       case PPMP6:
-	strcat(outfilename, ".ppm");
+	make_outpaths(infilename, outdir, ".ppm", tmpfilename, outfilename);
 	printf("Dump RAW as PPM to %s\n", outfilename);
-	ret_dump = x3f_dump_raw_data_as_ppm(x3f, outfilename,
+	ret_dump = x3f_dump_raw_data_as_ppm(x3f, tmpfilename,
 					    color_encoding, crop, denoise, wb,
                                             file_type == PPMP6);
 	break;
       case HISTOGRAM:
-	strcat(outfilename, ".csv");
+	make_outpaths(infilename, outdir, ".csv", tmpfilename, outfilename);
 	printf("Dump RAW as CSV histogram to %s\n", outfilename);
-	ret_dump = x3f_dump_raw_data_as_histogram(x3f, outfilename,
+	ret_dump = x3f_dump_raw_data_as_histogram(x3f, tmpfilename,
 						  color_encoding,
 						  crop, denoise, wb,
 						  log_hist);
@@ -248,8 +309,10 @@ int main(int argc, char *argv[])
 
       if (X3F_OK != ret_dump) {
         fprintf(stderr, "Could not dump RAW to %s: %s\n",
-		outfilename, x3f_err(ret_dump));
+		tmpfilename, x3f_err(ret_dump));
 	errors++;
+      } else {
+	rename(tmpfilename, outfilename);
       }
     }
 
