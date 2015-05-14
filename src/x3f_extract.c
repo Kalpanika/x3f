@@ -1,6 +1,6 @@
 /* X3F_EXTRACT.C - Extracting images from X3F files
  *
- * Copyright 2010 (c) - Roland Karlsson (roland@proxel.se)
+ * Copyright 2010-2015 (c) - Roland Karlsson (roland@proxel.se)
  * BSD-style - see doc/copyright.txt
  *
  */
@@ -73,33 +73,63 @@ static int check_dir(char *Path)
   return 0;
 }
 
-static void make_outpaths(const char *inpath, const char *outdir,
-			  const char *ext,
-			  char *tmppath, char *outpath)
+#define MAXPATH 1000
+#define EXTMAX 10
+#define MAXOUTPATH (MAXPATH+EXTMAX)
+#define MAXTMPPATH (MAXOUTPATH+EXTMAX)
+
+int safecpy(char *dst, const char *src, int dst_size)
 {
+  if (strnlen(src, dst_size+1) > dst_size) {
+    fprintf(stderr, "safecpy: String too large for dst name\n");
+    return 1;
+  } else {
+    strcpy(dst, src);
+    return 0;
+  }
+}
+
+int safecat(char *dst, const char *src, int dst_size)
+{
+  if (strnlen(dst, dst_size+1) + strnlen(src, dst_size+1) > dst_size) {
+    fprintf(stderr, "safecat: String too large for dst name\n");
+    return 1;
+  } else {
+    strcat(dst, src);
+    return 0;
+  }
+}
+
+static int make_paths(const char *inpath, const char *outdir,
+		      const char *ext,
+		      char *tmppath, char *outpath)
+{
+  int err = 0;
   const char *plainoutpath;
-  char pathbuffer[1024];
+  char pathbuffer[MAXPATH+1];
 
   if (outdir == NULL) {
     plainoutpath = inpath;
   } else {
     char *ptr = strrchr(inpath, '/');
 
-    strcpy(pathbuffer, outdir);
-    strcat(pathbuffer, "/");
+    err += safecpy(pathbuffer, outdir, MAXPATH);
+    err += safecat(pathbuffer, "/", MAXPATH);
     if (ptr == NULL) {
-      strcat(pathbuffer, inpath);
+      err += safecat(pathbuffer, inpath, MAXPATH);
     } else {
-      strcat(pathbuffer, ptr+1);
+      err += safecat(pathbuffer, ptr+1, MAXPATH);
     }
 
     plainoutpath = pathbuffer;
   }
 
-  strcpy(outpath, plainoutpath);
-  strcat(outpath, ext);
-  strcpy(tmppath, outpath);
-  strcat(tmppath, ".tmp");
+  err += safecpy(outpath, plainoutpath, MAXOUTPATH);
+  err += safecat(outpath, ext, MAXOUTPATH);
+  err += safecpy(tmppath, outpath, MAXTMPPATH);
+  err += safecat(tmppath, ".tmp", MAXTMPPATH);
+
+  return err;
 }
 
 int main(int argc, char *argv[])
@@ -198,8 +228,7 @@ int main(int argc, char *argv[])
 
     if (f_in == NULL) {
       fprintf(stderr, "Could not open infile %s\n", infilename);
-      errors++;
-      goto clean_up;
+      goto found_error;
     }
 
     printf("READ THE X3F FILE %s\n", infilename);
@@ -207,18 +236,20 @@ int main(int argc, char *argv[])
 
     if (x3f == NULL) {
       fprintf(stderr, "Could not read infile %s\n", infilename);
-      errors++;
-      goto clean_up;
+      goto found_error;
     }
 
     if (extract_jpg) {
-      char tmpfilename[1024];
-      char outfilename[1024];
+      char tmpfilename[MAXTMPPATH+1];
+      char outfilename[MAXOUTPATH+1];
       x3f_return_t ret;
 
       x3f_load_data(x3f, x3f_get_thumb_jpeg(x3f));
 
-      make_outpaths(infilename, outdir, ".jpg", tmpfilename, outfilename);
+      if (make_paths(infilename, outdir, ".jpg", tmpfilename, outfilename)) {
+	fprintf(stderr, "Too large file path\n");
+	goto found_error;
+      }
 
       printf("Dump JPEG to %s\n", outfilename);
       if (X3F_OK != (ret=x3f_dump_jpeg(x3f, tmpfilename))) {
@@ -226,8 +257,10 @@ int main(int argc, char *argv[])
 		tmpfilename, x3f_err(ret));
 	errors++;
       } else {
-	if (rename(tmpfilename, outfilename) != 0)
+	if (rename(tmpfilename, outfilename) != 0) {
 	  fprintf(stderr, "Couldn't ren %s to %s\n", tmpfilename, outfilename);
+	  errors++;
+	}
       }
     }
 
@@ -239,11 +272,14 @@ int main(int argc, char *argv[])
     }
 
     if (extract_meta) {
-      char tmpfilename[1024];
-      char outfilename[1024];
+      char tmpfilename[MAXTMPPATH+1];
+      char outfilename[MAXOUTPATH+1];
       x3f_return_t ret;
 
-      make_outpaths(infilename, outdir, ".meta", tmpfilename, outfilename);
+      if (make_paths(infilename, outdir, ".meta", tmpfilename, outfilename)) {
+	fprintf(stderr, "Too large file path\n");
+	goto found_error;
+      }
 
       printf("Dump META DATA to %s\n", outfilename);
       if (X3F_OK != (ret=x3f_dump_meta_data(x3f, tmpfilename))) {
@@ -251,58 +287,73 @@ int main(int argc, char *argv[])
 		tmpfilename, x3f_err(ret));
 	errors++;
       } else {
-	if (rename(tmpfilename, outfilename) != 0)
+	if (rename(tmpfilename, outfilename) != 0) {
 	  fprintf(stderr, "Couldn't ren %s to %s\n", tmpfilename, outfilename);
+	  errors++;
+	}
       }
     }
 
     if (extract_raw) {
-      char tmpfilename[1024];
-      char outfilename[1024];
+      char tmpfilename[MAXTMPPATH+1];
+      char outfilename[MAXOUTPATH+1];
       x3f_return_t ret_dump = X3F_OK;
 
       printf("Load RAW block from %s\n", infilename);
       if (file_type == RAW) {
         if (X3F_OK != x3f_load_image_block(x3f, x3f_get_raw(x3f))) {
           fprintf(stderr, "Could not load unconverted RAW from file\n");
-	  errors++;
-          goto clean_up;
+          goto found_error;
         }
       } else {
         if (X3F_OK != x3f_load_data(x3f, x3f_get_raw(x3f))) {
           fprintf(stderr, "Could not load RAW from file\n");
-	  errors++;
-          goto clean_up;
+          goto found_error;
         }
       }
 
       switch (file_type) {
       case RAW:
-	make_outpaths(infilename, outdir, ".raw", tmpfilename, outfilename);
+	if (make_paths(infilename, outdir, ".raw", tmpfilename, outfilename)) {
+	  fprintf(stderr, "Too large file path\n");
+	  goto found_error;
+	}
 	printf("Dump RAW block to %s\n", outfilename);
 	ret_dump = x3f_dump_raw_data(x3f, tmpfilename);
 	break;
       case TIFF:
-	make_outpaths(infilename, outdir, ".tif", tmpfilename, outfilename);
+	if (make_paths(infilename, outdir, ".tif", tmpfilename, outfilename)) {
+	  fprintf(stderr, "Too large file path\n");
+	  goto found_error;
+	}
 	printf("Dump RAW as TIFF to %s\n", outfilename);
 	ret_dump = x3f_dump_raw_data_as_tiff(x3f, tmpfilename,
 					     color_encoding, crop, denoise, wb);
 	break;
       case DNG:
-	make_outpaths(infilename, outdir, ".dng", tmpfilename, outfilename);
+	if (make_paths(infilename, outdir, ".dng", tmpfilename, outfilename)) {
+	  fprintf(stderr, "Too large file path\n");
+	  goto found_error;
+	}
 	printf("Dump RAW as DNG to %s\n", outfilename);
 	ret_dump = x3f_dump_raw_data_as_dng(x3f, tmpfilename, denoise, wb);
 	break;
       case PPMP3:
       case PPMP6:
-	make_outpaths(infilename, outdir, ".ppm", tmpfilename, outfilename);
+	if (make_paths(infilename, outdir, ".ppm", tmpfilename, outfilename)) {
+	  fprintf(stderr, "Too large file path\n");
+	  goto found_error;
+	}
 	printf("Dump RAW as PPM to %s\n", outfilename);
 	ret_dump = x3f_dump_raw_data_as_ppm(x3f, tmpfilename,
 					    color_encoding, crop, denoise, wb,
                                             file_type == PPMP6);
 	break;
       case HISTOGRAM:
-	make_outpaths(infilename, outdir, ".csv", tmpfilename, outfilename);
+	if (make_paths(infilename, outdir, ".csv", tmpfilename, outfilename)) {
+	  fprintf(stderr, "Too large file path\n");
+	  goto found_error;
+	}
 	printf("Dump RAW as CSV histogram to %s\n", outfilename);
 	ret_dump = x3f_dump_raw_data_as_histogram(x3f, tmpfilename,
 						  color_encoding,
@@ -316,10 +367,18 @@ int main(int argc, char *argv[])
 		tmpfilename, x3f_err(ret_dump));
 	errors++;
       } else {
-	if (rename(tmpfilename, outfilename) != 0)
+	if (rename(tmpfilename, outfilename) != 0) {
 	  fprintf(stderr, "Couldn't ren %s to %s\n", tmpfilename, outfilename);
+	  errors++;
+	}
       }
     }
+
+    goto clean_up;
+
+  found_error:
+
+    errors++;
 
   clean_up:
 
