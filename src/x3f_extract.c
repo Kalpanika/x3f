@@ -19,13 +19,34 @@
 #include <stdlib.h>
 #include <string.h>
 
-typedef enum {RAW, TIFF, DNG, PPMP3, PPMP6, HISTOGRAM} raw_file_type_t;
+typedef enum
+  { META      = 0,
+    JPEG      = 1,
+    RAW       = 2,
+    TIFF      = 3,
+    DNG       = 4,
+    PPMP3     = 5,
+    PPMP6     = 6,
+    HISTOGRAM = 7}
+  output_file_type_t;
+
+static char *extension[] =
+  { ".txt",
+    ".jpg",
+    ".raw",
+    ".tif",
+    ".dng",
+    ".ppm",
+    ".ppm",
+    ".csv" };
 
 static void usage(char *progname)
 {
   fprintf(stderr,
           "usage: %s <SWITCHES> <file1> ...\n"
           "   -o <DIR>        Use <DIR> as output dir\n"
+	  "ONE OFF THE FORMAT SWITCHWES\n"
+	  "   -meta           Dump meta data\n"
           "   -jpg            Dump embedded JPG. Turn off RAW dumping\n"
           "   -raw            Dump RAW area undecoded\n"
           "   -tiff           Dump RAW as 3x16 bit TIFF\n"
@@ -35,6 +56,7 @@ static void usage(char *progname)
           "   -ppm            Dump RAW/color as 3x16 bit PPM/P6 (binary)\n"
           "   -histogram      Dump histogram as csv file\n"
           "   -loghist        Dump histogram as csv file, with log exposure\n"
+	  "APPROPRIATE COMBINATIONS OF MODIFIER SWITCHES\n"
 	  "   -color <COLOR>  Convert to RGB color\n"
 	  "                   (sRGB, AdobeRGB, ProPhotoRGB)\n"
           "   -unprocessed    Dump RAW without any preprocessing\n"
@@ -78,7 +100,7 @@ static int check_dir(char *Path)
 #define MAXOUTPATH (MAXPATH+EXTMAX)
 #define MAXTMPPATH (MAXOUTPATH+EXTMAX)
 
-int safecpy(char *dst, const char *src, int dst_size)
+static int safecpy(char *dst, const char *src, int dst_size)
 {
   if (strnlen(src, dst_size+1) > dst_size) {
     fprintf(stderr, "safecpy: String too large for dst name\n");
@@ -89,7 +111,7 @@ int safecpy(char *dst, const char *src, int dst_size)
   }
 }
 
-int safecat(char *dst, const char *src, int dst_size)
+static int safecat(char *dst, const char *src, int dst_size)
 {
   if (strnlen(dst, dst_size+1) + strnlen(src, dst_size+1) > dst_size) {
     fprintf(stderr, "safecat: String too large for dst name\n");
@@ -132,14 +154,17 @@ static int make_paths(const char *inpath, const char *outdir,
   return err;
 }
 
+#define Z extract_jpg=0,extract_meta=0,extract_raw=0,extract_unconverted_raw=0
+
 int main(int argc, char *argv[])
 {
   int extract_jpg = 0;
   int extract_meta = 0;
   int extract_raw = 1;
+  int extract_unconverted_raw = 1;
   int crop = 0;
   int denoise = 0;
-  raw_file_type_t file_type = DNG;
+  output_file_type_t file_type = DNG;
   x3f_color_encoding_t color_encoding = NONE;
   int files = 0;
   int errors = 0;
@@ -155,24 +180,27 @@ int main(int argc, char *argv[])
   setvbuf(stderr, NULL, _IOLBF, 0);
 
   for (i=1; i<argc; i++)
+
+    /* Only one of those switches is valid, the last one */
     if (!strcmp(argv[i], "-jpg"))
-      extract_raw = 0, extract_jpg = 1;
+      Z, extract_jpg = 1, file_type = JPEG;
     else if (!strcmp(argv[i], "-meta"))
-      extract_raw = 0, extract_meta = 1;
+      Z, extract_meta = 1, file_type = META;
     else if (!strcmp(argv[i], "-raw"))
-      extract_raw = 1, file_type = RAW;
+      Z, extract_unconverted_raw = 1, file_type = RAW;
     else if (!strcmp(argv[i], "-tiff"))
-      extract_raw = 1, file_type = TIFF;
+      Z, extract_raw = 1, file_type = TIFF;
     else if (!strcmp(argv[i], "-dng"))
-      extract_raw = 1, file_type = DNG;
+      Z, extract_raw = 1, file_type = DNG;
     else if (!strcmp(argv[i], "-ppm-ascii"))
-      extract_raw = 1, file_type = PPMP3;
+      Z, extract_raw = 1, file_type = PPMP3;
     else if (!strcmp(argv[i], "-ppm"))
-      extract_raw = 1, file_type = PPMP6;
+      Z, extract_raw = 1, file_type = PPMP6;
     else if (!strcmp(argv[i], "-histogram"))
-      extract_raw = 1, file_type = HISTOGRAM;
+      Z, extract_raw = 1, file_type = HISTOGRAM;
     else if (!strcmp(argv[i], "-loghist"))
-      extract_raw = 1, file_type = HISTOGRAM, log_hist = 1;
+      Z, extract_raw = 1, file_type = HISTOGRAM, log_hist = 1;
+
     else if (!strcmp(argv[i], "-color") && (i+1)<argc) {
       char *encoding = argv[++i];
       if (!strcmp(encoding, "sRGB"))
@@ -220,157 +248,121 @@ int main(int argc, char *argv[])
   x3f_set_use_opencl(use_opencl);
 
   for (; i<argc; i++) {
-    char *infilename = argv[i];
-    FILE *f_in = fopen(infilename, "rb");
+    char *infile = argv[i];
+    FILE *f_in = fopen(infile, "rb");
     x3f_t *x3f = NULL;
+
+    char tmpfile[MAXTMPPATH+1];
+    char outfile[MAXOUTPATH+1];
+    x3f_return_t ret_dump;
 
     files++;
 
     if (f_in == NULL) {
-      fprintf(stderr, "Could not open infile %s\n", infilename);
+      fprintf(stderr, "Could not open infile %s\n", infile);
       goto found_error;
     }
 
-    printf("READ THE X3F FILE %s\n", infilename);
+    printf("READ THE X3F FILE %s\n", infile);
     x3f = x3f_new_from_file(f_in);
 
     if (x3f == NULL) {
-      fprintf(stderr, "Could not read infile %s\n", infilename);
+      fprintf(stderr, "Could not read infile %s\n", infile);
       goto found_error;
     }
 
     if (extract_jpg) {
-      char tmpfilename[MAXTMPPATH+1];
-      char outfilename[MAXOUTPATH+1];
-      x3f_return_t ret;
-
-      x3f_load_data(x3f, x3f_get_thumb_jpeg(x3f));
-
-      if (make_paths(infilename, outdir, ".jpg", tmpfilename, outfilename)) {
-	fprintf(stderr, "Too large file path\n");
+      if (X3F_OK != x3f_load_data(x3f, x3f_get_thumb_jpeg(x3f))) {
+	fprintf(stderr, "Could not load JPEG thumbnail from file\n");
 	goto found_error;
-      }
-
-      printf("Dump JPEG to %s\n", outfilename);
-      if (X3F_OK != (ret=x3f_dump_jpeg(x3f, tmpfilename))) {
-        fprintf(stderr, "Could not dump JPEG to %s: %s\n",
-		tmpfilename, x3f_err(ret));
-	errors++;
-      } else {
-	if (rename(tmpfilename, outfilename) != 0) {
-	  fprintf(stderr, "Couldn't ren %s to %s\n", tmpfilename, outfilename);
-	  errors++;
-	}
       }
     }
 
     if (extract_meta || extract_raw) {
       /* We assume we do not need JPEG meta data
 	 x3f_load_data(x3f, x3f_get_thumb_jpeg(x3f)); */
-      x3f_load_data(x3f, x3f_get_prop(x3f));
-      x3f_load_data(x3f, x3f_get_camf(x3f));
-    }
+      /* We also assume we need to load meta data if we load RAW */
 
-    if (extract_meta) {
-      char tmpfilename[MAXTMPPATH+1];
-      char outfilename[MAXOUTPATH+1];
-      x3f_return_t ret;
+      /* TODO: shall we try to avoid loading meta data for RAW that do
+	 not need it? */
 
-      if (make_paths(infilename, outdir, ".meta", tmpfilename, outfilename)) {
-	fprintf(stderr, "Too large file path\n");
+      /* TODO: do extract_unconverted_raw need any meta data? */
+
+      if (X3F_OK != x3f_load_data(x3f, x3f_get_prop(x3f))) {
+	fprintf(stderr, "Could not load PROP from file\n");
 	goto found_error;
       }
-
-      printf("Dump META DATA to %s\n", outfilename);
-      if (X3F_OK != (ret=x3f_dump_meta_data(x3f, tmpfilename))) {
-        fprintf(stderr, "Could not dump META DATA to %s: %s\n",
-		tmpfilename, x3f_err(ret));
-	errors++;
-      } else {
-	if (rename(tmpfilename, outfilename) != 0) {
-	  fprintf(stderr, "Couldn't ren %s to %s\n", tmpfilename, outfilename);
-	  errors++;
-	}
+      if (X3F_OK != x3f_load_data(x3f, x3f_get_camf(x3f))) {
+	fprintf(stderr, "Could not load CAMF from file\n");
+	goto found_error;
       }
     }
 
     if (extract_raw) {
-      char tmpfilename[MAXTMPPATH+1];
-      char outfilename[MAXOUTPATH+1];
-      x3f_return_t ret_dump = X3F_OK;
-
-      printf("Load RAW block from %s\n", infilename);
-      if (file_type == RAW) {
-        if (X3F_OK != x3f_load_image_block(x3f, x3f_get_raw(x3f))) {
-          fprintf(stderr, "Could not load unconverted RAW from file\n");
-          goto found_error;
-        }
-      } else {
-        if (X3F_OK != x3f_load_data(x3f, x3f_get_raw(x3f))) {
-          fprintf(stderr, "Could not load RAW from file\n");
-          goto found_error;
-        }
+      if (X3F_OK != x3f_load_data(x3f, x3f_get_raw(x3f))) {
+	fprintf(stderr, "Could not load RAW from file\n");
+	goto found_error;
       }
+    }
 
-      switch (file_type) {
-      case RAW:
-	if (make_paths(infilename, outdir, ".raw", tmpfilename, outfilename)) {
-	  fprintf(stderr, "Too large file path\n");
-	  goto found_error;
-	}
-	printf("Dump RAW block to %s\n", outfilename);
-	ret_dump = x3f_dump_raw_data(x3f, tmpfilename);
-	break;
-      case TIFF:
-	if (make_paths(infilename, outdir, ".tif", tmpfilename, outfilename)) {
-	  fprintf(stderr, "Too large file path\n");
-	  goto found_error;
-	}
-	printf("Dump RAW as TIFF to %s\n", outfilename);
-	ret_dump = x3f_dump_raw_data_as_tiff(x3f, tmpfilename,
-					     color_encoding, crop, denoise, wb);
-	break;
-      case DNG:
-	if (make_paths(infilename, outdir, ".dng", tmpfilename, outfilename)) {
-	  fprintf(stderr, "Too large file path\n");
-	  goto found_error;
-	}
-	printf("Dump RAW as DNG to %s\n", outfilename);
-	ret_dump = x3f_dump_raw_data_as_dng(x3f, tmpfilename, denoise, wb);
-	break;
-      case PPMP3:
-      case PPMP6:
-	if (make_paths(infilename, outdir, ".ppm", tmpfilename, outfilename)) {
-	  fprintf(stderr, "Too large file path\n");
-	  goto found_error;
-	}
-	printf("Dump RAW as PPM to %s\n", outfilename);
-	ret_dump = x3f_dump_raw_data_as_ppm(x3f, tmpfilename,
-					    color_encoding, crop, denoise, wb,
-                                            file_type == PPMP6);
-	break;
-      case HISTOGRAM:
-	if (make_paths(infilename, outdir, ".csv", tmpfilename, outfilename)) {
-	  fprintf(stderr, "Too large file path\n");
-	  goto found_error;
-	}
-	printf("Dump RAW as CSV histogram to %s\n", outfilename);
-	ret_dump = x3f_dump_raw_data_as_histogram(x3f, tmpfilename,
-						  color_encoding,
-						  crop, denoise, wb,
-						  log_hist);
-	break;
+    if (extract_unconverted_raw) {
+      if (X3F_OK != x3f_load_image_block(x3f, x3f_get_raw(x3f))) {
+	fprintf(stderr, "Could not load unconverted RAW from file\n");
+	goto found_error;
       }
+    }
 
-      if (X3F_OK != ret_dump) {
-        fprintf(stderr, "Could not dump RAW to %s: %s\n",
-		tmpfilename, x3f_err(ret_dump));
+    if (make_paths(infile, outdir, extension[file_type], tmpfile, outfile)) {
+      fprintf(stderr, "Too large file path\n");
+      goto found_error;
+    }
+
+    switch (file_type) {
+    case META:
+      printf("Dump META DATA to %s\n", outfile);
+      ret_dump = x3f_dump_meta_data(x3f, tmpfile);
+      break;
+    case JPEG:
+      printf("Dump JPEG to %s\n", outfile);
+      ret_dump = x3f_dump_jpeg(x3f, tmpfile);
+      break;
+    case RAW:
+      printf("Dump RAW block to %s\n", outfile);
+      ret_dump = x3f_dump_raw_data(x3f, tmpfile);
+      break;
+    case TIFF:
+      printf("Dump RAW as TIFF to %s\n", outfile);
+      ret_dump = x3f_dump_raw_data_as_tiff(x3f, tmpfile,
+					   color_encoding, crop, denoise, wb);
+      break;
+    case DNG:
+      printf("Dump RAW as DNG to %s\n", outfile);
+      ret_dump = x3f_dump_raw_data_as_dng(x3f, tmpfile, denoise, wb);
+      break;
+    case PPMP3:
+    case PPMP6:
+      printf("Dump RAW as PPM to %s\n", outfile);
+      ret_dump = x3f_dump_raw_data_as_ppm(x3f, tmpfile,
+					  color_encoding, crop, denoise, wb,
+					  file_type == PPMP6);
+      break;
+    case HISTOGRAM:
+      printf("Dump RAW as CSV histogram to %s\n", outfile);
+      ret_dump = x3f_dump_raw_data_as_histogram(x3f, tmpfile,
+						color_encoding,
+						crop, denoise, wb,
+						log_hist);
+      break;
+    }
+
+    if (X3F_OK != ret_dump) {
+      fprintf(stderr, "Could not dump to %s: %s\n",
+	      tmpfile, x3f_err(ret_dump));
+      errors++;
+    } else {
+      if (rename(tmpfile, outfile) != 0) {
+	fprintf(stderr, "Couldn't rename %s to %s\n", tmpfile, outfile);
 	errors++;
-      } else {
-	if (rename(tmpfilename, outfilename) != 0) {
-	  fprintf(stderr, "Couldn't ren %s to %s\n", tmpfilename, outfilename);
-	  errors++;
-	}
       }
     }
 
@@ -388,10 +380,5 @@ int main(int argc, char *argv[])
       fclose(f_in);
   }
 
-  if (files == 0)
-    usage(argv[0]);
-
-  printf("Files processed: %d\terrors: %d\n", files, errors);
-
-  return errors > 0;
+  return 0;
 }
