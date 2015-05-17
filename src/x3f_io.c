@@ -1950,15 +1950,6 @@ static void x3f_load_camf(x3f_info_t *I, x3f_directory_entry_t *DE)
   return X3F_OK;
 }
 
-/* extern */ uint32_t x3f_get_camf_type(x3f_t *x3f)
-{
-  x3f_directory_entry_t *DE = x3f_get_camf(x3f);
-  x3f_directory_entry_header_t *DEH = &DE->header;
-  x3f_camf_t *CAMF = &DEH->data_subsection.camf;
-
-  return CAMF->type;
-}
-
 /* extern */ char *x3f_err(x3f_return_t err)
 {
   switch (err) {

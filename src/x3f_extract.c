@@ -249,6 +249,7 @@ int main(int argc, char *argv[])
 
   extract_meta =
     file_type == META ||
+    file_type == DNG ||
     (extract_raw &&
      (crop || (color_encoding != UNPROCESSED && color_encoding != QTOP)));
 
@@ -284,18 +285,19 @@ int main(int argc, char *argv[])
     }
 
     if (extract_meta) {
-      /* We assume we do not need JPEG meta data
-	 x3f_load_data(x3f, x3f_get_thumb_jpeg(x3f)); */
+      x3f_directory_entry_t *DE = x3f_get_prop(x3f);
+
       if (X3F_OK != x3f_load_data(x3f, x3f_get_camf(x3f))) {
 	fprintf(stderr, "Could not load CAMF from file\n");
 	goto found_error;
       }
-      if (x3f_get_camf_type(x3f) < 5)
+      if (DE != NULL)
 	/* Not for Quattro */
-	if (X3F_OK != x3f_load_data(x3f, x3f_get_prop(x3f))) {
+	if (X3F_OK != x3f_load_data(x3f, DE)) {
 	  fprintf(stderr, "Could not load PROP from file\n");
 	  goto found_error;
 	}
+      /* We do not load any JPEG meta data */
     }
 
     if (extract_raw) {
