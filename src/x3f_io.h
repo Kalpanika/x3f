@@ -445,6 +445,8 @@ extern x3f_return_t x3f_load_data(x3f_t *x3f, x3f_directory_entry_t *DE);
 
 extern x3f_return_t x3f_load_image_block(x3f_t *x3f, x3f_directory_entry_t *DE);
 
+extern uint32_t x3f_get_camf_type(x3f_t *x3f);
+
 extern char *x3f_err(x3f_return_t err);
 
 #ifdef __cplusplus

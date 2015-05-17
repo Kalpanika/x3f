@@ -1,6 +1,7 @@
 # MAKEFILE
 #
-# Copyright (c) 2010 - Roland Karlsson (roland@proxel.se)
+# Copyright (c) 2010-2015
+# Roland Karlsson (roland@proxel.se)
 # BSD-style - see doc/copyright.txt
 
 # -----------------------------------------------------------

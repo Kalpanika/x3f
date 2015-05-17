@@ -31,7 +31,7 @@ typedef enum
   output_file_type_t;
 
 static char *extension[] =
-  { ".txt",
+  { ".meta",
     ".jpg",
     ".raw",
     ".tif",
@@ -154,12 +154,12 @@ static int make_paths(const char *inpath, const char *outdir,
   return err;
 }
 
-#define Z extract_jpg=0,extract_meta=0,extract_raw=0,extract_unconverted_raw=0
+#define Z extract_jpg=0,extract_raw=0,extract_unconverted_raw=0
 
 int main(int argc, char *argv[])
 {
   int extract_jpg = 0;
-  int extract_meta = 0;
+  int extract_meta; /* Always computed */
   int extract_raw = 1;
   int extract_unconverted_raw = 1;
   int crop = 0;
@@ -185,7 +185,7 @@ int main(int argc, char *argv[])
     if (!strcmp(argv[i], "-jpg"))
       Z, extract_jpg = 1, file_type = JPEG;
     else if (!strcmp(argv[i], "-meta"))
-      Z, extract_meta = 1, file_type = META;
+      Z, file_type = META;
     else if (!strcmp(argv[i], "-raw"))
       Z, extract_unconverted_raw = 1, file_type = RAW;
     else if (!strcmp(argv[i], "-tiff"))
@@ -247,6 +247,11 @@ int main(int argc, char *argv[])
 
   x3f_set_use_opencl(use_opencl);
 
+  extract_meta =
+    file_type == META ||
+    (extract_raw &&
+     (crop || (color_encoding != UNPROCESSED && color_encoding != QTOP)));
+
   for (; i<argc; i++) {
     char *infile = argv[i];
     FILE *f_in = fopen(infile, "rb");
@@ -278,24 +283,19 @@ int main(int argc, char *argv[])
       }
     }
 
-    if (extract_meta || extract_raw) {
+    if (extract_meta) {
       /* We assume we do not need JPEG meta data
 	 x3f_load_data(x3f, x3f_get_thumb_jpeg(x3f)); */
-      /* We also assume we need to load meta data if we load RAW */
-
-      /* TODO: shall we try to avoid loading meta data for RAW that do
-	 not need it? */
-
-      /* TODO: do extract_unconverted_raw need any meta data? */
-
-      if (X3F_OK != x3f_load_data(x3f, x3f_get_prop(x3f))) {
-	fprintf(stderr, "Could not load PROP from file\n");
-	goto found_error;
-      }
       if (X3F_OK != x3f_load_data(x3f, x3f_get_camf(x3f))) {
 	fprintf(stderr, "Could not load CAMF from file\n");
 	goto found_error;
       }
+      if (x3f_get_camf_type(x3f) < 5)
+	/* Not for Quattro */
+	if (X3F_OK != x3f_load_data(x3f, x3f_get_prop(x3f))) {
+	  fprintf(stderr, "Could not load PROP from file\n");
+	  goto found_error;
+	}
     }
 
     if (extract_raw) {
@@ -380,5 +380,12 @@ int main(int argc, char *argv[])
       fclose(f_in);
   }
 
-  return 0;
+  if (files == 0) {
+    fprintf(stderr, "No files given\n");
+    usage(argv[0]);
+  }
+
+  printf("Files processed: %d\terrors: %d\n", files, errors);
+
+  return errors > 0;
 }
