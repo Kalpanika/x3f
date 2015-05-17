@@ -121,7 +121,7 @@ void x3f_set_use_opencl(int flag)
       x3f_printf(INFO, "OpenCL device name: %s\n", dev.name().c_str());
       x3f_printf(INFO, "OpenCL device version: %s\n", dev.version().c_str());
     }
-    x3f_printf(WARN, "WARNING: OpenCL is not available\n");
+    else x3f_printf(WARN, "WARNING: OpenCL is not available\n");
   }
   else x3f_printf(DEBUG, "OpenCL is disabled\n");
 }
