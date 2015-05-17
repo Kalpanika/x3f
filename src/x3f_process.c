@@ -4,6 +4,7 @@
 #include "x3f_matrix.h"
 #include "x3f_denoise.h"
 #include "x3f_spatial_gain.h"
+#include "x3f_printf.h"
 
 #include <string.h>
 #include <stdlib.h>
@@ -123,8 +124,8 @@ static void get_raw_neutral(double *raw_to_xyz, double *raw_neutral)
   if (x3f_get_camf_float_vector(x3f, "FNumberGainFact", gain_fact))
     x3f_3x1_comp_mul(gain_fact, gain, gain);
 
-  printf("gain\n");
-  x3f_3x1_print(gain);
+  x3f_printf(DEBUG, "gain\n");
+  x3f_3x1_print(DEBUG, gain);
 
   return 1;
 }
@@ -156,8 +157,8 @@ static void get_raw_neutral(double *raw_to_xyz, double *raw_neutral)
   else
     return 0;
 
-  printf("bmt_to_xyz\n");
-  x3f_3x3_print(bmt_to_xyz);
+  x3f_printf(DEBUG, "bmt_to_xyz\n");
+  x3f_3x3_print(DEBUG, bmt_to_xyz);
 
   return 1;
 }
@@ -172,8 +173,8 @@ static void get_raw_neutral(double *raw_to_xyz, double *raw_neutral)
   x3f_3x3_diag(gain, gain_mat);
   x3f_3x3_3x3_mul(bmt_to_xyz, gain_mat, raw_to_xyz);
 
-  printf("raw_to_xyz\n");
-  x3f_3x3_print(raw_to_xyz);
+  x3f_printf(DEBUG, "raw_to_xyz\n");
+  x3f_3x3_print(DEBUG, raw_to_xyz);
 
   return 1;
 }
@@ -257,9 +258,9 @@ typedef struct bad_pixel_s {
 	1 << (_PN((_c), (_r), (_cs)) & 0x1f);				\
     }									\
     else if (!_INB((_c), (_r), (_cs), (_rs)))				\
-      fprintf(stderr,							\
-	      "WARNING: bad pixel (%u,%u) out of bounds : (%u,%u)\n",	\
-	      (_c), (_r), (_cs), (_rs));				\
+      x3f_printf(WARN,							\
+		 "WARNING: bad pixel (%u,%u) out of bounds : (%u,%u)\n", \
+		 (_c), (_r), (_cs), (_rs));				\
   } while (0)
 
 /* Clear the mark in the bad pixel vector */
@@ -418,20 +419,20 @@ static void interpolate_bad_pixels(x3f_t *x3f, x3f_area16_t *image, int colors)
       fixed = p;
     }
 
-    printf("Bad pixels pass %d: %d fixed (%d all_four, %d linear, %d corner), %d left\n",
-	   stat_pass,
-	   stats.all_four + stats.two_linear + stats.two_corner,
-	   stats.all_four,
-	   stats.two_linear,
-	   stats.two_corner,
-	   stats.left);
+    x3f_printf(DEBUG, "Bad pixels pass %d: %d fixed (%d all_four, %d linear, %d corner), %d left\n",
+	       stat_pass,
+	       stats.all_four + stats.two_linear + stats.two_corner,
+	       stats.all_four,
+	       stats.two_linear,
+	       stats.two_corner,
+	       stats.left);
 
     if (!fixed) {
       /* If nothing else to do, accept corners */
       if (!fix_corner) fix_corner = 1;
       else {
-	fprintf(stderr,	"WARNING: Failed to interpolate %d bad pixels\n",
-		stats.left);
+	x3f_printf(WARN, "WARNING: Failed to interpolate %d bad pixels\n",
+		   stats.left);
 	fixed = bad_pixel_list;	/* Free remaining list entries */
 	bad_pixel_list = NULL;	/* Force termination */
       }
@@ -468,33 +469,34 @@ static int preprocess_data(x3f_t *x3f, char *wb, x3f_image_levels_t *ilevels)
   if (!get_black_level(x3f, &image, 1, colors_in, black_level, black_dev) ||
       (quattro && !get_black_level(x3f, &qtop, 0, 1,
 				   &black_level[2], &black_dev[2]))) {
-    fprintf(stderr, "Could not get black level\n");
+    x3f_printf(ERR, "Could not get black level\n");
     return 0;
   }
-  printf("black_level = {%g,%g,%g}, black_dev = {%g,%g,%g}\n",
-	 black_level[0], black_level[1], black_level[2],
-	 black_dev[0], black_dev[1], black_dev[2]);
+  x3f_printf(DEBUG, "black_level = {%g,%g,%g}, black_dev = {%g,%g,%g}\n",
+	     black_level[0], black_level[1], black_level[2],
+	     black_dev[0], black_dev[1], black_dev[2]);
 
   if (!x3f_get_max_raw(x3f, max_raw)) {
-    fprintf(stderr, "Could not get maximum RAW level\n");
+    x3f_printf(ERR, "Could not get maximum RAW level\n");
     return 0;
   }
-  printf("max_raw = {%u,%u,%u}\n", max_raw[0], max_raw[1], max_raw[2]);
+  x3f_printf(DEBUG, "max_raw = {%u,%u,%u}\n",
+	     max_raw[0], max_raw[1], max_raw[2]);
 
   if (!get_intermediate_bias(x3f, wb, black_level, black_dev,
 			     &intermediate_bias)) {
-    fprintf(stderr, "Could not get intermediate bias\n");
+    x3f_printf(ERR, "Could not get intermediate bias\n");
     return 0;
   }
-  printf("intermediate_bias = %g\n", intermediate_bias);
+  x3f_printf(DEBUG, "intermediate_bias = %g\n", intermediate_bias);
   ilevels->black[0] = ilevels->black[1] = ilevels->black[2] = intermediate_bias;
 
   if (!get_max_intermediate(x3f, wb, intermediate_bias, ilevels->white)) {
-    fprintf(stderr, "Could not get maximum intermediate level\n");
+    x3f_printf(ERR, "Could not get maximum intermediate level\n");
     return 0;
   }
-  printf("max_intermediate = {%u,%u,%u}\n",
-	 ilevels->white[0], ilevels->white[1], ilevels->white[2]);
+  x3f_printf(DEBUG, "max_intermediate = {%u,%u,%u}\n",
+	     ilevels->white[0], ilevels->white[1], ilevels->white[2]);
 
   for (color = 0; color < 3; color++)
     scale[color] = (ilevels->white[color] - ilevels->black[color]) /
@@ -578,18 +580,18 @@ static int convert_data(x3f_t *x3f,
 
   if (x3f_get_camf_float(x3f, "SensorISO", &sensor_iso) &&
       x3f_get_camf_float(x3f, "CaptureISO", &capture_iso)) {
-    printf("SensorISO = %g\n", sensor_iso);
-    printf("CaptureISO = %g\n", capture_iso);
+    x3f_printf(DEBUG, "SensorISO = %g\n", sensor_iso);
+    x3f_printf(DEBUG, "CaptureISO = %g\n", capture_iso);
     iso_scaling = capture_iso/sensor_iso;
   }
   else {
     iso_scaling = 1.0;
-    fprintf(stderr, "WARNING: could not calculate ISO scaling, assuming %g\n",
-	    iso_scaling);
+    x3f_printf(WARN, "WARNING: could not calculate ISO scaling, assuming %g\n",
+	       iso_scaling);
   }
 
   if (!x3f_get_raw_to_xyz(x3f, wb, raw_to_xyz)) {
-    fprintf(stderr, "Could not get raw_to_xyz for white balance: %s\n", wb);
+    x3f_printf(ERR, "Could not get raw_to_xyz for white balance: %s\n", wb);
     return 0;
   }
 
@@ -614,21 +616,21 @@ static int convert_data(x3f_t *x3f,
     }
     break;
   default:
-    fprintf(stderr, "Unknown color space %d\n", encoding);
+    x3f_printf(ERR, "Unknown color space %d\n", encoding);
     return X3F_ARGUMENT_ERROR;
   }
 
   x3f_3x3_3x3_mul(xyz_to_rgb, raw_to_xyz, raw_to_rgb);
   x3f_scalar_3x3_mul(iso_scaling, raw_to_rgb, conv_matrix);
 
-  printf("raw_to_rgb\n");
-  x3f_3x3_print(raw_to_rgb);
-  printf("conv_matrix\n");
-  x3f_3x3_print(conv_matrix);
+  x3f_printf(DEBUG, "raw_to_rgb\n");
+  x3f_3x3_print(DEBUG, raw_to_rgb);
+  x3f_printf(DEBUG, "conv_matrix\n");
+  x3f_3x3_print(DEBUG, conv_matrix);
 
   sgain_num = x3f_get_spatial_gain(x3f, wb, sgain);
   if (sgain_num == 0)
-    fprintf(stderr, "WARNING: could not get spatial gain\n");
+    x3f_printf(WARN, "WARNING: could not get spatial gain\n");
 
   for (row = 0; row < image->rows; row++) {
     for (col = 0; col < image->columns; col++) {
@@ -672,8 +674,8 @@ static int run_denoising(x3f_t *x3f)
   if (!x3f_image_area(x3f, &original_image)) return 0;
   if (!x3f_crop_area_camf(x3f, "ActiveImageArea", &original_image, 1, &image)) {
     image = original_image;
-    fprintf(stderr,
-	    "WARNING: could not get active area, denoising entire image\n");
+    x3f_printf(WARN,
+	       "WARNING: could not get active area, denoising entire image\n");
   }
 
   if (x3f_get_prop_entry(x3f, "SENSORID", &sensorid) &&
@@ -694,8 +696,8 @@ static int expand_quattro(x3f_t *x3f, int denoise, x3f_area16_t *expanded)
   if (denoise &&
       !x3f_crop_area_camf(x3f, "ActiveImageArea", &image, 1, &active)) {
     active = image;
-    fprintf(stderr,
-	    "WARNING: could not get active area, denoising entire image\n");
+    x3f_printf(WARN,
+	       "WARNING: could not get active area, denoising entire image\n");
   }
 
   rect[0] = 0;
@@ -714,8 +716,8 @@ static int expand_quattro(x3f_t *x3f, int denoise, x3f_area16_t *expanded)
   if (denoise && !x3f_crop_area_camf(x3f, "ActiveImageArea", expanded, 0,
 				     &active_exp)) {
     active_exp = *expanded;
-    fprintf(stderr,
-	    "WARNING: could not get active area, denoising entire image\n");
+    x3f_printf(WARN,
+	       "WARNING: could not get active area, denoising entire image\n");
   }
 
   x3f_expand_quattro(&image, denoise ? &active : NULL, &qtop_crop,

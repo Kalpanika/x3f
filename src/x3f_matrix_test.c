@@ -31,30 +31,30 @@ int main(int argc, char *argv[])
   x3f_XYZ_to_ProPhotoRGB(pprgb);
 
   printf("a\n");
-  x3f_3x3_print(a);
+  x3f_3x3_print(INFO, a);
   printf("b\n");
-  x3f_3x3_print(b);
+  x3f_3x3_print(INFO, b);
   printf("c\n");
-  x3f_3x3_print(c);
+  x3f_3x3_print(INFO, c);
 
   printf("x\n");
-  x3f_3x1_print(x);
+  x3f_3x1_print(INFO, x);
   printf("y\n");
-  x3f_3x1_print(y);
+  x3f_3x1_print(INFO, y);
 
   printf("diag\n");
-  x3f_3x3_print(diag);
+  x3f_3x3_print(INFO, diag);
 
   printf("Adobe RGB\n");
-  x3f_3x3_print(argb);
+  x3f_3x3_print(INFO, argb);
   printf("Adobe RGB inverse\n");
-  x3f_3x3_print(argb_inv);
+  x3f_3x3_print(INFO, argb_inv);
   printf("Identity\n");
-  x3f_3x3_print(identity);
+  x3f_3x3_print(INFO, identity);
   printf("sRGB\n");
-  x3f_3x3_print(srgb);
+  x3f_3x3_print(INFO, srgb);
   printf("Pro Photo RGB\n");
-  x3f_3x3_print(pprgb);
+  x3f_3x3_print(INFO, pprgb);
 
   return 0;
 }

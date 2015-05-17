@@ -1,5 +1,6 @@
 #include "x3f_spatial_gain.h"
 #include "x3f_meta.h"
+#include "x3f_printf.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -20,8 +21,8 @@ static double get_focal_length(x3f_t *x3f)
     focal_length = atof(flength);
   else {
     focal_length = 30.0;
-    fprintf(stderr, "WARNING: could not get focal length, assuming %g mm\n",
-	    focal_length);
+    x3f_printf(WARN, "WARNING: could not get focal length, assuming %g mm\n",
+	       focal_length);
   }
 
   return focal_length;
@@ -35,8 +36,8 @@ static double get_object_distance(x3f_t *x3f)
     object_distance *= 10.0;	/* Convert cm to mm */
   else {
     object_distance = INFINITY;
-    fprintf(stderr, "WARNING: could not get object distance, assuming %g mm\n",
-	    object_distance);
+    x3f_printf(WARN, "WARNING: could not get object distance, assuming %g mm\n",
+	       object_distance);
   }
 
   return object_distance;
@@ -64,7 +65,7 @@ static double get_MOD(x3f_t *x3f)
     break;
   default:
     mod = 280.0;
-    fprintf(stderr, "WARNING: could not get MOD, assuming %g mm\n", mod);
+    x3f_printf(WARN, "WARNING: could not get MOD, assuming %g mm\n", mod);
   }
 
   return mod;
@@ -248,16 +249,16 @@ int x3f_get_merrill_type_spatial_gain(x3f_t *x3f, int hp_flag,
   q_weight_y[2] = q_closest_dy[1]/(q_closest_dy[1] - q_closest_dy[2]);
   q_weight_y[3] = q_closest_dy[0]/(q_closest_dy[0] - q_closest_dy[3]);
 
-  printf("x = %f y = %f\n", x, y);
+  x3f_printf(DEBUG, "x = %f y = %f\n", x, y);
   for (i=0; i<4; i++) {
     if (q_closest[i])
-      printf("q = %d name = %s x = %f y = %f\n",
-	     i, q_closest[i]->name, q_closest[i]->x, q_closest[i]->y);
+      x3f_printf(DEBUG, "q = %d name = %s x = %f y = %f\n",
+		 i, q_closest[i]->name, q_closest[i]->x, q_closest[i]->y);
     else
-      printf("q = %d name = NULL\n", i);
-    printf("q = %d dx = %f dy = %f d2 = %f wx = %f wy = %f\n",
-	   i, q_closest_dx[i], q_closest_dy[i], q_closest_d2[i],
-	   q_weight_x[i], q_weight_y[i]);
+      x3f_printf(DEBUG, "q = %d name = NULL\n", i);
+    x3f_printf(DEBUG, "q = %d dx = %f dy = %f d2 = %f wx = %f wy = %f\n",
+	       i, q_closest_dx[i], q_closest_dy[i], q_closest_d2[i],
+	       q_weight_x[i], q_weight_y[i]);
   }
 
   for (i=0; i<4; i++) {
@@ -267,8 +268,8 @@ int x3f_get_merrill_type_spatial_gain(x3f_t *x3f, int hp_flag,
   }
 
   for (i=0; i<4; i++)
-    printf("q = %d name = %s w = %f\n",
-	   i, q_closest[i] ? q_closest[i]->name : "NULL", q_weight[i]);
+    x3f_printf(DEBUG, "q = %d name = %s w = %f\n",
+	       i, q_closest[i] ? q_closest[i]->name : "NULL", q_weight[i]);
 
   for (i=0; i<corr_num; i++) {
     x3f_spatial_gain_corr_t *c = &corr[i];

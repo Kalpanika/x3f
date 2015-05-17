@@ -9,6 +9,7 @@
 #include "x3f_denoise_utils.h"
 #include "x3f_denoise.h"
 #include "x3f_io.h"
+#include "x3f_printf.h"
 
 using namespace cv;
 
@@ -17,27 +18,27 @@ static void denoise_nlm(Mat& img, float h)
   UMat out, sub, sub_dn, sub_res, res;
   float h1[3] = {0.0, h, h}, h2[3] = {0.0, h/8, h/4};
 
-  std::cout << "BEGIN denoising\n";
+  x3f_printf(DEBUG, "BEGIN denoising\n");
   fastNlMeansDenoising(img, out, std::vector<float>(h1, h1+3),
 		       3, 11, NORM_L1);
-  std::cout << "END denoising\n";
+  x3f_printf(DEBUG, "END denoising\n");
 
-  std::cout << "BEGIN V median filtering\n";
+  x3f_printf(DEBUG, "BEGIN V median filtering\n");
   UMat V(out.size(), CV_16U);
   int get_V[2] = { 2,0 }, set_V[2] = { 0,2 };
   mixChannels(std::vector<UMat>(1, out), std::vector<UMat>(2, V), get_V, 1);
   medianBlur(V, V, 3);
   mixChannels(std::vector<UMat>(1, V), std::vector<UMat>(2, out), set_V, 1);
-  std::cout << "END V median filtering\n";
+  x3f_printf(DEBUG, "END V median filtering\n");
 
-  std::cout << "BEGIN low-frequency denoising\n";
+  x3f_printf(DEBUG, "BEGIN low-frequency denoising\n");
   resize(out, sub, Size(), 1.0/4, 1.0/4, INTER_AREA);
   fastNlMeansDenoising(sub, sub_dn, std::vector<float>(h2, h2+3),
 		       3, 21, NORM_L1);
   subtract(sub, sub_dn, sub_res, noArray(), CV_16S);
   resize(sub_res, res, out.size(), 0.0, 0.0, INTER_CUBIC);
   subtract(out, res, out, noArray(), CV_16U);
-  std::cout << "END low-frequency denoising\n";
+  x3f_printf(DEBUG, "END low-frequency denoising\n");
 
   out.copyTo(img);
 }
@@ -99,10 +100,10 @@ void x3f_expand_quattro(x3f_area16_t *image, x3f_area16_t *active,
     UMat out;
     float h[3] = {0.0, d->h, d->h*2};
 
-    std::cout << "BEGIN Quattro full-resolution denoising\n";
+    x3f_printf(DEBUG, "BEGIN Quattro full-resolution denoising\n");
     fastNlMeansDenoising(act_exp, out, std::vector<float>(h, h+3),
 			 3, 11, NORM_L1);
-    std::cout << "END Quattro full-resolution denoising\n";
+    x3f_printf(DEBUG, "END Quattro full-resolution denoising\n");
 
     out.copyTo(act_exp);
   }
@@ -117,10 +118,10 @@ void x3f_set_use_opencl(int flag)
   if (flag) {
     if (ocl::useOpenCL()) {
       ocl::Device dev = ocl::Device::getDefault();
-      std::cout << "OpenCL device name: " << dev.name() << "\n";
-      std::cout << "OpenCL device version: " << dev.version() << "\n";
+      x3f_printf(INFO, "OpenCL device name: %s\n", dev.name().c_str());
+      x3f_printf(INFO, "OpenCL device version: %s\n", dev.version().c_str());
     }
-    else std::cerr << "WARNING: OpenCL is not available\n";
+    x3f_printf(WARN, "WARNING: OpenCL is not available\n");
   }
-  else std::cout << "OpenCL is disabled\n";
+  else x3f_printf(DEBUG, "OpenCL is disabled\n");
 }
