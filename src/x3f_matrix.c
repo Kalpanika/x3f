@@ -129,7 +129,7 @@ void x3f_3x3_print(double *a)
 }
 
 /* Conversion matrices for color spaces. NOTE - the result is, of
-   course, linear and needs som gamma encoding or similar.  */
+   course, linear and needs some gamma encoding or similar.  */
 
 /* http://www.color.org/ROMMRGB.pdf */
 /* http://en.wikipedia.org/wiki/ProPhoto_RGB_color_space */
@@ -196,9 +196,9 @@ void x3f_Bradford_D50_to_D65(double *a)
 
 void x3f_Bradford_D65_to_D50(double *a)
 {
-  M00(a) = +1.0478112 ; M01(a) = -0.0228866; M02(a) = +0.0501270;
-  M10(a) = -0.0295424 ; M11(a) = +0.9904844; M12(a) = +0.0170491;
-  M20(a) = +0.0092345 ; M21(a) = -0.0150436; M22(a) = +0.7521316;
+  M00(a) = +1.0478112 ; M01(a) = +0.0228866; M02(a) = -0.0501270;
+  M10(a) = +0.0295424 ; M11(a) = +0.9904844; M12(a) = -0.0170491;
+  M20(a) = -0.0092345 ; M21(a) = +0.0150436; M22(a) = +0.7521316;
 }
 
 void x3f_sRGB_LUT(double *lut, int size, uint16_t max)

@@ -7,7 +7,7 @@ import time
 
 def get_dist_name():
     found_executable = os.getenv('DIST_LOC', 'dist_location_not_set')
-    print(found_executable)  # print statements are only executed by behave 
+    print(found_executable)  # print statements are only executed by behave
     # when the behavior fails, so this print is usually silenced if all is well
     return found_executable
 
@@ -33,6 +33,14 @@ def step_impl(context, image, file_type):
     found_executable = get_dist_name()
     file_flag = ''.join(('-', file_type.lower()))  # being lazy here, letting file type match the switch
     args = [found_executable, file_flag, image]
+    run_conversion(args)
+
+
+@when(u'the {image} is converted and compressed by the code to {file_type}')
+def step_impl(context, image, file_type):
+    found_executable = get_dist_name()
+    file_flag = ''.join(('-', file_type.lower()))  # being lazy here, letting file type match the switch
+    args = [found_executable, file_flag, "-compress", image]
     run_conversion(args)
 
 

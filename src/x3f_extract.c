@@ -44,12 +44,12 @@ static void usage(char *progname)
 {
   fprintf(stderr,
           "usage: %s <SWITCHES> <file1> ...\n"
-          "   -o <DIR>        Use <DIR> as output dir\n"
+          "   -o <DIR>        Use <DIR> as output directory\n"
 	  "ONE OFF THE FORMAT SWITCHWES\n"
-	  "   -meta           Dump meta data\n"
-          "   -jpg            Dump embedded JPG. Turn off RAW dumping\n"
+	  "   -meta           Dump metadata\n"
+          "   -jpg            Dump embedded JPEG\n"
           "   -raw            Dump RAW area undecoded\n"
-          "   -tiff           Dump RAW as 3x16 bit TIFF\n"
+          "   -tiff           Dump RAW/color as 3x16 bit TIFF\n"
           "   -dng            Dump RAW as DNG LinearRaw (default)\n"
           "   -ppm-ascii      Dump RAW/color as 3x16 bit PPM/P3 (ascii)\n"
           "                   NOTE: 16 bit PPM/P3 is not generally supported\n"
@@ -64,6 +64,7 @@ static void usage(char *progname)
           "   -crop           Crop to active area\n"
           "   -denoise        Denoise RAW data\n"
           "   -wb <WB>        Select white balance preset\n"
+          "   -compress       Enable ZIP compression for DNG and TIFF output\n"
           "   -ocl            Use OpenCL\n"
 	  "\n"
 	  "STRANGE STUFF\n"
@@ -170,6 +171,7 @@ int main(int argc, char *argv[])
   int errors = 0;
   int log_hist = 0;
   char *wb = NULL;
+  int compress = 0;
   int use_opencl = 0;
   char *outdir = NULL;
 
@@ -227,6 +229,8 @@ int main(int argc, char *argv[])
       denoise = 1;
     else if ((!strcmp(argv[i], "-wb")) && (i+1)<argc)
       wb = argv[++i];
+    else if (!strcmp(argv[i], "-compress"))
+      compress = 1;
     else if (!strcmp(argv[i], "-ocl"))
       use_opencl = 1;
 
@@ -335,11 +339,12 @@ int main(int argc, char *argv[])
     case TIFF:
       printf("Dump RAW as TIFF to %s\n", outfile);
       ret_dump = x3f_dump_raw_data_as_tiff(x3f, tmpfile,
-					   color_encoding, crop, denoise, wb);
+					   color_encoding, crop, denoise, wb,
+					   compress);
       break;
     case DNG:
       printf("Dump RAW as DNG to %s\n", outfile);
-      ret_dump = x3f_dump_raw_data_as_dng(x3f, tmpfile, denoise, wb);
+      ret_dump = x3f_dump_raw_data_as_dng(x3f, tmpfile, denoise, wb, compress);
       break;
     case PPMP3:
     case PPMP6:
