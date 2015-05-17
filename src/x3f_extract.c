@@ -44,12 +44,12 @@ static void usage(char *progname)
 {
   fprintf(stderr,
           "usage: %s <SWITCHES> <file1> ...\n"
-          "   -o <DIR>        Use <DIR> as output dir\n"
+          "   -o <DIR>        Use <DIR> as output directory\n"
 	  "ONE OFF THE FORMAT SWITCHWES\n"
-	  "   -meta           Dump meta data\n"
-          "   -jpg            Dump embedded JPG. Turn off RAW dumping\n"
+	  "   -meta           Dump metadata\n"
+          "   -jpg            Dump embedded JPEG\n"
           "   -raw            Dump RAW area undecoded\n"
-          "   -tiff           Dump RAW as 3x16 bit TIFF\n"
+          "   -tiff           Dump RAW/color as 3x16 bit TIFF\n"
           "   -dng            Dump RAW as DNG LinearRaw (default)\n"
           "   -ppm-ascii      Dump RAW/color as 3x16 bit PPM/P3 (ascii)\n"
           "                   NOTE: 16 bit PPM/P3 is not generally supported\n"
