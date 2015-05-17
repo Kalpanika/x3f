@@ -576,7 +576,7 @@ static int convert_data(x3f_t *x3f,
   x3f_spatial_gain_corr_t sgain[MAXCORR];
   int sgain_num;
 
-  if (image->channels < 3) return X3F_ARGUMENT_ERROR;
+  if (image->channels < 3) return 0;
 
   if (x3f_get_camf_float(x3f, "SensorISO", &sensor_iso) &&
       x3f_get_camf_float(x3f, "CaptureISO", &capture_iso)) {
@@ -617,7 +617,7 @@ static int convert_data(x3f_t *x3f,
     break;
   default:
     x3f_printf(ERR, "Unknown color space %d\n", encoding);
-    return X3F_ARGUMENT_ERROR;
+    return 0;
   }
 
   x3f_3x3_3x3_mul(xyz_to_rgb, raw_to_xyz, raw_to_rgb);
