@@ -165,7 +165,7 @@ int main(int argc, char *argv[])
   int extract_jpg = 0;
   int extract_meta; /* Always computed */
   int extract_raw = 1;
-  int extract_unconverted_raw = 1;
+  int extract_unconverted_raw = 0;
   int crop = 0;
   int denoise = 0;
   output_file_type_t file_type = DNG;
