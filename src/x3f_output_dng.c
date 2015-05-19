@@ -186,7 +186,7 @@ static int write_camera_profile(x3f_t *x3f, char *wb,
   return 1;
 }
 
-#if defined(__WIN32) || defined (__WIN64)
+#if defined(_WIN32) || defined (_WIN64)
 /* tmpfile() is broken on Windows */
 #include <windows.h>
 

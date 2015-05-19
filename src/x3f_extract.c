@@ -126,31 +126,33 @@ static int safecat(char *dst, const char *src, int dst_size)
   }
 }
 
+#if defined(_WIN32) || defined(_WIN64)
+#define PATHSEP "\\"
+static const char pathseps[] = PATHSEP "/:";
+#else
+#define PATHSEP "/"
+static const char pathseps[] = PATHSEP;
+#endif
+
 static int make_paths(const char *inpath, const char *outdir,
 		      const char *ext,
 		      char *tmppath, char *outpath)
 {
   int err = 0;
-  const char *plainoutpath;
-  char pathbuffer[MAXPATH+1];
 
-  if (outdir == NULL) {
-    plainoutpath = inpath;
-  } else {
-    char *ptr = strrchr(inpath, '/');
+  if (outdir && *outdir) {
+    const char *ptr = inpath, *sep, *p;
 
-    err += safecpy(pathbuffer, outdir, MAXPATH);
-    err += safecat(pathbuffer, "/", MAXPATH);
-    if (ptr == NULL) {
-      err += safecat(pathbuffer, inpath, MAXPATH);
-    } else {
-      err += safecat(pathbuffer, ptr+1, MAXPATH);
-    }
+    for (sep=pathseps; *sep; sep++)
+      if ((p = strrchr(inpath, *sep)) && p+1 > ptr) ptr = p+1;
 
-    plainoutpath = pathbuffer;
+    err += safecpy(outpath, outdir, MAXOUTPATH);
+    if (!strchr(pathseps, outdir[strlen(outdir)-1]))
+      err += safecat(outpath, PATHSEP, MAXOUTPATH);
+    err += safecat(outpath, ptr, MAXOUTPATH);
   }
+  else err += safecpy(outpath, inpath, MAXOUTPATH);
 
-  err += safecpy(outpath, plainoutpath, MAXOUTPATH);
   err += safecat(outpath, ext, MAXOUTPATH);
   err += safecpy(tmppath, outpath, MAXTMPPATH);
   err += safecat(tmppath, ".tmp", MAXTMPPATH);
