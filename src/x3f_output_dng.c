@@ -5,6 +5,7 @@
 #include "x3f_meta.h"
 #include "x3f_image.h"
 #include "x3f_spatial_gain.h"
+#include "x3f_printf.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -152,7 +153,7 @@ static int write_camera_profile(x3f_t *x3f, char *wb,
   float color_matrix1[9], forward_matrix1[9];
 
   if (!profile->get_bmt_to_xyz(x3f, wb, bmt_to_xyz)) {
-    fprintf(stderr, "Could not get bmt_to_xyz for white balance: %s\n", wb);
+    x3f_printf(ERR, "Could not get bmt_to_xyz for white balance: %s\n", wb);
     return 0;
   }
   x3f_3x3_inverse(bmt_to_xyz, xyz_to_bmt);
@@ -185,7 +186,7 @@ static int write_camera_profile(x3f_t *x3f, char *wb,
   return 1;
 }
 
-#if defined(__WIN32) || defined (__WIN64)
+#if defined(_WIN32) || defined (_WIN64)
 /* tmpfile() is broken on Windows */
 #include <windows.h>
 
@@ -337,14 +338,14 @@ x3f_return_t x3f_dump_raw_data_as_dng(x3f_t *x3f,
 			      sizeof(camera_profiles)/sizeof(camera_profile_t),
 			      f_out);
   if (ret != X3F_OK) {
-    fprintf(stderr, "Could not write camera profiles\n");
+    x3f_printf(ERR, "Could not write camera profiles\n");
     TIFFClose(f_out);
     free(image.buf);
     return ret;
   }
 
   if (!x3f_get_gain(x3f, wb, gain)) {
-    fprintf(stderr, "Could not get gain for white balance: %s\n", wb);
+    x3f_printf(ERR, "Could not get gain for white balance: %s\n", wb);
     TIFFClose(f_out);
     free(image.buf);
     return X3F_ARGUMENT_ERROR;
@@ -355,7 +356,7 @@ x3f_return_t x3f_dump_raw_data_as_dng(x3f_t *x3f,
 
 #define WB_D65 "Overcast"
   if (!x3f_get_gain(x3f, WB_D65, gain)) {
-    fprintf(stderr, "Could not get gain for white balance: %s\n", WB_D65);
+    x3f_printf(ERR, "Could not get gain for white balance: %s\n", WB_D65);
     TIFFClose(f_out);
     free(image.buf);
     return X3F_ARGUMENT_ERROR;
@@ -389,7 +390,7 @@ x3f_return_t x3f_dump_raw_data_as_dng(x3f_t *x3f,
   TIFFSetField(f_out, TIFFTAG_WHITELEVEL, 3, ilevels.white);
 
   if (!write_spatial_gain(x3f, &image, wb, f_out))
-    fprintf(stderr, "WARNING: could not get spatial gain\n");
+    x3f_printf(WARN, "WARNING: could not get spatial gain\n");
 
   if (get_camf_rect_as_dngrect(x3f, "ActiveImageArea", &image, 1, active_area))
     TIFFSetField(f_out, TIFFTAG_ACTIVEAREA, active_area);

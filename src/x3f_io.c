@@ -6,6 +6,7 @@
  */
 
 #include "x3f_io.h"
+#include "x3f_printf.h"
 
 #include <string.h>
 #include <stdlib.h>
@@ -65,7 +66,7 @@ static int x3f_get4(FILE *f)
       while (_left != 0) {					\
 	int _cur = _func(_buffer,1,_left,_file);		\
 	if (_cur == 0) {					\
-	  fprintf(stderr, "Failure to access file\n");		\
+	  x3f_printf(ERR, "Failure to access file\n");		\
 	  exit(1);						\
 	}							\
 	_left -= _cur;						\
@@ -141,7 +142,7 @@ static void cleanup_true(x3f_true_t **TRUP)
 
   if (TRU == NULL) return;
 
-  printf("Cleanup TRUE data\n");
+  x3f_printf(DEBUG, "Cleanup TRUE data\n");
 
   FREE(TRU->table.element);
   FREE(TRU->plane_size.element);
@@ -178,7 +179,7 @@ static void cleanup_quattro(x3f_quattro_t **QP)
 
   if (Q == NULL) return;
 
-  printf("Cleanup Quattro\n");
+  x3f_printf(DEBUG, "Cleanup Quattro\n");
 
   FREE(Q->top16.buf);
   FREE(Q);
@@ -218,7 +219,7 @@ static void cleanup_huffman(x3f_huffman_t **HUFP)
 
   if (HUF == NULL) return;
 
-  printf("Cleanup Huffman\n");
+  x3f_printf(DEBUG, "Cleanup Huffman\n");
 
   FREE(HUF->mapping.element);
   FREE(HUF->table.element);
@@ -283,7 +284,7 @@ static x3f_huffman_t *new_huffman(x3f_huffman_t **HUFP)
   GET4(H->identifier);
 
   if (H->identifier != X3F_FOVb) {
-    fprintf(stderr, "Faulty file type\n");
+    x3f_printf(ERR, "Faulty file type\n");
     x3f_delete(x3f);
     return NULL;
   }
@@ -425,7 +426,7 @@ static void free_camf_entry(camf_entry_t *entry)
   if (x3f == NULL)
     return X3F_ARGUMENT_ERROR;
 
-  printf("X3F Delete\n");
+  x3f_printf(DEBUG, "X3F Delete\n");
 
   DS = &x3f->directory_section;
 
@@ -653,9 +654,9 @@ static void populate_true_huffman_tree(x3f_hufftree_t *tree,
       {
         char buffer[100];
 
-        printf("H %5d : %5x : %5d : %02x %08x (%08x) (%s)\n",
-               i, i, value, length, code, value,
-               display_code(length, code, buffer));
+        x3f_printf(DEBUG, "H %5d : %5x : %5d : %02x %08x (%08x) (%s)\n",
+		   i, i, value, length, code, value,
+		   display_code(length, code, buffer));
       }
 #endif
     }
@@ -692,9 +693,9 @@ static void populate_huffman_tree(x3f_hufftree_t *tree,
       {
         char buffer[100];
 
-        printf("H %5d : %5x : %5d : %02x %08x (%08x) (%s)\n",
-               i, i, value, length, code, element,
-               display_code(length, code, buffer));
+        x3f_printf(DEBUG, "H %5d : %5x : %5d : %02x %08x (%08x) (%s)\n",
+		   i, i, value, length, code, element,
+		   display_code(length, code, buffer));
       }
 #endif
     }
@@ -707,12 +708,12 @@ static void print_huffman_tree(x3f_huffnode_t *t, int length, uint32_t code)
   char buf1[100];
   char buf2[100];
 
-  printf("%*s (%s,%s) %s (%s)\n",
-         length, length < 1 ? "-" : (code&1) ? "1" : "0",
-         t->branch[0]==NULL ? "-" : "0",
-         t->branch[1]==NULL ? "-" : "1",
-         t->leaf==UNDEFINED_LEAF ? "-" : (sprintf(buf1, "%x", t->leaf),buf1),
-         display_code(length, code, buf2));
+  x3f_printf(DEBUG, "%*s (%s,%s) %s (%s)\n",
+	     length, length < 1 ? "-" : (code&1) ? "1" : "0",
+	     t->branch[0]==NULL ? "-" : "0",
+	     t->branch[1]==NULL ? "-" : "1",
+	     t->leaf==UNDEFINED_LEAF ? "-" : (sprintf(buf1, "%x", t->leaf),buf1),
+	     display_code(length, code, buf2));
 
   code = code << 1;
   if (t->branch[0]) print_huffman_tree(t->branch[0], length+1, code+0);
@@ -765,7 +766,8 @@ static int32_t get_true_diff(bit_state_t *BS, x3f_hufftree_t *HTP)
 
     node = new_node;
     if (node == NULL) {
-      fprintf(stderr, "Huffman coding got unexpected bit\n");
+      /* TODO: Shouldn't this be treated as a fatal error? */
+      x3f_printf(ERR, "Huffman coding got unexpected bit\n");
       return 0;
     }
   }
@@ -832,11 +834,11 @@ static void true_decode_one_color(x3f_image_data_t *ID, int color)
       area = &Q->top16;
       dst = area->data;
     }
-    printf("Quattro decode one color (%d) rows=%d cols=%d\n",
-	   color, rows, cols);
+    x3f_printf(DEBUG, "Quattro decode one color (%d) rows=%d cols=%d\n",
+	       color, rows, cols);
   } else {
-    printf("TRUE decode one color (%d) rows=%d cols=%d\n",
-	   color, rows, cols);
+    x3f_printf(DEBUG, "TRUE decode one color (%d) rows=%d cols=%d\n",
+	       color, rows, cols);
   }
 
   assert(rows == area->rows && cols >= area->columns);
@@ -892,7 +894,8 @@ static int32_t get_huffman_diff(bit_state_t *BS, x3f_hufftree_t *HTP)
 
     node = new_node;
     if (node == NULL) {
-      fprintf(stderr, "Huffman coding got unexpected bit\n");
+      /* TODO: Shouldn't this be treated as a fatal error? */
+      x3f_printf(ERR, "Huffman coding got unexpected bit\n");
       return 0;
     }
   }
@@ -943,7 +946,8 @@ static void huffman_decode_row(x3f_info_t *I,
         HUF->rgb8.data[3*(row*ID->columns + col) + color] = (uint8_t)c_fix;
         break;
       default:
-        fprintf(stderr, "Unknown huffman image type\n");
+	/* TODO: Shouldn't this be treated as a fatal error? */
+        x3f_printf(ERR, "Unknown huffman image type\n");
       }
     }
   }
@@ -960,13 +964,13 @@ static void huffman_decode(x3f_info_t *I,
   int minimum = 0;
   int offset = legacy_offset;
 
-  printf("Huffman decode with offset: %d\n", offset);
+  x3f_printf(DEBUG, "Huffman decode with offset: %d\n", offset);
   for (row = 0; row < ID->rows; row++)
     huffman_decode_row(I, DE, bits, row, offset, &minimum);
 
   if (auto_legacy_offset && minimum < 0) {
     offset = -minimum;
-    printf("Redo with offset: %d\n", offset);
+    x3f_printf(DEBUG, "Redo with offset: %d\n", offset);
     for (row = 0; row < ID->rows; row++)
       huffman_decode_row(I, DE, bits, row, offset, &minimum);
   }
@@ -1014,7 +1018,8 @@ static void simple_decode_row(x3f_info_t *I,
     mask = 0xfff;
     break;
   default:
-    fprintf(stderr, "Unknown number of bits: %d\n", bits);
+    /* TODO: Shouldn't this be treated as a fatal error? */
+    x3f_printf(ERR, "Unknown number of bits: %d\n", bits);
     mask = 0;
     break;
   }
@@ -1040,7 +1045,8 @@ static void simple_decode_row(x3f_info_t *I,
         HUF->rgb8.data[3*(row*ID->columns + col) + color] = c_fix;
         break;
       default:
-        fprintf(stderr, "Unknown huffman image type\n");
+	/* TODO: Shouldn't this be treated as a fatal error? */
+        x3f_printf(ERR, "Unknown huffman image type\n");
       }
     }
   }
@@ -1097,7 +1103,7 @@ static void x3f_load_image_verbatim(x3f_info_t *I, x3f_directory_entry_t *DE)
   x3f_directory_entry_header_t *DEH = &DE->header;
   x3f_image_data_t *ID = &DEH->data_subsection.image_data;
 
-  printf("Load image verbatim\n");
+  x3f_printf(DEBUG, "Load image verbatim\n");
 
   ID->data_size = read_data_block(&ID->data, I, DE, 0);
 }
@@ -1170,7 +1176,7 @@ static void x3f_load_true(x3f_info_t *I,
   int i;
 
   if (ID->type_format == X3F_IMAGE_RAW_QUATTRO) {
-    printf("Load Quattro extra info\n");
+    x3f_printf(DEBUG, "Load Quattro extra info\n");
 
     Q = new_quattro(&ID->quattro);
 
@@ -1180,18 +1186,18 @@ static void x3f_load_true(x3f_info_t *I,
     }
 
     if (Q->plane[0].rows == ID->rows/2) {
-      printf("Quattro layout\n");
+      x3f_printf(DEBUG, "Quattro layout\n");
       Q->quattro_layout = 1;
     } else if (Q->plane[0].rows == ID->rows) {
-      printf("Binned Quattro\n");
+      x3f_printf(DEBUG, "Binned Quattro\n");
       Q->quattro_layout = 0;
     } else {
-      fprintf(stderr, "Quattro file with unknown layer size\n");
+      x3f_printf(ERR, "Quattro file with unknown layer size\n");
       assert(0);
     }
   }
 
-  printf("Load TRUE\n");
+  x3f_printf(DEBUG, "Load TRUE\n");
 
   /* Read TRUE header data */
   GET2(TRU->seed[0]);
@@ -1202,7 +1208,7 @@ static void x3f_load_true(x3f_info_t *I,
 
   if (ID->type_format == X3F_IMAGE_RAW_QUATTRO) {
 
-    printf("Load Quattro extra info 2\n");
+    x3f_printf(DEBUG, "Load Quattro extra info 2\n");
 
     GET4(Q->unknown);
   }
@@ -1277,7 +1283,7 @@ static void x3f_load_huffman_compressed(x3f_info_t *I,
   int table_size = 1<<bits;
   int row_offsets_size = ID->rows * sizeof(HUF->row_offsets.element[0]);
 
-  printf("Load huffman compressed\n");
+  x3f_printf(DEBUG, "Load huffman compressed\n");
 
   GET_TABLE(HUF->table, GET4, table_size);
 
@@ -1285,10 +1291,10 @@ static void x3f_load_huffman_compressed(x3f_info_t *I,
 
   GET_TABLE(HUF->row_offsets, GET4, ID->rows);
 
-  printf("Make huffman tree ...\n");
+  x3f_printf(DEBUG, "Make huffman tree ...\n");
   new_huffman_tree(&HUF->tree, bits);
   populate_huffman_tree(&HUF->tree, &HUF->table, &HUF->mapping);
-  printf("... DONE\n");
+  x3f_printf(DEBUG, "... DONE\n");
 
 #ifdef DBG_PRNT
   print_huffman_tree(HUF->tree.nodes, 0, 0);
@@ -1306,7 +1312,7 @@ static void x3f_load_huffman_not_compressed(x3f_info_t *I,
   x3f_directory_entry_header_t *DEH = &DE->header;
   x3f_image_data_t *ID = &DEH->data_subsection.image_data;
 
-  printf("Load huffman not compressed\n");
+  x3f_printf(DEBUG, "Load huffman not compressed\n");
 
   ID->data_size = read_data_block(&ID->data, I, DE, 0);
 
@@ -1351,7 +1357,8 @@ static void x3f_load_huffman(x3f_info_t *I,
       (uint8_t *)malloc(sizeof(uint8_t)*size);
     break;
   default:
-    fprintf(stderr, "Unknown huffman image type\n");
+    /* TODO: Shouldn't this be treated as a fatal error? */
+    x3f_printf(ERR, "Unknown huffman image type\n");
   }
 
   if (row_stride == 0)
@@ -1362,13 +1369,13 @@ static void x3f_load_huffman(x3f_info_t *I,
 
 static void x3f_load_pixmap(x3f_info_t *I, x3f_directory_entry_t *DE)
 {
-  printf("Load pixmap\n");
+  x3f_printf(DEBUG, "Load pixmap\n");
   x3f_load_image_verbatim(I, DE);
 }
 
 static void x3f_load_jpeg(x3f_info_t *I, x3f_directory_entry_t *DE)
 {
-  printf("Load JPEG\n");
+  x3f_printf(DEBUG, "Load JPEG\n");
   x3f_load_image_verbatim(I, DE);
 }
 
@@ -1399,7 +1406,8 @@ static void x3f_load_image(x3f_info_t *I, x3f_directory_entry_t *DE)
     x3f_load_jpeg(I, DE);
     break;
   default:
-    fprintf(stderr, "Unknown image type\n");
+    /* TODO: Shouldn't this be treated as a fatal error? */
+    x3f_printf(ERR, "Unknown image type\n");
   }
 }
 
@@ -1673,7 +1681,7 @@ static void set_matrix_element_info(uint32_t type,
     *decoded_type = M_UINT; /* TODO: unknown ???? */
     break;
   default:
-    fprintf(stderr, "Unknown matrix type (%ud)\n", type);
+    x3f_printf(ERR, "Unknown matrix type (%ud)\n", type);
     assert(0);
   }
 }
@@ -1701,7 +1709,7 @@ static void get_matrix_copy(camf_entry_t *entry)
 	  (double)((float *)entry->matrix_data)[i];
       break;
     default:
-      fprintf(stderr, "Invalid matrix element type of size 4\n");
+      x3f_printf(ERR, "Invalid matrix element type of size 4\n");
       assert(0);
     }
     break;
@@ -1718,7 +1726,7 @@ static void get_matrix_copy(camf_entry_t *entry)
 	  (uint32_t)((uint16_t *)entry->matrix_data)[i];
       break;
     default:
-      fprintf(stderr, "Invalid matrix element type of size 2\n");
+      x3f_printf(ERR, "Invalid matrix element type of size 2\n");
       assert(0);
     }
     break;
@@ -1735,12 +1743,12 @@ static void get_matrix_copy(camf_entry_t *entry)
 	  (uint32_t)((uint8_t *)entry->matrix_data)[i];
       break;
     default:
-      fprintf(stderr, "Invalid matrix element type of size 1\n");
+      x3f_printf(ERR, "Invalid matrix element type of size 1\n");
       assert(0);
     }
     break;
   default:
-    fprintf(stderr, "Unknown size %d\n", element_size);
+    x3f_printf(ERR, "Unknown size %d\n", element_size);
     assert(0);
   }
 }
@@ -1773,10 +1781,10 @@ static void x3f_setup_camf_matrix_entry(camf_entry_t *entry)
 
     if (dentry[i].n != i) {
       /* TODO: is something needed to be made in this case */
-      fprintf(stderr,
-	      "WARNING: matrix entry for %s/%s is out of order "
-	      "(index/%d != order/%d)\n",
-	      entry->name_address, dentry[i].name, dentry[i].n, i);
+      x3f_printf(WARN,
+		 "WARNING: matrix entry for %s/%s is out of order "
+		 "(index/%d != order/%d)\n",
+		 entry->name_address, dentry[i].name, dentry[i].n, i);
     }
 
     totalsize *= size;
@@ -1803,7 +1811,7 @@ static void x3f_setup_camf_entries(x3f_camf_t *CAMF)
   camf_entry_t *entry = NULL;
   int i;
 
-  printf("SETUP CAMF ENTRIES\n");
+  x3f_printf(DEBUG, "SETUP CAMF ENTRIES\n");
 
   for (i=0; p < end; i++) {
     uint32_t *p4 = (uint32_t *)p;
@@ -1814,10 +1822,11 @@ static void x3f_setup_camf_entries(x3f_camf_t *CAMF)
     case X3F_CMbM:
       break;
     default:
-      fprintf(stderr, "Unknown CAMF entry %x @ %p\n", *p4, p4);
-      fprintf(stderr, "  start = %p end = %p\n", CAMF->decoded_data, end);
-      fprintf(stderr, "  left = %ld\n", (long)(end - p));
-      fprintf(stderr, "Stop parsing CAMF\n");
+      x3f_printf(ERR, "Unknown CAMF entry %x @ %p\n", *p4, p4);
+      x3f_printf(ERR, "  start = %p end = %p\n", CAMF->decoded_data, end);
+      x3f_printf(ERR, "  left = %ld\n", (long)(end - p));
+      x3f_printf(ERR, "Stop parsing CAMF\n");
+      /* TODO: Shouldn't this be treated as a fatal error? */
       goto stop;
     }
 
@@ -1873,7 +1882,7 @@ static void x3f_setup_camf_entries(x3f_camf_t *CAMF)
   CAMF->entry_table.size = i;
   CAMF->entry_table.element = entry;
 
-  printf("SETUP CAMF ENTRIES (READY) Found %d entries\n", i);
+  x3f_printf(DEBUG, "SETUP CAMF ENTRIES (READY) Found %d entries\n", i);
 }
 
 static void x3f_load_camf(x3f_info_t *I, x3f_directory_entry_t *DE)
@@ -1881,7 +1890,7 @@ static void x3f_load_camf(x3f_info_t *I, x3f_directory_entry_t *DE)
   x3f_directory_entry_header_t *DEH = &DE->header;
   x3f_camf_t *CAMF = &DEH->data_subsection.camf;
 
-  printf("Loading CAMF of type %d\n", CAMF->type);
+  x3f_printf(DEBUG, "Loading CAMF of type %d\n", CAMF->type);
 
   read_data_set_offset(I, DE, X3F_CAMF_HEADER_SIZE);
 
@@ -1898,13 +1907,15 @@ static void x3f_load_camf(x3f_info_t *I, x3f_directory_entry_t *DE)
     x3f_load_camf_decode_type5(CAMF);
     break;
   default:
-    fprintf(stderr, "Unknown CAMF type\n");
+    /* TODO: Shouldn't this be treated as a fatal error? */
+    x3f_printf(ERR, "Unknown CAMF type\n");
   }
 
   if (CAMF->decoded_data != NULL)
     x3f_setup_camf_entries(CAMF);
   else
-    fprintf(stderr, "No decoded CAMF data\n");
+    /* TODO: Shouldn't this be treated as a fatal error? */
+    x3f_printf(ERR, "No decoded CAMF data\n");
 }
 
 /* extern */ x3f_return_t x3f_load_data(x3f_t *x3f, x3f_directory_entry_t *DE)
@@ -1925,7 +1936,7 @@ static void x3f_load_camf(x3f_info_t *I, x3f_directory_entry_t *DE)
     x3f_load_camf(I, DE);
     break;
   default:
-    fprintf(stderr, "Unknown directory entry type\n");
+    x3f_printf(ERR, "Unknown directory entry type\n");
     return X3F_INTERNAL_ERROR;
   }
 
@@ -1939,7 +1950,7 @@ static void x3f_load_camf(x3f_info_t *I, x3f_directory_entry_t *DE)
   if (DE == NULL)
     return X3F_ARGUMENT_ERROR;
 
-  printf("Load image block\n");
+  x3f_printf(DEBUG, "Load image block\n");
 
   switch (DE->header.identifier) {
   case X3F_SECi:
@@ -1947,7 +1958,7 @@ static void x3f_load_camf(x3f_info_t *I, x3f_directory_entry_t *DE)
     x3f_load_image_verbatim(I, DE);
     break;
   default:
-    fprintf(stderr, "Unknown image directory entry type\n");
+    x3f_printf(ERR, "Unknown image directory entry type\n");
     return X3F_INTERNAL_ERROR;
   }
 

@@ -7,6 +7,7 @@
 
 #include "x3f_meta.h"
 #include "x3f_io.h"
+#include "x3f_printf.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -23,7 +24,7 @@
   int i;
 
   if (!DE) {
-    fprintf(stderr, "Could not get entry %s: CAMF section not found\n", name);
+    x3f_printf(DEBUG, "Could not get entry %s: CAMF section not found\n", name);
     return 0;
   }
 
@@ -36,18 +37,18 @@
 
     if (!strcmp(name, entry->name_address)) {
       if (entry->id != X3F_CMbM) {
-	fprintf(stderr, "CAMF entry is not a matrix: %s\n", name);
+	x3f_printf(DEBUG, "CAMF entry is not a matrix: %s\n", name);
 	return 0;
       }
       if (entry->matrix_decoded_type != type) {
-	fprintf(stderr, "CAMF entry not required type: %s\n", name);
+	x3f_printf(DEBUG, "CAMF entry not required type: %s\n", name);
 	return 0;
       }
 
       switch (entry->matrix_dim) {
       case 3:
 	if (dim2 == NULL || dim1 == NULL || dim0 == NULL) {
-	  fprintf(stderr, "CAMF entry - wrong dimension size: %s\n", name);
+	  x3f_printf(DEBUG, "CAMF entry - wrong dimension size: %s\n", name);
 	  return 0;
 	}
 	*dim2 = entry->matrix_dim_entry[2].size;
@@ -56,7 +57,7 @@
       break;
       case 2:
 	if (dim2 != NULL || dim1 == NULL || dim0 == NULL) {
-	  fprintf(stderr, "CAMF entry - wrong dimension size: %s\n", name);
+	  x3f_printf(DEBUG, "CAMF entry - wrong dimension size: %s\n", name);
 	  return 0;
 	}
 	*dim1 = entry->matrix_dim_entry[1].size;
@@ -64,23 +65,23 @@
       break;
       case 1:
 	if (dim2 != NULL || dim1 != NULL || dim0 == NULL) {
-	  fprintf(stderr, "CAMF entry - wrong dimension size: %s\n", name);
+	  x3f_printf(DEBUG, "CAMF entry - wrong dimension size: %s\n", name);
 	  return 0;
 	}
 	*dim0 = entry->matrix_dim_entry[0].size;
 	break;
       default:
-	fprintf(stderr, "CAMF entry - more than 3 dimensions: %s\n", name);
+	x3f_printf(DEBUG, "CAMF entry - more than 3 dimensions: %s\n", name);
 	return 0;
       }
 
-      printf("Getting CAMF matrix for %s\n", name);
+      x3f_printf(DEBUG, "Getting CAMF matrix for %s\n", name);
       *matrix = entry->matrix_decoded;
       return 1;
     }
   }
 
-  fprintf(stderr, "CAMF entry not found: %s\n", name);
+  x3f_printf(DEBUG, "CAMF entry not found: %s\n", name);
 
   return 0;
 }
@@ -97,7 +98,7 @@
   int i;
 
   if (!DE) {
-    fprintf(stderr, "Could not get entry %s: CAMF section not found\n", name);
+    x3f_printf(DEBUG, "Could not get entry %s: CAMF section not found\n", name);
     return 0;
   }
 
@@ -112,11 +113,11 @@
       int size;
 
       if (entry->id != X3F_CMbM) {
-	fprintf(stderr, "CAMF entry is not a matrix: %s\n", name);
+	x3f_printf(DEBUG, "CAMF entry is not a matrix: %s\n", name);
 	return 0;
       }
       if (entry->matrix_decoded_type != type) {
-	fprintf(stderr, "CAMF entry not required type: %s\n", name);
+	x3f_printf(DEBUG, "CAMF entry not required type: %s\n", name);
 	return 0;
       }
 
@@ -125,7 +126,7 @@
 	if (dim2 != entry->matrix_dim_entry[2].size ||
 	    dim1 != entry->matrix_dim_entry[1].size ||
 	    dim0 != entry->matrix_dim_entry[0].size) {
-	  fprintf(stderr, "CAMF entry - wrong dimension size: %s\n", name);
+	  x3f_printf(DEBUG, "CAMF entry - wrong dimension size: %s\n", name);
 	  return 0;
 	}
 	break;
@@ -133,7 +134,7 @@
 	if (dim2 != 0 ||
 	    dim1 != entry->matrix_dim_entry[1].size ||
 	    dim0 != entry->matrix_dim_entry[0].size) {
-	  fprintf(stderr, "CAMF entry - wrong dimension size: %s\n", name);
+	  x3f_printf(DEBUG, "CAMF entry - wrong dimension size: %s\n", name);
 	  return 0;
 	}
 	break;
@@ -141,25 +142,25 @@
 	if (dim2 != 0 ||
 	    dim1 != 0 ||
 	    dim0 != entry->matrix_dim_entry[0].size) {
-	  fprintf(stderr, "CAMF entry - wrong dimension size: %s\n", name);
+	  x3f_printf(DEBUG, "CAMF entry - wrong dimension size: %s\n", name);
 	  return 0;
 	}
 	break;
       default:
-	fprintf(stderr, "CAMF entry - more than 3 dimensions: %s\n", name);
+	x3f_printf(DEBUG, "CAMF entry - more than 3 dimensions: %s\n", name);
 	return 0;
       }
 
       size = (entry->matrix_decoded_type==M_FLOAT ?
 	      sizeof(double) :
 	      sizeof(uint32_t)) * entry->matrix_elements;
-      printf("Copying CAMF matrix for %s\n", name);
+      x3f_printf(DEBUG, "Copying CAMF matrix for %s\n", name);
       memcpy(matrix, entry->matrix_decoded, size);
       return 1;
     }
   }
 
-  fprintf(stderr, "CAMF entry not found: %s\n", name);
+  x3f_printf(DEBUG, "CAMF entry not found: %s\n", name);
 
   return 0;
 }
@@ -201,8 +202,8 @@
   int i;
 
   if (!DE) {
-    fprintf(stderr, "Could not get entry %s: CAMF section not found\n",
-	    list);
+    x3f_printf(DEBUG, "Could not get entry %s: CAMF section not found\n",
+	       list);
     return 0;
   }
 
@@ -215,11 +216,11 @@
 
     if (!strcmp(list, entry->name_address)) {
       if (entry->id != X3F_CMbP) {
-	fprintf(stderr, "CAMF entry is not a property list: %s\n", list);
+	x3f_printf(DEBUG, "CAMF entry is not a property list: %s\n", list);
 	return 0;
       }
 
-      printf("Getting CAMF property list for %s\n", list);
+      x3f_printf(DEBUG, "Getting CAMF property list for %s\n", list);
       *names = entry->property_name;
       *values = (char **)entry->property_value;
       *num = entry->property_num;
@@ -227,7 +228,7 @@
     }
   }
 
-  fprintf(stderr, "CAMF entry not found: %s\n", list);
+  x3f_printf(DEBUG, "CAMF entry not found: %s\n", list);
 
   return 0;
 }
@@ -247,7 +248,7 @@
 	return 1;
     }
 
-  fprintf(stderr, "CAMF property '%s' not found in list '%s'\n", name, list);
+  x3f_printf(DEBUG, "CAMF property '%s' not found in list '%s'\n", name, list);
 
   return 0;
 }
@@ -261,8 +262,8 @@
   int i;
 
   if (!DE) {
-    fprintf(stderr, "Could not get property %s: PROP section not found\n",
-	    name);
+    x3f_printf(DEBUG, "Could not get property %s: PROP section not found\n",
+	       name);
     return 0;
   }
 
@@ -274,13 +275,14 @@
     x3f_property_t *entry = &table[i];
 
     if (!strcmp(name, entry->name_utf8)) {
-      printf("Getting PROP entry \"%s\" = \"%s\"\n", name, entry->value_utf8);
+      x3f_printf(DEBUG, "Getting PROP entry \"%s\" = \"%s\"\n",
+		 name, entry->value_utf8);
       *value = entry->value_utf8;
       return 1;
     }
   }
 
-  fprintf(stderr, "PROP entry not found: %s\n", name);
+  x3f_printf(DEBUG, "PROP entry not found: %s\n", name);
 
   return 0;
 }

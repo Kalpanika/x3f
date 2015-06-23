@@ -1,6 +1,7 @@
 #include <math.h>
-#include <stdio.h>
+
 #include "x3f_matrix.h"
+#include "x3f_printf.h"
 
 #define M0(m) *(m+0)
 #define M1(m) *(m+1)
@@ -113,19 +114,19 @@ void x3f_3x3_ones(double *a)
 }
 
 /* Print a 3x1 matrix */
-void x3f_3x1_print(double *a)
+void x3f_3x1_print(x3f_verbosity_t level, double *a)
 {
-  printf("%10g\n", M0(a));
-  printf("%10g\n", M1(a));
-  printf("%10g\n", M2(a));
+  x3f_printf(level, "%10g\n", M0(a));
+  x3f_printf(level, "%10g\n", M1(a));
+  x3f_printf(level, "%10g\n", M2(a));
 }
 
 /* Print a 3x3 matrix */
-void x3f_3x3_print(double *a)
+void x3f_3x3_print(x3f_verbosity_t level, double *a)
 {
-  printf("%10g %10g %10g\n", M00(a), M01(a), M02(a));
-  printf("%10g %10g %10g\n", M10(a), M11(a), M12(a));
-  printf("%10g %10g %10g\n", M20(a), M21(a), M22(a));
+  x3f_printf(level, "%10g %10g %10g\n", M00(a), M01(a), M02(a));
+  x3f_printf(level, "%10g %10g %10g\n", M10(a), M11(a), M12(a));
+  x3f_printf(level, "%10g %10g %10g\n", M20(a), M21(a), M22(a));
 }
 
 /* Conversion matrices for color spaces. NOTE - the result is, of

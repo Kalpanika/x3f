@@ -14,6 +14,7 @@
 #include "x3f_print.h"
 #include "x3f_dump.h"
 #include "x3f_denoise.h"
+#include "x3f_printf.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -45,6 +46,8 @@ static void usage(char *progname)
   fprintf(stderr,
           "usage: %s <SWITCHES> <file1> ...\n"
           "   -o <DIR>        Use <DIR> as output directory\n"
+          "   -v              Verbose output for debugging\n"
+          "   -q              Suppress all messages except errors\n"
 	  "ONE OFF THE FORMAT SWITCHWES\n"
 	  "   -meta           Dump metadata\n"
           "   -jpg            Dump embedded JPEG\n"
@@ -104,7 +107,7 @@ static int check_dir(char *Path)
 static int safecpy(char *dst, const char *src, int dst_size)
 {
   if (strnlen(src, dst_size+1) > dst_size) {
-    fprintf(stderr, "safecpy: String too large for dst name\n");
+    x3f_printf(DEBUG, "safecpy: String too large\n");
     return 1;
   } else {
     strcpy(dst, src);
@@ -115,7 +118,7 @@ static int safecpy(char *dst, const char *src, int dst_size)
 static int safecat(char *dst, const char *src, int dst_size)
 {
   if (strnlen(dst, dst_size+1) + strnlen(src, dst_size+1) > dst_size) {
-    fprintf(stderr, "safecat: String too large for dst name\n");
+    x3f_printf(DEBUG, "safecat: String too large\n");
     return 1;
   } else {
     strcat(dst, src);
@@ -123,31 +126,33 @@ static int safecat(char *dst, const char *src, int dst_size)
   }
 }
 
+#if defined(_WIN32) || defined(_WIN64)
+#define PATHSEP "\\"
+static const char pathseps[] = PATHSEP "/:";
+#else
+#define PATHSEP "/"
+static const char pathseps[] = PATHSEP;
+#endif
+
 static int make_paths(const char *inpath, const char *outdir,
 		      const char *ext,
 		      char *tmppath, char *outpath)
 {
   int err = 0;
-  const char *plainoutpath;
-  char pathbuffer[MAXPATH+1];
 
-  if (outdir == NULL) {
-    plainoutpath = inpath;
-  } else {
-    char *ptr = strrchr(inpath, '/');
+  if (outdir && *outdir) {
+    const char *ptr = inpath, *sep, *p;
 
-    err += safecpy(pathbuffer, outdir, MAXPATH);
-    err += safecat(pathbuffer, "/", MAXPATH);
-    if (ptr == NULL) {
-      err += safecat(pathbuffer, inpath, MAXPATH);
-    } else {
-      err += safecat(pathbuffer, ptr+1, MAXPATH);
-    }
+    for (sep=pathseps; *sep; sep++)
+      if ((p = strrchr(inpath, *sep)) && p+1 > ptr) ptr = p+1;
 
-    plainoutpath = pathbuffer;
+    err += safecpy(outpath, outdir, MAXOUTPATH);
+    if (!strchr(pathseps, outdir[strlen(outdir)-1]))
+      err += safecat(outpath, PATHSEP, MAXOUTPATH);
+    err += safecat(outpath, ptr, MAXOUTPATH);
   }
+  else err += safecpy(outpath, inpath, MAXOUTPATH);
 
-  err += safecpy(outpath, plainoutpath, MAXOUTPATH);
   err += safecat(outpath, ext, MAXOUTPATH);
   err += safecpy(tmppath, outpath, MAXTMPPATH);
   err += safecat(tmppath, ".tmp", MAXTMPPATH);
@@ -162,7 +167,7 @@ int main(int argc, char *argv[])
   int extract_jpg = 0;
   int extract_meta; /* Always computed */
   int extract_raw = 1;
-  int extract_unconverted_raw = 1;
+  int extract_unconverted_raw = 0;
   int crop = 0;
   int denoise = 0;
   output_file_type_t file_type = DNG;
@@ -216,9 +221,12 @@ int main(int argc, char *argv[])
 	usage(argv[0]);
       }
     }
-    else if (!strcmp(argv[i], "-o") && (i+1)<argc) {
+    else if (!strcmp(argv[i], "-o") && (i+1)<argc)
       outdir = argv[++i];
-    }
+    else if (!strcmp(argv[i], "-v"))
+      x3f_printf_level = DEBUG;
+    else if (!strcmp(argv[i], "-q"))
+      x3f_printf_level = ERR;
     else if (!strcmp(argv[i], "-unprocessed"))
       color_encoding = UNPROCESSED;
     else if (!strcmp(argv[i], "-qtop"))
@@ -245,7 +253,7 @@ int main(int argc, char *argv[])
       break;			/* Here starts list of files */
 
   if (outdir != NULL && check_dir(outdir) != 0) {
-    fprintf(stderr, "Could not find outdir %s\n", outdir);
+    x3f_printf(ERR, "Could not find outdir %s\n", outdir);
     usage(argv[0]);
   }
 
@@ -269,21 +277,21 @@ int main(int argc, char *argv[])
     files++;
 
     if (f_in == NULL) {
-      fprintf(stderr, "Could not open infile %s\n", infile);
+      x3f_printf(ERR, "Could not open infile %s\n", infile);
       goto found_error;
     }
 
-    printf("READ THE X3F FILE %s\n", infile);
+    x3f_printf(INFO, "READ THE X3F FILE %s\n", infile);
     x3f = x3f_new_from_file(f_in);
 
     if (x3f == NULL) {
-      fprintf(stderr, "Could not read infile %s\n", infile);
+      x3f_printf(ERR, "Could not read infile %s\n", infile);
       goto found_error;
     }
 
     if (extract_jpg) {
       if (X3F_OK != x3f_load_data(x3f, x3f_get_thumb_jpeg(x3f))) {
-	fprintf(stderr, "Could not load JPEG thumbnail from file\n");
+	x3f_printf(ERR, "Could not load JPEG thumbnail from %s\n", infile);
 	goto found_error;
       }
     }
@@ -292,13 +300,13 @@ int main(int argc, char *argv[])
       x3f_directory_entry_t *DE = x3f_get_prop(x3f);
 
       if (X3F_OK != x3f_load_data(x3f, x3f_get_camf(x3f))) {
-	fprintf(stderr, "Could not load CAMF from file\n");
+	x3f_printf(ERR, "Could not load CAMF from %s\n", infile);
 	goto found_error;
       }
       if (DE != NULL)
 	/* Not for Quattro */
 	if (X3F_OK != x3f_load_data(x3f, DE)) {
-	  fprintf(stderr, "Could not load PROP from file\n");
+	  x3f_printf(ERR, "Could not load PROP from %s\n", infile);
 	  goto found_error;
 	}
       /* We do not load any JPEG meta data */
@@ -306,55 +314,56 @@ int main(int argc, char *argv[])
 
     if (extract_raw) {
       if (X3F_OK != x3f_load_data(x3f, x3f_get_raw(x3f))) {
-	fprintf(stderr, "Could not load RAW from file\n");
+	x3f_printf(ERR, "Could not load RAW from %s\n", infile);
 	goto found_error;
       }
     }
 
     if (extract_unconverted_raw) {
       if (X3F_OK != x3f_load_image_block(x3f, x3f_get_raw(x3f))) {
-	fprintf(stderr, "Could not load unconverted RAW from file\n");
+	x3f_printf(ERR, "Could not load unconverted RAW from %s\n", infile);
 	goto found_error;
       }
     }
 
     if (make_paths(infile, outdir, extension[file_type], tmpfile, outfile)) {
-      fprintf(stderr, "Too large file path\n");
+      x3f_printf(ERR, "Too large outfile path for infile %s and outdir %s\n",
+		 infile, outdir);
       goto found_error;
     }
 
     switch (file_type) {
     case META:
-      printf("Dump META DATA to %s\n", outfile);
+      x3f_printf(INFO, "Dump META DATA to %s\n", outfile);
       ret_dump = x3f_dump_meta_data(x3f, tmpfile);
       break;
     case JPEG:
-      printf("Dump JPEG to %s\n", outfile);
+      x3f_printf(INFO, "Dump JPEG to %s\n", outfile);
       ret_dump = x3f_dump_jpeg(x3f, tmpfile);
       break;
     case RAW:
-      printf("Dump RAW block to %s\n", outfile);
+      x3f_printf(INFO, "Dump RAW block to %s\n", outfile);
       ret_dump = x3f_dump_raw_data(x3f, tmpfile);
       break;
     case TIFF:
-      printf("Dump RAW as TIFF to %s\n", outfile);
+      x3f_printf(INFO, "Dump RAW as TIFF to %s\n", outfile);
       ret_dump = x3f_dump_raw_data_as_tiff(x3f, tmpfile,
 					   color_encoding, crop, denoise, wb,
 					   compress);
       break;
     case DNG:
-      printf("Dump RAW as DNG to %s\n", outfile);
+      x3f_printf(INFO, "Dump RAW as DNG to %s\n", outfile);
       ret_dump = x3f_dump_raw_data_as_dng(x3f, tmpfile, denoise, wb, compress);
       break;
     case PPMP3:
     case PPMP6:
-      printf("Dump RAW as PPM to %s\n", outfile);
+      x3f_printf(INFO, "Dump RAW as PPM to %s\n", outfile);
       ret_dump = x3f_dump_raw_data_as_ppm(x3f, tmpfile,
 					  color_encoding, crop, denoise, wb,
 					  file_type == PPMP6);
       break;
     case HISTOGRAM:
-      printf("Dump RAW as CSV histogram to %s\n", outfile);
+      x3f_printf(INFO, "Dump RAW as CSV histogram to %s\n", outfile);
       ret_dump = x3f_dump_raw_data_as_histogram(x3f, tmpfile,
 						color_encoding,
 						crop, denoise, wb,
@@ -363,12 +372,11 @@ int main(int argc, char *argv[])
     }
 
     if (X3F_OK != ret_dump) {
-      fprintf(stderr, "Could not dump to %s: %s\n",
-	      tmpfile, x3f_err(ret_dump));
+      x3f_printf(ERR, "Could not dump to %s: %s\n", tmpfile, x3f_err(ret_dump));
       errors++;
     } else {
       if (rename(tmpfile, outfile) != 0) {
-	fprintf(stderr, "Couldn't rename %s to %s\n", tmpfile, outfile);
+	x3f_printf(ERR, "Could not rename %s to %s\n", tmpfile, outfile);
 	errors++;
       }
     }
@@ -388,11 +396,11 @@ int main(int argc, char *argv[])
   }
 
   if (files == 0) {
-    fprintf(stderr, "No files given\n");
+    x3f_printf(ERR, "No files given\n");
     usage(argv[0]);
   }
 
-  printf("Files processed: %d\terrors: %d\n", files, errors);
+  x3f_printf(INFO, "Files processed: %d\terrors: %d\n", files, errors);
 
   return errors > 0;
 }
