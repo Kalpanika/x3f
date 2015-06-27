@@ -1,3 +1,12 @@
+/* X3F_HISTOGRAM.H
+ *
+ * Library for writing histogram data.
+ *
+ * Copyright 2015 - Roland and Erik Karlsson
+ * BSD-style - see doc/copyright.txt
+ *
+ */
+
 #ifndef X3F_HISTOGRAM_H
 #define X3F_HISTOGRAM_H
 

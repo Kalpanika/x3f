@@ -1,8 +1,15 @@
+/* X3F_DENOISE_UTILS.H
+ *
+ * Library for support functions for noise reduction algorithms,
+ * including color conversions and conversions to/from float type images
+ *
+ * Copyright 2015 - Roland and Erik Karlsson
+ * BSD-style - see doc/copyright.txt
+ *
+ */
+
 #ifndef DENOISE_UTILS
 #define DENOISE_UTILS
-/* this file contains the support functions for noise reduction algorithms,
-   including color conversions and conversions to/from float type images
- */
 
 #ifndef __cplusplus
 #error This file can only be included from C++

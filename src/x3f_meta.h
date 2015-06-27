@@ -1,6 +1,8 @@
-/* X3F_META.H - Library for accessing X3F Files.
+/* X3F_META.H
  *
- * Copyright (c) 2010 - Roland Karlsson (roland@proxel.se)
+ * Library for accessing the CAMF meta data in the X3F file.
+ *
+ * Copyright 2015 - Roland and Erik Karlsson
  * BSD-style - see doc/copyright.txt
  *
  */

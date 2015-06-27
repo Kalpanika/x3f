@@ -1,3 +1,12 @@
+/* X3F_DENOISE.H
+ *
+ * Library for denoising of X3F image data.
+ *
+ * Copyright 2015 - Roland and Erik Karlsson
+ * BSD-style - see doc/copyright.txt
+ *
+ */
+
 #ifndef X3F_DENOISE_H
 #define X3F_DENOISE_H
 

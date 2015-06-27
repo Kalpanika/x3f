@@ -1,3 +1,12 @@
+/* X3F_PRINTF.H
+ *
+ * Library for printout, depending on seriousity level.
+ *
+ * Copyright 2015 - Roland and Erik Karlsson
+ * BSD-style - see doc/copyright.txt
+ *
+ */
+
 #ifndef X3F_PRINTF_H
 #define X3F_PRINTF_H
 

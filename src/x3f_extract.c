@@ -1,6 +1,9 @@
-/* X3F_EXTRACT.C - Extracting images from X3F files
+/* X3F_EXTRACT.C
  *
- * Copyright 2010-2015 (c) - Roland Karlsson (roland@proxel.se)
+ * Extracting images from X3F files.
+ * Also converting to histogram and color image.
+ *
+ * Copyright 2015 - Roland and Erik Karlsson
  * BSD-style - see doc/copyright.txt
  *
  */

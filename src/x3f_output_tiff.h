@@ -1,3 +1,12 @@
+/* X3F_OUTPUT_TIFF.H
+ *
+ * Library for writing the image as TIFF.
+ *
+ * Copyright 2015 - Roland and Erik Karlsson
+ * BSD-style - see doc/copyright.txt
+ *
+ */
+
 #ifndef X3F_OUTPUT_TIFF_H
 #define X3F_OUTPUT_TIFF_H
 
