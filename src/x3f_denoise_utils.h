@@ -3,7 +3,7 @@
  * Library for support functions for noise reduction algorithms,
  * including color conversions and conversions to/from float type images
  *
- * Copyright 2015 - Roland and Erik Karlsson
+ * Copyright 2015 - Mark Roden and Erik Karlsson
  * BSD-style - see doc/copyright.txt
  *
  */

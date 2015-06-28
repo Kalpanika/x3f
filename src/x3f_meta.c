@@ -1,6 +1,6 @@
 /* X3F_META.C
  *
- * Library for accessing the CAMF meta data in the X3F file.
+ * Library for accessing the CAMF and PROP meta data in the X3F file.
  *
  * Copyright 2015 - Roland and Erik Karlsson
  * BSD-style - see doc/copyright.txt

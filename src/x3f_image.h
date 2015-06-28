@@ -1,6 +1,6 @@
 /* X3F_IMAGE.H
  *
- * Library for handling storing of image data.
+ * Library for access to image data.
  *
  * Copyright 2015 - Roland and Erik Karlsson
  * BSD-style - see doc/copyright.txt
