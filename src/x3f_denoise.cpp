@@ -1,3 +1,12 @@
+/* X3F_DENOISE.CPP
+ *
+ * Library for denoising of X3F image data.
+ *
+ * Copyright 2015 - Roland and Erik Karlsson
+ * BSD-style - see doc/copyright.txt
+ *
+ */
+
 #include <iostream>
 #include <inttypes.h>
 

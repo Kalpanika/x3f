@@ -1,3 +1,12 @@
+/* X3F_MATRIX.C
+ *
+ * Library for manipulating matrices.
+ *
+ * Copyright 2015 - Roland and Erik Karlsson
+ * BSD-style - see doc/copyright.txt
+ *
+ */
+
 #include <math.h>
 
 #include "x3f_matrix.h"

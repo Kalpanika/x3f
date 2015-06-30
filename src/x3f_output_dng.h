@@ -1,3 +1,12 @@
+/* X3F_OUTPUT_DNG.H
+ *
+ * Library for writing the image as DNG.
+ *
+ * Copyright 2015 - Roland and Erik Karlsson
+ * BSD-style - see doc/copyright.txt
+ *
+ */
+
 #ifndef X3F_OUTPUT_DNG_H
 #define X3F_OUTPUT_DNG_H
 

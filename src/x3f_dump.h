@@ -1,6 +1,8 @@
-/* X3F_DUMP.H - Library for accessing X3F Files.
+/* X3F_DUMP.H
  *
- * Copyright (c) 2010 - Roland Karlsson (roland@proxel.se)
+ * Library for writing unprocessed RAW and JPEG data.
+ *
+ * Copyright 2015 - Roland and Erik Karlsson
  * BSD-style - see doc/copyright.txt
  *
  */

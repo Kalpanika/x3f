@@ -2,7 +2,10 @@
 BSD-style License
 ----------------------------------------------------------------
 
-* Copyright (c) 2010, Roland Karlsson (roland@proxel.se)
+* Copyright (c) 2015,
+*   Roland Karlsson (roland@proxel.se)
+*   Erik Karlsson (erik.r.karlsson@gmail.com)
+*   Mark Roden (mmroden@gmail.com) - [anisotropic filtering parts]
 * All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
