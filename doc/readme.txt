@@ -1,39 +1,37 @@
-
-
-
-OUT OF DATE !!!!!!!
-OUT OF DATE !!!!!!!
-OUT OF DATE !!!!!!!
-OUT OF DATE !!!!!!!
-OUT OF DATE !!!!!!!
-OUT OF DATE !!!!!!!
-
-
-TODO : needs serious rewriting!
-
-
-
 ----------------------------------------------------------------
 X3F tools is a library for accessing Sigma X3F raw image files
 ----------------------------------------------------------------
 
+Reading of format:
+
 The code understands  the old format for SD9, SD10  and SD14. The code
 also understands the new format introduced with DP1. The latter format
 is associated with the TRUE engines  TRUE I and TRUE II. Currently the
-code supports  up to the Quattro  version of the cameras,  but do only
-understand meta data up to Merrill.
+code  supports  also  the  Merrill  version and  up  to  the  slightly
+different Quattro version of the cameras.
+
+Converting to color images:
+
+The code can convert all above formats, except the Polaroid X370, to a
+DNG  file.  This DNG  file  contains  color  conversion date  so  that
+e.g. Lightroom can convert to correct color images.
+
+The code can also convert to color TIFF images, but out of gamut
+colors are not handled correctly. In particular if the input channels
+are clipped. The latter leads to e.g. colorful skies.
 
 ----------------------------------------------------------------
 Included in the library are two tools
+
   x3f_extract    A tool that extracts JPEG thumbnail and raw images.
-                 See below for usage.
+                 See below for usage. The RAW images may also be
+		 converted to DNG or TIFF color images. Meta data and
+		 histograms over the data might also be written.
+
   x3f_io_test    A tool that prints some meta data and tests that
                  the code is working properly. This tool is not
                  made to be user friendly. Its mainly a test
-                 tool for developing the code. This tool can
-                 also write x3f files. They should (with this
-                 tool) be identical to the origanal file.
-                 See below for usage.
+                 tool for developing the code.
 ----------------------------------------------------------------
 
 ----------------------------------------------------------------
@@ -47,8 +45,9 @@ http://www.proxel.se/x3f.html.
 Building
 ----------------------------------------------------------------
 
-You are  supposed to have installed  gcc (and gmake)  on your machine.
-On Windows this currently (2010) means mingw.
+You are  supposed to have installed  gcc (and gmake) on  your machine.
+Currently  you need  to  build  on Linux  with  cross compilation  for
+Windows and OSX.
 
 The command "make" builds the executables.
 
@@ -60,80 +59,41 @@ your own and have to hack the makefile file.
 Usage of the x3f_extract tool
 ----------------------------------------------------------------
 
-The tool can be used thus:
+You will get a total information on switches by running x3f_extract
+without any switches, or e.g. with the switch -help.
 
-(1) x3f_extract -raw file.x3f
-(2) x3f_extract -tiff file.x3f
-(3) x3f_extract -tiff -gamma 2.2 [-min 0] [-max 5000] file.x3f
-(4) x3f_extract -jpeg file.x3f
-(5) x3f_extract -ppm file.x3f
-(6) x3f_extract -ppm -gamma 2.2 [-min 0] [-max 5000] file.x3f
-(7) x3f_extract -meta file.x3f
+Here are some examples:
 
-(1) dumps the  data block of the RAW image  verbatim. The original RAW
-    data is not parsed or  interpreted and is therefore for almost all
-    aspects useless. Mainly used for analyzing a new unknown format.
+(1) x3f_extract -denoise file.x3f
+    This one creates the file file.dng for usage in e.g. Lightroom
+    or Photoshop (via ACR). The file contains denoised but unconverted
+    RAW data plus color conversion info.
 
-(2) parses and interprets the RAW image data and then dumps the result
-    as  a 16  bit TIFF  file (called  file.x3f.tif) without  doing any
-    changes to the pixel values.
+(2) x3f_extract -denoise -tiff -color sRGB file.x3f
+    This one creates the file file.tiff for usage in e.g. Photoshop.
+    The file is fully converted to sRGB, but without rendering intent
+    so you might get strange clipping.
 
-    NOTE - if  you load this TIFF file in e.g.  Photoshop - the result
-    is a very dark (almost  black) image. This image needs scaling and
-    gamma coding to look good.
+(3) x3f_extract -unprocessed file.x3f
+    This one creates the file file.tiff with RAW data. This data is linear
+    and unscaled. So, it is generally look black and needs to be scaled
+    and applied gamma 2.2 in your editor.
 
-    NOTE -  the result is  not a  regular RGB image  - its in  the X3F
-    "color space" - so it contains faulty colors.
+(4) x3f_extract -meta file.x3f
+    This one dumnps meta data in file.meta
 
-(3) is the same as (2) but it scales the image according to
-    a min, a max and a gamma value. If the min and max values are not
-    given then they are estimated.
-
-    NOTE  - the  current  code does  not  really know  how to  compute
-    the correct min and max values. Its recommended to set it yourself
-    - a guess is that max might be between 5000 and 10000. The program
-    writes the min and max value it finds. If you are outside the range,
-    the value is clipped.
-
-(4) dumps the embedded JPEG thumbnail verbatim as file.x3f.jpg
-
-    NOTE - this is not a JPEG of the RAW data.
-
-(5) Same as (2) but output is binary 16 bit PPM
-
-(6) Same as (3) but output is binary 16 bit PPM
-
-(7) dumps the meta data extracted from the file.
 
 ----------------------------------------------------------------
 Usage of the x3f_io_test tool
 ----------------------------------------------------------------
 
-The tool can be used thus
+This tool is really only a developer debug tool.
+The tool can be used thus:
 
 (1) x3f_io_test file.x3f
-(2) x3f_io_test file.x3f -unpack
-(3) x3f_io_test file.x3f -write
-(4) x3f_io_test file.x3f -unpack -write
-
-(1) reads the file and parses  the main data structure of the file and
+    Reads the file and parses  the main data structure of the file and
     then prints some info about it.  NOTE - no parsing of data blocks,
     e.g. image blocks, is made.
 
-(2) same  as (1) but  also parses data blocks, and then prints info again.
-
-(3) Same  as (1), but also writes from the unparsed version.
-
-(4) Same as (2), but also writes both from the umparsed version and
-    the parsed.
-
-    NOTE - detaled assembling of the blocks is not yet implemented, so
-    the  assembling  is partly  phony.  Therefore  -  that oufile2  is
-    identical does not say so much as it should.
-
-    NOTE  - the printouts  contain CAMF  parameter names.  The current
-    implementation stops  parsing CAMF when finding  something it does
-    not understand. That might  be wrong. Therefore - parameters might
-    be missing.
-
-    NOTE - the actual contents of the CAMF parameters is not yet parsed.
+(2) x3f_io_test -unpack file.x3f
+    Same  as (1), but also writes from the parsed version.

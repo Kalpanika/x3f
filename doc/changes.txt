@@ -1,3 +1,6 @@
+x3f_053: Erik and Roland Karlsson and Mark Roden 2015-07-13
+  Lots of work, mainly adding conversion to color.
+
 x3f_052: Roland Karlsson 2014-11-30
   Running valgrind and removing some leaks and a buffer
   overrun bug. Now you can handle several files in the same
