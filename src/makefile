@@ -118,7 +118,7 @@ $(BINDIR):
 # -----------------------------------------------------------
 
 NAME = x3f_tools
-VER := $(shell git describe --always --dirty --tag)
+VER := $(shell git describe --always --dirty --tags)
 DIST = $(NAME)-$(VER)-$(TARGET)
 DIST_DIR = ../dist/$(DIST)
 DIST_TGZ = ../dist/$(DIST).tar.gz
