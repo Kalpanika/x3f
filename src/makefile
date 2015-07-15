@@ -118,12 +118,12 @@ $(BINDIR):
 # -----------------------------------------------------------
 
 NAME = x3f_tools
-VER := $(shell git describe --always --dirty)
+VER := $(shell git describe --always --dirty --tag)
 DIST = $(NAME)-$(VER)-$(TARGET)
 DIST_DIR = ../dist/$(DIST)
 DIST_TGZ = ../dist/$(DIST).tar.gz
 DIST_ZIP = ../dist/$(DIST).zip
-DIST_FILES = README doc/readme.txt doc/copyright.txt bin/x3f_extract$(EXE)
+DIST_FILES = doc/readme.txt doc/copyright.txt bin/x3f_extract$(EXE)
 TARFLAGS = --owner=root --group=root
 
 ifeq ($(TARGET_SYS), windows)

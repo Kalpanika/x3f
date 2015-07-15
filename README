@@ -1,11 +1,20 @@
 This project contains tools for manipulating X3F files from Sigma cameras.
 See doc/readme.txt and doc/copyright.txt.
 
-To run the code:
+-------
+COMPILE
+-------
+
 Download the code
 run 'make'
 <wait>
-The bin directory contains binaries that can be run directly from the command line.  Alternatively, you can create binaries for multiple platforms by calling:
+The bin directory contains binaries that can be run directly from the command line.
+
+-------------
+DISTRIBUTIONS
+-------------
+
+Alternatively, you can create binaries for multiple platforms by calling:
 
     make dist-all
 
@@ -15,11 +24,25 @@ as well as the platform specific calls:
     make dist-32
     make dist-64
 
+The distribution will be found in the file
+
+    dist/x3f_tools-<VER>-<PLATFORM>
+
+The <VER> part is either the git hash, or if there is a tag on current commit, that tag.
+
+-------
+VAGRANT
+-------
+
 If you don't want to install all the dependencies, you can also install and run in a vagrant.  Doing so requires downloading Vagrant from http://www.vagrantup.com.  Once you've done so, the commands to run the code are:
 
     vagrant up
     <wait>
     make
+
+-----
+TESTS
+-----
 
 If you want to run tests, type:
 
