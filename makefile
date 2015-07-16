@@ -74,7 +74,7 @@ $(VENV)/.setup.touch: $(REQUIREMENTS) | $(VENV)
 	$(VENV)/bin/pip install -r $< && touch $@
 
 check: check_deps dist
-	DIST_LOC=dist/x3f_tools-$(shell git describe --always --dirty)-$(TARGET)/bin/x3f_extract$(EXE) $(BEHAVE)
+	DIST_LOC=dist/x3f_tools-$(shell git describe --always --dirty --tags)-$(TARGET)/bin/x3f_extract$(EXE) $(BEHAVE)
 
 clean_deps:
 	rm -rf $(VENV)
