@@ -19,6 +19,10 @@
 #include <inttypes.h>
 #include <stdio.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define SIZE_UNIQUE_IDENTIFIER 16
 #define SIZE_WHITE_BALANCE 32
 #define NUM_EXT_DATA 32
@@ -85,8 +89,10 @@ typedef struct x3f_property_s {
   uint32_t value_offset;
 
   /* Computed */
-  utf16_t *name;		/* 0x00 terminated UTF 16 */
-  utf16_t *value;               /* 0x00 terminated UTF 16 */
+  utf16_t *name;		/* 0x0000 terminated UTF 16 */
+  utf16_t *value;               /* 0x0000 terminated UTF 16 */
+  char *name_utf8;		/* converted to UTF 8 */
+  char *value_utf8;          /* converted to UTF 8 */
 } x3f_property_t;
 
 typedef struct x3f_property_table_s {
@@ -124,6 +130,26 @@ typedef struct x3f_table32_s {
   uint32_t *element;
 } x3f_table32_t;
 
+typedef struct
+{
+  uint8_t *data;		/* Pointer to actual image data */
+  void *buf;			/* Pointer to allocated buffer for free() */
+  uint32_t rows;
+  uint32_t columns;
+  uint32_t channels;
+  uint32_t row_stride;
+} x3f_area8_t;
+
+typedef struct
+{
+  uint16_t *data;		/* Pointer to actual image data */
+  void *buf;			/* Pointer to allocated buffer for free() */
+  uint32_t rows;
+  uint32_t columns;
+  uint32_t channels;
+  uint32_t row_stride;
+} x3f_area16_t;
+
 #define UNDEFINED_LEAF 0xffffffff
 
 typedef struct x3f_huffnode_s {
@@ -159,7 +185,7 @@ typedef struct x3f_true_s {
   x3f_table32_t plane_size;	/* Size of the 3 planes */
   uint8_t *plane_address[TRUE_PLANES]; /* computed offset to the planes */
   x3f_hufftree_t tree;		/* Coding tree */
-  x3f_table16_t x3rgb16;        /* 3x16 bit X3-RGB data */
+  x3f_area16_t x3rgb16;		/* 3x16 bit X3-RGB data */
 } x3f_true_t;
 
 typedef struct x3f_quattro_s {
@@ -168,6 +194,9 @@ typedef struct x3f_quattro_s {
     uint16_t rows;
   } plane[TRUE_PLANES];
   uint32_t unknown;
+
+  bool_t quattro_layout;
+  x3f_area16_t top16;		/* Container for the bigger top layer */
 } x3f_quattro_t;
 
 typedef struct x3f_huffman_s {
@@ -175,8 +204,8 @@ typedef struct x3f_huffman_s {
   x3f_table32_t table;          /* Coding Table */
   x3f_hufftree_t tree;		/* Coding tree */
   x3f_table32_t row_offsets;    /* Row offsets */
-  x3f_table8_t rgb8;            /* 3x8 bit RGB data */
-  x3f_table16_t x3rgb16;        /* 3x16 bit X3-RGB data */
+  x3f_area8_t rgb8;		/* 3x8 bit RGB data */
+  x3f_area16_t x3rgb16;		/* 3x16 bit X3-RGB data */
 } x3f_huffman_t;
 
 typedef struct x3f_image_data_s {
@@ -214,8 +243,10 @@ typedef struct camf_dim_entry_s {
   uint32_t size;
   uint32_t name_offset;
   uint32_t n; /* 0,1,2,3... */
-  uint8_t *name;
+  char *name;
 } camf_dim_entry_t;
+
+typedef enum {M_FLOAT, M_INT, M_UINT} matrix_type_t;
 
 typedef struct camf_entry_s {
   /* pointer into decoded data */
@@ -229,32 +260,31 @@ typedef struct camf_entry_s {
   uint32_t value_offset;
 
   /* computed values */
-  uint8_t *name_address;
+  char *name_address;
   void *value_address;
   uint32_t name_size;
   uint32_t value_size;
 
   /* extracted values for explicit CAMF entry types*/
   uint32_t text_size;
-  uint8_t *text;
+  char *text;
 
   uint32_t property_num;
-  uint8_t **property_name;
+  char **property_name;
   uint8_t **property_value;
 
-  uint32_t matrix_type;
   uint32_t matrix_dim;
+  camf_dim_entry_t *matrix_dim_entry;
+
+  /* Offset, pointer and size and type of raw data */
+  uint32_t matrix_type;
   uint32_t matrix_data_off;
   void *matrix_data;
-  struct {
-    float *as_float;
-    uint32_t *as_uint;
-    int32_t *as_int;
-  } matrix;
-  camf_dim_entry_t *matrix_dim_entry;
   uint32_t matrix_element_size;
-  uint32_t matrix_element_is_float;
-  uint32_t matrix_element_is_signed;
+
+  /* Pointer and type of copied data */
+  matrix_type_t matrix_decoded_type;
+  void *matrix_decoded;
 
   /* Help data to try to estimate element size */
   uint32_t matrix_elements;
@@ -366,7 +396,7 @@ typedef struct x3f_header_s {
   uint32_t rotation;            /* 0, 90, 180, 270 */
 
   /* Added for 2.1 and 2.2 */
-  uint8_t white_balance[SIZE_WHITE_BALANCE];
+  char white_balance[SIZE_WHITE_BALANCE];
   uint8_t extended_types[NUM_EXT_DATA]; /* x3f_extended_types_t */
   float extended_data[NUM_EXT_DATA]; /* 32 bits, but do type differ? */
 } x3f_header_t;
@@ -395,13 +425,7 @@ typedef enum x3f_return_e {
 extern int legacy_offset;
 extern bool_t auto_legacy_offset;
 
-extern uint32_t max_printed_matrix_elements;
-
 extern x3f_t *x3f_new_from_file(FILE *infile);
-
-extern void x3f_print(x3f_t *x3f);
-
-extern x3f_return_t x3f_write_to_file(x3f_t *x3f, FILE *outfile);
 
 extern x3f_return_t x3f_delete(x3f_t *x3f);
 
@@ -421,24 +445,10 @@ extern x3f_return_t x3f_load_data(x3f_t *x3f, x3f_directory_entry_t *DE);
 
 extern x3f_return_t x3f_load_image_block(x3f_t *x3f, x3f_directory_entry_t *DE);
 
-extern x3f_return_t x3f_swap_images(x3f_t *x3f_template, x3f_t *x3f_images);
+extern char *x3f_err(x3f_return_t err);
 
-extern x3f_return_t x3f_dump_raw_data(x3f_t *x3f, char *outfilename);
-
-extern x3f_return_t x3f_dump_raw_data_as_ppm(x3f_t *x3f, char *outfilename,
-                                             double gamma, int min, int max,
-                                             int binary);
-
-extern x3f_return_t x3f_dump_raw_data_as_tiff(x3f_t *x3f, char *outfilename,
-                                              double gamma, int min, int max);
-
-extern x3f_return_t x3f_dump_raw_data_as_histogram(x3f_t *x3f,
-                                                   char *outfilename,
-                                                   int log_hist);
-
-extern x3f_return_t x3f_dump_jpeg(x3f_t *x3f, char *outfilename);
-
-extern x3f_return_t x3f_dump_meta_data(x3f_t *x3f, char *outfilename);
-
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* X3F_IO_H */

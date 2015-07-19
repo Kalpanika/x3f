@@ -1,4 +1,9 @@
-bin
+bin/
+deps/
+dist/
 *~
-bin/*
 a.out
+.vagrant
+.DS_Store
+venv/
+x3f_test_files/
