@@ -30,12 +30,38 @@ SMALL THINGS
 
 * Expanding non square image data.
 
+* Denoising default on
+
+* TIF without color space should not be dark
+
+
+--------------------------------------------------------------------
+FORMAT READING
+--------------------------------------------------------------------
+
+* Bounds checking in x3f:_io.c
+
+* Optimize huffman
+
 
 --------------------------------------------------------------------
 COLOR AND CONVERSION
 --------------------------------------------------------------------
 
 * Green cast ?
+  Magenta in the corners for Quattro etc
+
+* Stripe noise reduction
+
+* Noise reduction ought to be parametarized.
+  Maybe dependent on camera model also.
+
+
+--------------------------------------------------------------------
+Usability
+--------------------------------------------------------------------
+
+* Integration with Lightroom
 
 
 --------------------------------------------------------------------
@@ -48,3 +74,36 @@ DOCUMENTATION
 --------------------------------------------------------------------
 
 * Document the format
+
+
+--------------------------------------------------------------------
+FROM THE RELEASE IN DPREWIEW
+--------------------------------------------------------------------
+
+* Lens profiles for SD1
+  C:\Program Files\SIGMA\SIGMA Photo Pro 6\LensDatabase\Chromatic
+
+* wb names are case sensitive, probably should not be.
+
+* switch for listing wb names
+
+* denoising shall be on by default
+
+* tiff without color switch shall not be dark
+
+* Out of gamut handling for TIFF ?
+
+* Better description how to use it for cmd prompt newbies
+
+* Why could dmillier not create the temp file?
+
+* DNG without preview JPEG?
+  http://www.dpreview.com/forums/post/56177571
+  
+* Meta data in DNG, e.g. rotation.
+
+* Very green
+  http://www.dpreview.com/forums/post/56175736
+
+* The purple tinge
+  http://www.dpreview.com/forums/post/56178615
