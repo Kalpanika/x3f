@@ -99,11 +99,25 @@ FROM THE RELEASE IN DPREWIEW
 
 * DNG without preview JPEG?
   http://www.dpreview.com/forums/post/56177571
-  
+
 * Meta data in DNG, e.g. rotation.
+
+* Meta data in TIFF, e.g. rotation.
 
 * Very green
   http://www.dpreview.com/forums/post/56175736
 
 * The purple tinge
   http://www.dpreview.com/forums/post/56178615
+  But ...
+  http://www.dpreview.com/forums/post/56179091
+
+* Fix this blown out image (better than SPP)
+  http://www.dpreview.com/forums/post/56179283
+
+* Loss of detail for DP2Q ?
+  http://www.dpreview.com/forums/post/56180122
+  Noise reduction ?
+
+* Describe batch capability in docs
+  http://www.dpreview.com/forums/post/56180044
