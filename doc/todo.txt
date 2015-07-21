@@ -121,3 +121,6 @@ FROM THE RELEASE IN DPREWIEW
 
 * Describe batch capability in docs
   http://www.dpreview.com/forums/post/56180044
+
+* Very green vignetting
+  http://www.dpreview.com/forums/post/56182506
