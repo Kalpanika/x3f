@@ -30,16 +30,12 @@ SMALL THINGS
 
 * Expanding non square image data.
 
-* Denoising default on
-
-* TIF without color space should not be dark
-
 
 --------------------------------------------------------------------
 FORMAT READING
 --------------------------------------------------------------------
 
-* Bounds checking in x3f:_io.c
+* Bounds checking in x3f_io.c
 
 * Optimize huffman
 
@@ -47,9 +43,6 @@ FORMAT READING
 --------------------------------------------------------------------
 COLOR AND CONVERSION
 --------------------------------------------------------------------
-
-* Green cast ?
-  Magenta in the corners for Quattro etc
 
 * Stripe noise reduction
 
@@ -95,19 +88,12 @@ FROM THE RELEASE IN DPREWIEW
 
 * Better description how to use it for cmd prompt newbies
 
-* Why could dmillier not create the temp file?
-
-* DNG without preview JPEG?
-  http://www.dpreview.com/forums/post/56177571
-
 * Meta data in DNG, e.g. rotation.
 
 * Meta data in TIFF, e.g. rotation.
 
-* Very green
+* The purple tinge and other hue casts
   http://www.dpreview.com/forums/post/56175736
-
-* The purple tinge
   http://www.dpreview.com/forums/post/56178615
   But ...
   http://www.dpreview.com/forums/post/56179091
