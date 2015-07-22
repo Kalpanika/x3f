@@ -301,7 +301,7 @@
     case 2:  return "Sunlight";
     case 3:  return "Shadow";
     case 4:  return "Overcast";
-    case 5:  return "Incandenscent";
+    case 5:  return "Incandescent";
     case 6:  return "Florescent";
     case 7:  return "Flash";
     case 8:  return "Custom";
