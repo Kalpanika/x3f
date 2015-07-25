@@ -1,3 +1,12 @@
+/* X3F_DENOISE_ANISO.H
+ *
+ * Library for anisotropic denoising of X3F image data.
+ *
+ * Copyright 2015 - Mark Roden
+ * BSD-style - see doc/copyright.txt
+ *
+ */
+
 #ifndef DENOISE_ANISO
 #define DENOISE_ANISO
 

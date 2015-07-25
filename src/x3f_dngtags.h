@@ -1,7 +1,12 @@
-/* x3f_dngtags.h - libtiff tag extender for DNG tags.
+/* X3F_DNGTAGS.H
+ *
+ * libtiff tag extender for DNG tags.
  *
  * The current version of libtiff (4.0.3) only supports tags for DNG
  * versions <= 1.1.0.0
+ *
+ * Copyright 2015 - Roland and Erik Karlsson
+ * BSD-style - see doc/copyright.txt
  *
  */
 

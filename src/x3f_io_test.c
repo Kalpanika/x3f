@@ -1,6 +1,8 @@
-/* X3F_IO_TEST.C - Test of library for accessing X3F Files.
+/* X3F_IO_TEST.C
+ *
+ * Test of library for accessing X3F Files.
  * 
- * Copyright 2010 (c) - Roland Karlsson (roland@proxel.se)
+ * Copyright 2015 - Roland and Erik Karlsson
  * BSD-style - see doc/copyright.txt
  * 
  */

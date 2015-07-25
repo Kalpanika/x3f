@@ -1,6 +1,8 @@
-/* X3F_IO.H - Library for accessing X3F Files.
+/* X3F_IO.H
  *
- * Copyright (c) 2010 - Roland Karlsson (roland@proxel.se)
+ * Library for accessing X3F Files.
+ *
+ * Copyright 2015 - Roland and Erik Karlsson
  * BSD-style - see doc/copyright.txt
  *
  */

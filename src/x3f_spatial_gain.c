@@ -1,3 +1,12 @@
+/* X3F_SPATIAL_GAIN.C
+ *
+ * Library for adjusting for spatial gain in X3F images.
+ *
+ * Copyright 2015 - Roland and Erik Karlsson
+ * BSD-style - see doc/copyright.txt
+ *
+ */
+
 #include "x3f_spatial_gain.h"
 #include "x3f_meta.h"
 #include "x3f_printf.h"

@@ -1,6 +1,8 @@
-/* X3F_IMAGE.H - Library for accessing X3F Files.
+/* X3F_IMAGE.H
  *
- * Copyright (c) 2010 - Roland Karlsson (roland@proxel.se)
+ * Library for access to image data.
+ *
+ * Copyright 2015 - Roland and Erik Karlsson
  * BSD-style - see doc/copyright.txt
  *
  */

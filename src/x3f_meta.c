@@ -1,6 +1,8 @@
-/* X3F_META.C - Library for accessing X3F Files.
+/* X3F_META.C
  *
- * Copyright (c) 2010 - Roland Karlsson (roland@proxel.se)
+ * Library for accessing the CAMF and PROP meta data in the X3F file.
+ *
+ * Copyright 2015 - Roland and Erik Karlsson
  * BSD-style - see doc/copyright.txt
  *
  */
@@ -299,7 +301,7 @@
     case 2:  return "Sunlight";
     case 3:  return "Shadow";
     case 4:  return "Overcast";
-    case 5:  return "Incandenscent";
+    case 5:  return "Incandescent";
     case 6:  return "Florescent";
     case 7:  return "Flash";
     case 8:  return "Custom";

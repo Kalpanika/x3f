@@ -1,3 +1,12 @@
+/* X3F_OUTPUT_PPM.C
+ *
+ * Library for writing the image as PPM.
+ *
+ * Copyright 2015 - Roland and Erik Karlsson
+ * BSD-style - see doc/copyright.txt
+ *
+ */
+
 #include "x3f_output_ppm.h"
 #include "x3f_process.h"
 

@@ -1,3 +1,12 @@
+/* X3F_PROCESS.H
+ *
+ * Library for processing X3F data.
+ *
+ * Copyright 2015 - Roland and Erik Karlsson
+ * BSD-style - see doc/copyright.txt
+ *
+ */
+
 #ifndef X3F_PROCESS_H
 #define X3F_PROCESS_H
 
