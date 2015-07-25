@@ -47,7 +47,7 @@ def step_impl(context, image, file_type):
 @when(u'the {image} is denoised and converted by the code')
 def step_impl(context, image):
     found_executable = get_dist_name()
-    args = [found_executable, '-dng', '-color', 'none', image]
+    args = [found_executable, '-dng', image]
     run_conversion(args)
 
 
