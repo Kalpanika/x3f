@@ -63,8 +63,10 @@ static void usage(char *progname)
           "   -histogram      Dump histogram as csv file\n"
           "   -loghist        Dump histogram as csv file, with log exposure\n"
 	  "APPROPRIATE COMBINATIONS OF MODIFIER SWITCHES\n"
-	  "   -color <COLOR>  Convert to RGB color\n"
-	  "                   (sRGB, AdobeRGB, ProPhotoRGB)\n"
+	  "   -color <COLOR>  Convert to RGB color space\n"
+	  "                   (none, sRGB, AdobeRGB, ProPhotoRGB)\n"
+	  "                   none means neither scaled, gamma nor colorspace\n"
+	  "                   color do not affect DNG\n"
           "   -unprocessed    Dump RAW without any preprocessing\n"
           "   -qtop           Dump Quattro top layer without preprocessing\n"
           "   -crop           Crop to active area\n"
@@ -174,7 +176,7 @@ int main(int argc, char *argv[])
   int crop = 0;
   int denoise = 1;
   output_file_type_t file_type = DNG;
-  x3f_color_encoding_t color_encoding = NONE;
+  x3f_color_encoding_t color_encoding = SRGB;
   int files = 0;
   int errors = 0;
   int log_hist = 0;
@@ -213,7 +215,9 @@ int main(int argc, char *argv[])
 
     else if (!strcmp(argv[i], "-color") && (i+1)<argc) {
       char *encoding = argv[++i];
-      if (!strcmp(encoding, "sRGB"))
+      if (!strcmp(encoding, "none"))
+	color_encoding = NONE;
+      else if (!strcmp(encoding, "sRGB"))
 	color_encoding = SRGB;
       else if (!strcmp(encoding, "AdobeRGB"))
 	color_encoding = ARGB;

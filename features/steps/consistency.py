@@ -32,7 +32,7 @@ def step_impl(context, image, converted_image):
 def step_impl(context, image, file_type):
     found_executable = get_dist_name()
     file_flag = ''.join(('-', file_type.lower()))  # being lazy here, letting file type match the switch
-    args = [found_executable, file_flag, "-no-denoise", image]
+    args = [found_executable, file_flag, "-no-denoise", "-color", "none", image]
     run_conversion(args)
 
 
@@ -40,14 +40,14 @@ def step_impl(context, image, file_type):
 def step_impl(context, image, file_type):
     found_executable = get_dist_name()
     file_flag = ''.join(('-', file_type.lower()))  # being lazy here, letting file type match the switch
-    args = [found_executable, file_flag, "-no-denoise", "-compress", image]
+    args = [found_executable, file_flag, "-no-denoise", "-color", "none", "-compress", image]
     run_conversion(args)
 
 
 @when(u'the {image} is denoised and converted by the code')
 def step_impl(context, image):
     found_executable = get_dist_name()
-    args = [found_executable, '-dng', image]
+    args = [found_executable, '-dng', '-color', 'none', image]
     run_conversion(args)
 
 
@@ -75,9 +75,9 @@ def step_impl(context, image, output_format):
     output_split = output_switch.split(' ')
     # there's probably a more pythonic way to do this, with array flattening etc.
     # just being expedient for the time being
-    args = [found_executable, '-tiff', '-no-denoise', output_split[0], image]
+    args = [found_executable, '-tiff', '-color', 'none', '-no-denoise', output_split[0], image]
     if len(output_split) == 2:
-        args = [found_executable, '-tiff', '-no-denoise', output_split[0], output_split[1], image]
+        args = [found_executable, '-tiff', '-color', 'none', '-no-denoise', output_split[0], output_split[1], image]
     run_conversion(args)
 
 @then(u'the {converted_image} has the right {md5} hash value')
