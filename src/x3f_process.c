@@ -68,14 +68,20 @@ static int get_black_level(x3f_t *x3f,
   uint64_t *black_sum;
   double *black_sum_sqdev;
   int pixels, i;
+  /* Workaround for bug in DP2 firmware. DarkShieldBottom is specified
+     incorrectly and thus ingnored. */
+  char *cammodel;
+  int use_bottom = !x3f_get_prop_entry(x3f, "CAMMODEL", &cammodel) ||
+    strcmp(cammodel, "SIGMA DP2");
 
   pixels = 0;
   black_sum = alloca(colors*sizeof(uint64_t));
   memset(black_sum, 0, colors*sizeof(uint64_t));
   pixels += sum_area(x3f, "DarkShieldTop", image, rescale, colors,
 		     black_sum);
-  pixels += sum_area(x3f, "DarkShieldBottom", image, rescale, colors,
-		     black_sum);
+  if (use_bottom)
+    pixels += sum_area(x3f, "DarkShieldBottom", image, rescale, colors,
+		       black_sum);
   if (pixels == 0) return 0;
 
   for (i=0; i<colors; i++)
@@ -86,8 +92,9 @@ static int get_black_level(x3f_t *x3f,
   memset(black_sum_sqdev, 0, colors*sizeof(double));
   pixels += sum_area_sqdev(x3f, "DarkShieldTop", image, rescale, colors,
 			   black_level, black_sum_sqdev);
-  pixels += sum_area_sqdev(x3f, "DarkShieldBottom", image, rescale, colors,
-			   black_level, black_sum_sqdev);
+  if (use_bottom)
+    pixels += sum_area_sqdev(x3f, "DarkShieldBottom", image, rescale, colors,
+			     black_level, black_sum_sqdev);
   if (pixels == 0) return 0;
 
   for (i=0; i<colors; i++)
