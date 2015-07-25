@@ -63,12 +63,12 @@ x3f_extract without any switches, or e.g. with the switch -help.
 
 Here are some examples:
 
-(1) x3f_extract -denoise file.x3f
+(1) x3f_extract file.x3f
     This one creates the file file.dng for usage in e.g. Lightroom
     or Photoshop (via ACR). The file contains denoised but unconverted
     RAW data plus color conversion info.
 
-(2) x3f_extract -denoise -tiff -color sRGB -crop file.x3f
+(2) x3f_extract -tiff -color sRGB -crop file.x3f
     This one creates the file file.tif for usage in e.g. Photoshop.
     The file is fully converted to sRGB, but without rendering intent
     so you might get strange clipping.
