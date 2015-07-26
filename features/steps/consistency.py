@@ -61,11 +61,11 @@ def step_impl(context, image):
 @when(u'the {image} is converted to tiff {output_format}')
 def step_impl(context, image, output_format):
     found_executable = get_dist_name()
-    args = []
+    args = ['-color', 'none']
     if output_format == 'UNPROCESSED':
-        args = ['-unprocessed']
+        args = args + ['-unprocessed']
     if output_format == 'QTOP':
-        args = ['-qtop']
+        args = args + ['-qtop']
     if output_format == 'COLOR_SRGB':
         args = ['-color', 'sRGB']
     if output_format == 'COLOR_ADOBE_RGB':
@@ -74,7 +74,7 @@ def step_impl(context, image, output_format):
         args = ['-color', 'ProPhotoRGB']
     if output_format != 'CROP':
         args = args + ['-no-crop']
-    args = ['-tiff', '-color', 'none', '-no-denoise'] + args
+    args = args + ['-tiff', '-no-denoise']
     args = [found_executable] + args + [image]
     run_conversion(args)
 
