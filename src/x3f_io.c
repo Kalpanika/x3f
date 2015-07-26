@@ -299,20 +299,24 @@ static x3f_huffman_t *new_huffman(x3f_huffman_t **HUFP)
 
   GET4(H->version);
   GETN(H->unique_identifier, SIZE_UNIQUE_IDENTIFIER);
-  GET4(H->mark_bits);
-  GET4(H->columns);
-  GET4(H->rows);
-  GET4(H->rotation);
-  if (H->version >= X3F_VERSION_2_1) {
-    int num_ext_data =
-      H->version >= X3F_VERSION_3_0 ? NUM_EXT_DATA_3_0 : NUM_EXT_DATA_2_1;
+  /* TODO: the meaning of the rest of the header for version >= 4.0
+           (Quattro) is unknown */
+  if (H->version < X3F_VERSION_4_0) {
+    GET4(H->mark_bits);
+    GET4(H->columns);
+    GET4(H->rows);
+    GET4(H->rotation);
+    if (H->version >= X3F_VERSION_2_1) {
+      int num_ext_data =
+	H->version >= X3F_VERSION_3_0 ? NUM_EXT_DATA_3_0 : NUM_EXT_DATA_2_1;
 
-    GETN(H->white_balance, SIZE_WHITE_BALANCE);
-    if (H->version >= X3F_VERSION_2_3)
-      GETN(H->color_mode, SIZE_COLOR_MODE);
-    GETN(H->extended_types, num_ext_data);
-    for (i=0; i<num_ext_data; i++)
-      GET4F(H->extended_data[i]);
+      GETN(H->white_balance, SIZE_WHITE_BALANCE);
+      if (H->version >= X3F_VERSION_2_3)
+	GETN(H->color_mode, SIZE_COLOR_MODE);
+      GETN(H->extended_types, num_ext_data);
+      for (i=0; i<num_ext_data; i++)
+	GET4F(H->extended_data[i]);
+    }
   }
 
   /* Go to the beginning of the directory */

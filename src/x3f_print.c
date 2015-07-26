@@ -131,26 +131,30 @@ static void print_file_header_meta_data(FILE *f_out, x3f_t *x3f)
   fprintf(f_out, "header.\n");
   fprintf(f_out, "  identifier        = %08x (%s)\n", H->identifier, x3f_id(H->identifier));
   fprintf(f_out, "  version           = %08x\n", H->version);
-  fprintf(f_out, "  unique_identifier = %02x...\n", H->unique_identifier[0]);
-  fprintf(f_out, "  mark_bits         = %08x\n", H->mark_bits);
-  fprintf(f_out, "  columns           = %08x (%d)\n", H->columns, H->columns);
-  fprintf(f_out, "  rows              = %08x (%d)\n", H->rows, H->rows);
-  fprintf(f_out, "  rotation          = %08x (%d)\n", H->rotation, H->rotation);
-  if (x3f->header.version >= X3F_VERSION_2_1) {
-    int num_ext_data =
-      H->version >= X3F_VERSION_3_0 ? NUM_EXT_DATA_3_0 : NUM_EXT_DATA_2_1;
-    int i;
+  /* TODO: the meaning of the rest of the header for version >= 4.0
+           (Quattro) is unknown */
+  if (H->version < X3F_VERSION_4_0) {
+    fprintf(f_out, "  unique_identifier = %02x...\n", H->unique_identifier[0]);
+    fprintf(f_out, "  mark_bits         = %08x\n", H->mark_bits);
+    fprintf(f_out, "  columns           = %08x (%d)\n", H->columns, H->columns);
+    fprintf(f_out, "  rows              = %08x (%d)\n", H->rows, H->rows);
+    fprintf(f_out, "  rotation          = %08x (%d)\n", H->rotation, H->rotation);
+    if (x3f->header.version >= X3F_VERSION_2_1) {
+      int num_ext_data =
+	H->version >= X3F_VERSION_3_0 ? NUM_EXT_DATA_3_0 : NUM_EXT_DATA_2_1;
+      int i;
 
-    fprintf(f_out, "  white_balance     = %s\n", H->white_balance);
-    if (x3f->header.version >= X3F_VERSION_2_3)
-      fprintf(f_out, "  color_mode        = %s\n", H->color_mode);
+      fprintf(f_out, "  white_balance     = %s\n", H->white_balance);
+      if (x3f->header.version >= X3F_VERSION_2_3)
+	fprintf(f_out, "  color_mode        = %s\n", H->color_mode);
 
-    fprintf(f_out, "  extended_types\n");
-    for (i=0; i<num_ext_data; i++) {
-      uint8_t type = H->extended_types[i];
-      float data = H->extended_data[i];
+      fprintf(f_out, "  extended_types\n");
+      for (i=0; i<num_ext_data; i++) {
+	uint8_t type = H->extended_types[i];
+	float data = H->extended_data[i];
 
-      fprintf(f_out, "    %2d: %3d = %9f\n", i, type, data);
+	fprintf(f_out, "    %2d: %3d = %9f\n", i, type, data);
+      }
     }
   }
 
