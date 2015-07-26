@@ -12,7 +12,7 @@ Examples: images
 | x3f_test_files/_SDI8040.X3F | TIFF | x3f_test_files/_SDI8040.X3F.tif | cb67d12ec0a4fd318a426276f527f1a9 |
 | x3f_test_files/_SDI8040.X3F | PPM | x3f_test_files/_SDI8040.X3F.ppm | a2bea89af18bb24efd289b73007b2413 |
 | x3f_test_files/_SDI8040.X3F | JPG | x3f_test_files/_SDI8040.X3F.jpg | 357f126f6435345642bfbc6171745d00 |
-| x3f_test_files/_SDI8040.X3F | META | x3f_test_files/_SDI8040.X3F.meta | 6a29dd5d1284e453bcf6807f230d7180 |
+| x3f_test_files/_SDI8040.X3F | META | x3f_test_files/_SDI8040.X3F.meta | 2e81db66465fa97366e64b943324a514 |
 | x3f_test_files/_SDI8040.X3F | RAW | x3f_test_files/_SDI8040.X3F.raw | 89582789c24f86aaefd92395bc4f0572 |
 | x3f_test_files/_SDI8040.X3F | PPM-ASCII | x3f_test_files/_SDI8040.X3F.ppm | 74e6652a6a1325949d086bc9f099fbe7 |
 | x3f_test_files/_SDI8040.X3F | HISTOGRAM | x3f_test_files/_SDI8040.X3F.csv | 8ad3868b2c7b871555932a783c16397d |
@@ -22,7 +22,7 @@ Examples: images
 | x3f_test_files/_SDI8284.X3F | TIFF | x3f_test_files/_SDI8284.X3F.tif | 26199384d894ae723292e5ecc40ad194 |
 | x3f_test_files/_SDI8284.X3F | PPM | x3f_test_files/_SDI8284.X3F.ppm | 06c85f54fe3a954d4e564efbbb8d8a8b |
 | x3f_test_files/_SDI8284.X3F | JPG | x3f_test_files/_SDI8284.X3F.jpg | 87cd494d3bc4eab4e481de6afeb058de |
-| x3f_test_files/_SDI8284.X3F | META | x3f_test_files/_SDI8284.X3F.meta | d93655234be234bdb6c49183bc683eea |
+| x3f_test_files/_SDI8284.X3F | META | x3f_test_files/_SDI8284.X3F.meta | 0a77d95cf4f53acec52c11e756590a28 |
 | x3f_test_files/_SDI8284.X3F | RAW | x3f_test_files/_SDI8284.X3F.raw | b9d230401b9822978b49ec244c2f0668 |
 | x3f_test_files/_SDI8284.X3F | PPM-ASCII | x3f_test_files/_SDI8284.X3F.ppm | cf48c36eddbddccefcf44378d2e45ba8 |
 | x3f_test_files/_SDI8284.X3F | HISTOGRAM | x3f_test_files/_SDI8284.X3F.csv | 78edd0177ac057d77ed62d560267b640 |
