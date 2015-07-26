@@ -32,7 +32,7 @@ def step_impl(context, image, converted_image):
 def step_impl(context, image, file_type):
     found_executable = get_dist_name()
     file_flag = ''.join(('-', file_type.lower()))  # being lazy here, letting file type match the switch
-    args = [found_executable, file_flag, image]
+    args = [found_executable, file_flag, "-no-denoise", "-color", "none", "-no-crop", image]
     run_conversion(args)
 
 
@@ -40,44 +40,42 @@ def step_impl(context, image, file_type):
 def step_impl(context, image, file_type):
     found_executable = get_dist_name()
     file_flag = ''.join(('-', file_type.lower()))  # being lazy here, letting file type match the switch
-    args = [found_executable, file_flag, "-compress", image]
+    args = [found_executable, file_flag, "-no-denoise", "-color", "none", "-compress", "-no-crop", image]
     run_conversion(args)
 
 
 @when(u'the {image} is denoised and converted by the code')
 def step_impl(context, image):
     found_executable = get_dist_name()
-    args = [found_executable, '-dng', '-denoise', image]
+    args = [found_executable, '-dng', image]
     run_conversion(args)
 
 
 @when(u'the {image} is denoised and converted by the code to a cropped color TIFF')
 def step_impl(context, image):
     found_executable = get_dist_name()
-    args = [found_executable, '-tiff', '-denoise', '-color', 'AdobeRGB', '-crop', image]
+    args = [found_executable, '-tiff', '-color', 'AdobeRGB', image]
     run_conversion(args)
 
 
 @when(u'the {image} is converted to tiff {output_format}')
 def step_impl(context, image, output_format):
     found_executable = get_dist_name()
-    output_switch = '-crop'
+    args = ['-color', 'none']
     if output_format == 'UNPROCESSED':
-        output_switch = '-unprocessed'
+        args = args + ['-unprocessed']
     if output_format == 'QTOP':
-        output_switch = '-qtop'
+        args = args + ['-qtop']
     if output_format == 'COLOR_SRGB':
-        output_switch = '-color sRGB'
+        args = ['-color', 'sRGB']
     if output_format == 'COLOR_ADOBE_RGB':
-        output_switch = '-color AdobeRGB'
+        args = ['-color', 'AdobeRGB']
     if output_format == 'COLOR_PROPHOTO_RGB':
-        output_switch = '-color ProPhotoRGB'
-    output_split = output_switch.split(' ')
-    # there's probably a more pythonic way to do this, with array flattening etc.
-    # just being expedient for the time being
-    args = [found_executable, '-tiff', output_split[0], image]
-    if len(output_split) == 2:
-        args = [found_executable, '-tiff', output_split[0], output_split[1], image]
+        args = ['-color', 'ProPhotoRGB']
+    if output_format != 'CROP':
+        args = args + ['-no-crop']
+    args = args + ['-tiff', '-no-denoise']
+    args = [found_executable] + args + [image]
     run_conversion(args)
 
 @then(u'the {converted_image} has the right {md5} hash value')

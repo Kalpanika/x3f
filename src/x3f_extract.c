@@ -63,12 +63,15 @@ static void usage(char *progname)
           "   -histogram      Dump histogram as csv file\n"
           "   -loghist        Dump histogram as csv file, with log exposure\n"
 	  "APPROPRIATE COMBINATIONS OF MODIFIER SWITCHES\n"
-	  "   -color <COLOR>  Convert to RGB color\n"
-	  "                   (sRGB, AdobeRGB, ProPhotoRGB)\n"
+	  "   -color <COLOR>  Convert to RGB color space\n"
+	  "                   (none, sRGB, AdobeRGB, ProPhotoRGB)\n"
+	  "                   'none' means neither scaling, applying gamma\n"
+	  "                   nor converting color space.\n"
+	  "                   This switch does not affect DNG output\n"
           "   -unprocessed    Dump RAW without any preprocessing\n"
           "   -qtop           Dump Quattro top layer without preprocessing\n"
-          "   -crop           Crop to active area\n"
-          "   -denoise        Denoise RAW data\n"
+          "   -no-crop        Do not crop to active area\n"
+          "   -no-denoise     Do not denoise RAW data\n"
           "   -wb <WB>        Select white balance preset\n"
           "   -compress       Enable ZIP compression for DNG and TIFF output\n"
           "   -ocl            Use OpenCL\n"
@@ -171,10 +174,10 @@ int main(int argc, char *argv[])
   int extract_meta; /* Always computed */
   int extract_raw = 1;
   int extract_unconverted_raw = 0;
-  int crop = 0;
-  int denoise = 0;
+  int crop = 1;
+  int denoise = 1;
   output_file_type_t file_type = DNG;
-  x3f_color_encoding_t color_encoding = NONE;
+  x3f_color_encoding_t color_encoding = SRGB;
   int files = 0;
   int errors = 0;
   int log_hist = 0;
@@ -213,7 +216,9 @@ int main(int argc, char *argv[])
 
     else if (!strcmp(argv[i], "-color") && (i+1)<argc) {
       char *encoding = argv[++i];
-      if (!strcmp(encoding, "sRGB"))
+      if (!strcmp(encoding, "none"))
+	color_encoding = NONE;
+      else if (!strcmp(encoding, "sRGB"))
 	color_encoding = SRGB;
       else if (!strcmp(encoding, "AdobeRGB"))
 	color_encoding = ARGB;
@@ -234,10 +239,10 @@ int main(int argc, char *argv[])
       color_encoding = UNPROCESSED;
     else if (!strcmp(argv[i], "-qtop"))
       color_encoding = QTOP;
-    else if (!strcmp(argv[i], "-crop"))
-      crop = 1;
-    else if (!strcmp(argv[i], "-denoise"))
-      denoise = 1;
+    else if (!strcmp(argv[i], "-no-crop"))
+      crop = 0;
+    else if (!strcmp(argv[i], "-no-denoise"))
+      denoise = 0;
     else if ((!strcmp(argv[i], "-wb")) && (i+1)<argc)
       wb = argv[++i];
     else if (!strcmp(argv[i], "-compress"))
