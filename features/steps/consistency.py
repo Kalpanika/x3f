@@ -61,23 +61,21 @@ def step_impl(context, image):
 @when(u'the {image} is converted to tiff {output_format}')
 def step_impl(context, image, output_format):
     found_executable = get_dist_name()
-    output_switch = '-tiff' # totally harmless dummy
+    args = []
     if output_format == 'UNPROCESSED':
-        output_switch = '-unprocessed'
+        args = ['-unprocessed']
     if output_format == 'QTOP':
-        output_switch = '-qtop'
+        args = ['-qtop']
     if output_format == 'COLOR_SRGB':
-        output_switch = '-color sRGB'
+        args = ['-color', 'sRGB']
     if output_format == 'COLOR_ADOBE_RGB':
-        output_switch = '-color AdobeRGB'
+        args = ['-color', 'AdobeRGB']
     if output_format == 'COLOR_PROPHOTO_RGB':
-        output_switch = '-color ProPhotoRGB'
-    output_split = output_switch.split(' ')
+        args = ['-color', 'ProPhotoRGB']
     if output_format != 'CROP':
-        output_split = output_split + ['-no-crop']
-    if output_format == 'CROP':
-        output_split = []
-    args = [found_executable, '-tiff', '-color', 'none', '-no-denoise'] + output_split + [image]
+        args = args + ['-no-crop']
+    args = ['-tiff', '-color', 'none', '-no-denoise'] + args
+    args = [found_executable] + args + [image]
     run_conversion(args)
 
 @then(u'the {converted_image} has the right {md5} hash value')
