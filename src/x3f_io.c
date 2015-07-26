@@ -78,6 +78,12 @@ static int x3f_get4(FILE *f)
 #define GET1(_v) do {(_v) = x3f_get1(I->input.file);} while (0)
 #define GET2(_v) do {(_v) = x3f_get2(I->input.file);} while (0)
 #define GET4(_v) do {(_v) = x3f_get4(I->input.file);} while (0)
+#define GET4F(_v)				\
+  do {						\
+    union {int32_t i; float f;} _tmp;		\
+    _tmp.i = x3f_get4(I->input.file);		\
+    (_v) = _tmp.f;				\
+  } while (0)
 #define GETN(_v,_s) PUT_GET_N(_v,_s,I->input.file,fread)
 
 #define GET_TABLE(_T, _GETX, _NUM)					\
@@ -297,11 +303,16 @@ static x3f_huffman_t *new_huffman(x3f_huffman_t **HUFP)
   GET4(H->columns);
   GET4(H->rows);
   GET4(H->rotation);
-  if (H->version > X3F_VERSION_2_0) {
+  if (H->version >= X3F_VERSION_2_1) {
+    int num_ext_data =
+      H->version >= X3F_VERSION_3_0 ? NUM_EXT_DATA_3_0 : NUM_EXT_DATA_2_1;
+
     GETN(H->white_balance, SIZE_WHITE_BALANCE);
-    GETN(H->extended_types, NUM_EXT_DATA);
-    for (i=0; i<NUM_EXT_DATA; i++)
-      GET4(H->extended_data[i]);
+    if (H->version >= X3F_VERSION_2_3)
+      GETN(H->color_mode, SIZE_COLOR_MODE);
+    GETN(H->extended_types, num_ext_data);
+    for (i=0; i<num_ext_data; i++)
+      GET4F(H->extended_data[i]);
   }
 
   /* Go to the beginning of the directory */
