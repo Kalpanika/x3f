@@ -27,11 +27,18 @@ extern "C" {
 
 #define SIZE_UNIQUE_IDENTIFIER 16
 #define SIZE_WHITE_BALANCE 32
-#define NUM_EXT_DATA 32
+#define SIZE_COLOR_MODE 32
+#define NUM_EXT_DATA_2_1 32
+#define NUM_EXT_DATA_3_0 64
+#define NUM_EXT_DATA NUM_EXT_DATA_3_0
 
 #define X3F_VERSION(MAJ,MIN) (uint32_t)(((MAJ)<<16) + MIN)
 #define X3F_VERSION_2_0 X3F_VERSION(2,0)
 #define X3F_VERSION_2_1 X3F_VERSION(2,1)
+#define X3F_VERSION_2_2 X3F_VERSION(2,2)
+#define X3F_VERSION_2_3 X3F_VERSION(2,3)
+#define X3F_VERSION_3_0 X3F_VERSION(3,0)
+#define X3F_VERSION_4_0 X3F_VERSION(4,0)
 
 /* Main file identifier */
 #define X3F_FOVb (uint32_t)(0x62564f46)
@@ -397,8 +404,10 @@ typedef struct x3f_header_s {
   uint32_t rows;                /* ... before rotation */
   uint32_t rotation;            /* 0, 90, 180, 270 */
 
-  /* Added for 2.1 and 2.2 */
-  char white_balance[SIZE_WHITE_BALANCE];
+  char white_balance[SIZE_WHITE_BALANCE]; /* Introduced in 2.1 */
+  char color_mode[SIZE_COLOR_MODE]; /* Introduced in 2.3 */
+
+  /* Introduced in 2.1 and extended from 32 to 64 in 3.0 */
   uint8_t extended_types[NUM_EXT_DATA]; /* x3f_extended_types_t */
   float extended_data[NUM_EXT_DATA]; /* 32 bits, but do type differ? */
 } x3f_header_t;
