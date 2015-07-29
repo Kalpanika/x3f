@@ -572,27 +572,14 @@ static int preprocess_data(x3f_t *x3f, char *wb, x3f_image_levels_t *ilevels)
   return 1;
 }
 
-/* Converts the data in place */
-
-#define LUTSIZE 1024
-
-static int convert_data(x3f_t *x3f,
-			x3f_area16_t *image, x3f_image_levels_t *ilevels,
-			x3f_color_encoding_t encoding, char *wb)
+static int get_conv(x3f_t *x3f, x3f_color_encoding_t encoding, char *wb,
+		    int lutsize, uint16_t max_out, double *lut,
+		    double *conv_matrix)
 {
-  int row, col, color;
-  uint16_t max_out = 65535; /* TODO: should be possible to adjust */
-
   double raw_to_xyz[9];	/* White point for XYZ is assumed to be D65 */
   double xyz_to_rgb[9];
   double raw_to_rgb[9];
-  double conv_matrix[9];
   double sensor_iso, capture_iso, iso_scaling;
-  double lut[LUTSIZE];
-  x3f_spatial_gain_corr_t sgain[MAXCORR];
-  int sgain_num;
-
-  if (image->channels < 3) return 0;
 
   if (x3f_get_camf_float(x3f, "SensorISO", &sensor_iso) &&
       x3f_get_camf_float(x3f, "CaptureISO", &capture_iso)) {
@@ -613,18 +600,18 @@ static int convert_data(x3f_t *x3f,
 
   switch (encoding) {
   case SRGB:
-    x3f_sRGB_LUT(lut, LUTSIZE, max_out);
+    x3f_sRGB_LUT(lut, lutsize, max_out);
     x3f_XYZ_to_sRGB(xyz_to_rgb);
     break;
   case ARGB:
-    x3f_gamma_LUT(lut, LUTSIZE, max_out, 2.2);
+    x3f_gamma_LUT(lut, lutsize, max_out, 2.2);
     x3f_XYZ_to_AdobeRGB(xyz_to_rgb);
     break;
   case PPRGB:
     {
       double xyz_to_prophotorgb[9], d65_to_d50[9];
 
-      x3f_gamma_LUT(lut, LUTSIZE, max_out, 1.8);
+      x3f_gamma_LUT(lut, lutsize, max_out, 1.8);
       x3f_XYZ_to_ProPhotoRGB(xyz_to_prophotorgb);
       /* The standad white point for ProPhoto RGB is D50 */
       x3f_Bradford_D65_to_D50(d65_to_d50);
@@ -643,6 +630,30 @@ static int convert_data(x3f_t *x3f,
   x3f_3x3_print(DEBUG, raw_to_rgb);
   x3f_printf(DEBUG, "conv_matrix\n");
   x3f_3x3_print(DEBUG, conv_matrix);
+
+  return 1;
+}
+
+/* Converts the data in place */
+
+#define LUTSIZE 1024
+
+static int convert_data(x3f_t *x3f,
+			x3f_area16_t *image, x3f_image_levels_t *ilevels,
+			x3f_color_encoding_t encoding, char *wb)
+{
+  int row, col, color;
+  uint16_t max_out = 65535; /* TODO: should be possible to adjust */
+
+  double conv_matrix[9];
+  double lut[LUTSIZE];
+  x3f_spatial_gain_corr_t sgain[MAXCORR];
+  int sgain_num;
+
+  if (image->channels < 3) return 0;
+
+  if (!get_conv(x3f, encoding, wb, LUTSIZE, max_out, lut, conv_matrix))
+    return 0;
 
   sgain_num = x3f_get_spatial_gain(x3f, wb, sgain);
   if (sgain_num == 0)
