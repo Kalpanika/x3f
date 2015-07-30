@@ -297,8 +297,6 @@ x3f_return_t x3f_dump_raw_data_as_dng(x3f_t *x3f,
   int fd = open(outfilename, O_RDWR | BINMODE | O_CREAT | O_TRUNC, 0444);
   TIFF *f_out;
   uint64_t sub_ifds[1] = {0};
-#define THUMBSIZE 100
-  uint8_t thumbnail[3*THUMBSIZE];
 
   double sensor_iso, capture_iso;
   double gain[3], gain_inv[3], gain_inv_mat[9];
@@ -307,6 +305,7 @@ x3f_return_t x3f_dump_raw_data_as_dng(x3f_t *x3f,
   uint32_t active_area[4];
   x3f_area16_t image;
   x3f_image_levels_t ilevels;
+  x3f_area8_t preview;
   int row;
 
   if (fd == -1) return X3F_OUTFILE_ERROR;
@@ -318,15 +317,22 @@ x3f_return_t x3f_dump_raw_data_as_dng(x3f_t *x3f,
   if (wb == NULL) wb = x3f_get_wb(x3f);
   if (!x3f_get_image(x3f, &image, &ilevels, NONE, 0, denoise, wb) ||
       image.channels != 3) {
+    x3f_printf(ERR, "Could not get image\n");
     TIFFClose(f_out);
+    return X3F_ARGUMENT_ERROR;
+  }
+  if (!x3f_get_preview(x3f, &image, &ilevels, SRGB, wb, 300, &preview)) {
+    x3f_printf(ERR, "Could not get preview\n");
+    TIFFClose(f_out);
+    free(image.buf);
     return X3F_ARGUMENT_ERROR;
   }
 
   TIFFSetField(f_out, TIFFTAG_SUBFILETYPE, FILETYPE_REDUCEDIMAGE);
-  TIFFSetField(f_out, TIFFTAG_IMAGEWIDTH, THUMBSIZE);
-  TIFFSetField(f_out, TIFFTAG_IMAGELENGTH, THUMBSIZE);
-  TIFFSetField(f_out, TIFFTAG_ROWSPERSTRIP, THUMBSIZE);
-  TIFFSetField(f_out, TIFFTAG_SAMPLESPERPIXEL, 3);
+  TIFFSetField(f_out, TIFFTAG_IMAGEWIDTH, preview.columns);
+  TIFFSetField(f_out, TIFFTAG_IMAGELENGTH, preview.rows);
+  TIFFSetField(f_out, TIFFTAG_ROWSPERSTRIP, preview.rows);
+  TIFFSetField(f_out, TIFFTAG_SAMPLESPERPIXEL, preview.channels);
   TIFFSetField(f_out, TIFFTAG_BITSPERSAMPLE, 8);
   TIFFSetField(f_out, TIFFTAG_PLANARCONFIG, PLANARCONFIG_CONTIG);
   TIFFSetField(f_out, TIFFTAG_COMPRESSION, COMPRESSION_NONE);
@@ -350,6 +356,7 @@ x3f_return_t x3f_dump_raw_data_as_dng(x3f_t *x3f,
     x3f_printf(ERR, "Could not write camera profiles\n");
     TIFFClose(f_out);
     free(image.buf);
+    free(preview.buf);
     return ret;
   }
 
@@ -357,6 +364,7 @@ x3f_return_t x3f_dump_raw_data_as_dng(x3f_t *x3f,
     x3f_printf(ERR, "Could not get gain for white balance: %s\n", wb);
     TIFFClose(f_out);
     free(image.buf);
+    free(preview.buf);
     return X3F_ARGUMENT_ERROR;
   }
   x3f_3x1_invert(gain, gain_inv);
@@ -368,6 +376,7 @@ x3f_return_t x3f_dump_raw_data_as_dng(x3f_t *x3f,
     x3f_printf(ERR, "Could not get gain for white balance: %s\n", WB_D65);
     TIFFClose(f_out);
     free(image.buf);
+    free(preview.buf);
     return X3F_ARGUMENT_ERROR;
   }
   x3f_3x1_invert(gain, gain_inv);
@@ -375,9 +384,8 @@ x3f_return_t x3f_dump_raw_data_as_dng(x3f_t *x3f,
   vec_double_to_float(gain_inv_mat, camera_calibration1, 9);
   TIFFSetField(f_out, TIFFTAG_CAMERACALIBRATION1, 9, camera_calibration1);
 
-  memset(thumbnail, 0, 3*THUMBSIZE); /* TODO: Thumbnail is all black */
-  for (row=0; row < THUMBSIZE; row++)
-    TIFFWriteScanline(f_out, thumbnail, row, 0);
+  for (row=0; row < preview.rows; row++)
+    TIFFWriteScanline(f_out, preview.data + preview.row_stride*row, row, 0);
 
   TIFFWriteDirectory(f_out);
 
@@ -410,6 +418,7 @@ x3f_return_t x3f_dump_raw_data_as_dng(x3f_t *x3f,
   TIFFWriteDirectory(f_out);
   TIFFClose(f_out);
   free(image.buf);
+  free(preview.buf);
 
   return X3F_OK;
 }
