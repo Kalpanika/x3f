@@ -290,6 +290,7 @@ static x3f_return_t write_camera_profiles(x3f_t *x3f, char *wb,
 x3f_return_t x3f_dump_raw_data_as_dng(x3f_t *x3f,
 				      char *outfilename,
 				      int denoise,
+				      int apply_sgain,
 				      char *wb,
 				      int compress)
 {
@@ -315,13 +316,15 @@ x3f_return_t x3f_dump_raw_data_as_dng(x3f_t *x3f,
   }
 
   if (wb == NULL) wb = x3f_get_wb(x3f);
-  if (!x3f_get_image(x3f, &image, &ilevels, NONE, 0, denoise, wb) ||
+  if (!x3f_get_image(x3f, &image, &ilevels, NONE, 0,
+		     denoise, apply_sgain, wb) ||
       image.channels != 3) {
     x3f_printf(ERR, "Could not get image\n");
     TIFFClose(f_out);
     return X3F_ARGUMENT_ERROR;
   }
-  if (!x3f_get_preview(x3f, &image, &ilevels, SRGB, wb, 300, &preview)) {
+  if (!x3f_get_preview(x3f, &image, &ilevels, SRGB,
+		       apply_sgain, wb, 300, &preview)) {
     x3f_printf(ERR, "Could not get preview\n");
     TIFFClose(f_out);
     free(image.buf);
@@ -406,8 +409,9 @@ x3f_return_t x3f_dump_raw_data_as_dng(x3f_t *x3f,
   TIFFSetField(f_out, TIFFTAG_BLACKLEVEL, 3, black_level);
   TIFFSetField(f_out, TIFFTAG_WHITELEVEL, 3, ilevels.white);
 
-  if (!write_spatial_gain(x3f, &image, wb, f_out))
-    x3f_printf(WARN, "WARNING: could not get spatial gain\n");
+  if (apply_sgain)
+    if (!write_spatial_gain(x3f, &image, wb, f_out))
+      x3f_printf(WARN, "WARNING: could not get spatial gain\n");
 
   if (get_camf_rect_as_dngrect(x3f, "ActiveImageArea", &image, 1, active_area))
     TIFFSetField(f_out, TIFFTAG_ACTIVEAREA, active_area);
