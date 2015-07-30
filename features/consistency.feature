@@ -8,7 +8,7 @@ Scenario Outline: conversions to various outputs will produce exactly the same i
 
 Examples: images
 | image | file_type | converted_image | md5 |
-| x3f_test_files/_SDI8040.X3F | DNG | x3f_test_files/_SDI8040.X3F.dng | 5a31b26ab81a2d1d12107f1fd8bc9c12 |
+| x3f_test_files/_SDI8040.X3F | DNG | x3f_test_files/_SDI8040.X3F.dng | efa34925dd4e4425726da74cbae9955b |
 | x3f_test_files/_SDI8040.X3F | TIFF | x3f_test_files/_SDI8040.X3F.tif | cb67d12ec0a4fd318a426276f527f1a9 |
 | x3f_test_files/_SDI8040.X3F | PPM | x3f_test_files/_SDI8040.X3F.ppm | a2bea89af18bb24efd289b73007b2413 |
 | x3f_test_files/_SDI8040.X3F | JPG | x3f_test_files/_SDI8040.X3F.jpg | 357f126f6435345642bfbc6171745d00 |
@@ -18,7 +18,7 @@ Examples: images
 | x3f_test_files/_SDI8040.X3F | HISTOGRAM | x3f_test_files/_SDI8040.X3F.csv | 8ad3868b2c7b871555932a783c16397d |
 | x3f_test_files/_SDI8040.X3F | LOGHIST | x3f_test_files/_SDI8040.X3F.csv | 0c23a7767659c894b81ba64326517eba |
 
-| x3f_test_files/_SDI8284.X3F | DNG | x3f_test_files/_SDI8284.X3F.dng | e8bfc6373dd66753b540f3b604f9d657 |
+| x3f_test_files/_SDI8284.X3F | DNG | x3f_test_files/_SDI8284.X3F.dng | 93dfc0d8827041895ca9137772e57741 |
 | x3f_test_files/_SDI8284.X3F | TIFF | x3f_test_files/_SDI8284.X3F.tif | 26199384d894ae723292e5ecc40ad194 |
 | x3f_test_files/_SDI8284.X3F | PPM | x3f_test_files/_SDI8284.X3F.ppm | 06c85f54fe3a954d4e564efbbb8d8a8b |
 | x3f_test_files/_SDI8284.X3F | JPG | x3f_test_files/_SDI8284.X3F.jpg | 87cd494d3bc4eab4e481de6afeb058de |
@@ -36,10 +36,10 @@ Scenario Outline: conversions to various compressed outputs will produce exactly
 
 Examples: images
 | image | file_type | converted_image | md5 |
-| x3f_test_files/_SDI8040.X3F | DNG | x3f_test_files/_SDI8040.X3F.dng | 3d4a5a997ea4305d8df2cec35acea45f |
+| x3f_test_files/_SDI8040.X3F | DNG | x3f_test_files/_SDI8040.X3F.dng | 00bcb49957164819385b52b48f027b89 |
 | x3f_test_files/_SDI8040.X3F | TIFF | x3f_test_files/_SDI8040.X3F.tif | 94e05ac8c234d733fffd5e00ac068203 |
 
-| x3f_test_files/_SDI8284.X3F | DNG | x3f_test_files/_SDI8284.X3F.dng | 0473fb45cc26be75496a98daaf7ce221 |
+| x3f_test_files/_SDI8284.X3F | DNG | x3f_test_files/_SDI8284.X3F.dng | 6ee1e08ad27dcd41d4f1416ab895adf4 |
 | x3f_test_files/_SDI8284.X3F | TIFF | x3f_test_files/_SDI8284.X3F.tif | 2d71f992245597acc49f80d27f036d27 |
 
 
@@ -50,8 +50,8 @@ Scenario Outline: denoised conversions to dng will produce the exact same output
 
 Examples: images
 | image | converted_image | md5 |
-| x3f_test_files/_SDI8040.X3F | x3f_test_files/_SDI8040.X3F.dng | 06ab38041552b592340bebfad7fc52ba |
-| x3f_test_files/_SDI8284.X3F | x3f_test_files/_SDI8284.X3F.dng | 5deed4f972edf2bbd1fde5024a5f21f8 |
+| x3f_test_files/_SDI8040.X3F | x3f_test_files/_SDI8040.X3F.dng | 8d62244e47bbd657587c376331b1a5da |
+| x3f_test_files/_SDI8284.X3F | x3f_test_files/_SDI8284.X3F.dng | 5f495171c5cacdf7cc2551d524b20ce7 |
 
 
 Scenario Outline: denoised conversions to tiff will produce the exact same outputs
