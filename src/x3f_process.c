@@ -640,7 +640,9 @@ static int get_conv(x3f_t *x3f, x3f_color_encoding_t encoding, char *wb,
 
 static int convert_data(x3f_t *x3f,
 			x3f_area16_t *image, x3f_image_levels_t *ilevels,
-			x3f_color_encoding_t encoding, char *wb)
+			x3f_color_encoding_t encoding,
+			int apply_sgain,
+			char *wb)
 {
   int row, col, color;
   uint16_t max_out = 65535; /* TODO: should be possible to adjust */
@@ -655,9 +657,13 @@ static int convert_data(x3f_t *x3f,
   if (!get_conv(x3f, encoding, wb, LUTSIZE, max_out, lut, conv_matrix))
     return 0;
 
-  sgain_num = x3f_get_spatial_gain(x3f, wb, sgain);
-  if (sgain_num == 0)
-    x3f_printf(WARN, "WARNING: could not get spatial gain\n");
+  if (apply_sgain) {
+    sgain_num = x3f_get_spatial_gain(x3f, wb, sgain);
+    if (sgain_num == 0)
+      x3f_printf(WARN, "WARNING: could not get spatial gain\n");
+  } else {
+    sgain_num = 0;
+  }
 
   for (row = 0; row < image->rows; row++) {
     for (col = 0; col < image->columns; col++) {
@@ -759,6 +765,7 @@ static int expand_quattro(x3f_t *x3f, int denoise, x3f_area16_t *expanded)
 			       x3f_color_encoding_t encoding,
 			       int crop,
 			       int denoise,
+			       int apply_sgain,
 			       char *wb)
 {
   x3f_area16_t original_image, expanded;
@@ -795,7 +802,7 @@ static int expand_quattro(x3f_t *x3f, int denoise, x3f_area16_t *expanded)
   else if (denoise && !run_denoising(x3f)) return 0;
 
   if (encoding != NONE &&
-      !convert_data(x3f, &original_image, &il, encoding, wb)) {
+      !convert_data(x3f, &original_image, &il, encoding, apply_sgain, wb)) {
     free(image->buf);
     return 0;
   }
@@ -807,7 +814,9 @@ static int expand_quattro(x3f_t *x3f, int denoise, x3f_area16_t *expanded)
 /* extern */ int x3f_get_preview(x3f_t *x3f,
 				 x3f_area16_t *image,
 				 x3f_image_levels_t *ilevels,
-				 x3f_color_encoding_t encoding, char *wb,
+				 x3f_color_encoding_t encoding,
+				 int apply_sgain,
+				 char *wb,
 				 uint32_t max_width,
 				 x3f_area8_t *preview)
 {
@@ -826,9 +835,13 @@ static int expand_quattro(x3f_t *x3f, int denoise, x3f_area16_t *expanded)
   if (!get_conv(x3f, encoding, wb, LUTSIZE, max_out, lut, conv_matrix))
     return 0;
 
-  sgain_num = x3f_get_spatial_gain(x3f, wb, sgain);
-  if (sgain_num == 0)
-    x3f_printf(WARN, "WARNING: could not get spatial gain\n");
+  if (apply_sgain) {
+    sgain_num = x3f_get_spatial_gain(x3f, wb, sgain);
+    if (sgain_num == 0)
+      x3f_printf(WARN, "WARNING: could not get spatial gain\n");
+  } else {
+    sgain_num = 0;
+  }
 
   reduction = (image->columns + max_width - 1)/max_width;
   reduction2 = reduction*reduction;

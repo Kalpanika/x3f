@@ -36,12 +36,15 @@ extern int x3f_get_image(x3f_t *x3f,
 			 x3f_color_encoding_t encoding,
 			 int crop,
 			 int denoise,
+			 int apply_sgain,
 			 char *wb);
 
 extern int x3f_get_preview(x3f_t *x3f,
 			   x3f_area16_t *image,
 			   x3f_image_levels_t *ilevels,
-			   x3f_color_encoding_t encoding, char *wb,
+			   x3f_color_encoding_t encoding,
+			   int apply_sgain,
+			   char *wb,
 			   uint32_t max_width,
 			   x3f_area8_t *preview);
 #endif
