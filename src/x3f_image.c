@@ -81,6 +81,23 @@
   return 1;
 }
 
+/* extern */ int x3f_crop_area8(uint32_t *coord, x3f_area8_t *image,
+				x3f_area8_t *crop)
+{
+  if (coord[0] > coord[2] || coord[1] > coord[3]) return 0;
+  if (coord[2] >= image->columns || coord[3] >= image->rows) return 0;
+
+  crop->data =
+    image->data + image->channels*coord[0] + image->row_stride*coord[1];
+  crop->columns = coord[2] - coord[0] + 1;
+  crop->rows = coord[3] - coord[1] + 1;
+  crop->channels = image->channels;
+  crop->row_stride = image->row_stride;
+  crop->buf = image->buf;
+
+  return 1;
+}
+
 /* NOTE: The existence of KeepImageArea and, in the case of Quattro,
          layers with different resolution makes coordinate
          transformation pretty complicated.
@@ -159,6 +176,21 @@
   /* This should not fail as long as x3f_get_camf_rect is implemented
      correctly */
   assert(x3f_crop_area(coord, image, crop));
+
+  return 1;
+}
+
+/* extern */ int x3f_crop_area8_camf(x3f_t *x3f, char *name,
+				     x3f_area8_t *image, int rescale,
+				     x3f_area8_t *crop)
+{
+  uint32_t coord[4];
+
+  if (!x3f_get_camf_rect(x3f, name, (x3f_area16_t *)image, rescale, coord))
+    return 0;
+  /* This should not fail as long as x3f_get_camf_rect is implemented
+     correctly */
+  assert(x3f_crop_area8(coord, image, crop));
 
   return 1;
 }
