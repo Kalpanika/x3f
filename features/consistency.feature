@@ -18,7 +18,7 @@ Examples: images
 | x3f_test_files/_SDI8040.X3F | HISTOGRAM | x3f_test_files/_SDI8040.X3F.csv | 8ad3868b2c7b871555932a783c16397d |
 | x3f_test_files/_SDI8040.X3F | LOGHIST | x3f_test_files/_SDI8040.X3F.csv | 0c23a7767659c894b81ba64326517eba |
 
-| x3f_test_files/_SDI8284.X3F | DNG | x3f_test_files/_SDI8284.X3F.dng | 93dfc0d8827041895ca9137772e57741 |
+| x3f_test_files/_SDI8284.X3F | DNG | x3f_test_files/_SDI8284.X3F.dng | 71f56b6bdb9f3e403af2c21d16c76664 |
 | x3f_test_files/_SDI8284.X3F | TIFF | x3f_test_files/_SDI8284.X3F.tif | 26199384d894ae723292e5ecc40ad194 |
 | x3f_test_files/_SDI8284.X3F | PPM | x3f_test_files/_SDI8284.X3F.ppm | 06c85f54fe3a954d4e564efbbb8d8a8b |
 | x3f_test_files/_SDI8284.X3F | JPG | x3f_test_files/_SDI8284.X3F.jpg | 87cd494d3bc4eab4e481de6afeb058de |
@@ -39,7 +39,7 @@ Examples: images
 | x3f_test_files/_SDI8040.X3F | DNG | x3f_test_files/_SDI8040.X3F.dng | 00bcb49957164819385b52b48f027b89 |
 | x3f_test_files/_SDI8040.X3F | TIFF | x3f_test_files/_SDI8040.X3F.tif | 94e05ac8c234d733fffd5e00ac068203 |
 
-| x3f_test_files/_SDI8284.X3F | DNG | x3f_test_files/_SDI8284.X3F.dng | 6ee1e08ad27dcd41d4f1416ab895adf4 |
+| x3f_test_files/_SDI8284.X3F | DNG | x3f_test_files/_SDI8284.X3F.dng | 151316eb4ed6e1fe982a4a5feda218f0 |
 | x3f_test_files/_SDI8284.X3F | TIFF | x3f_test_files/_SDI8284.X3F.tif | 2d71f992245597acc49f80d27f036d27 |
 
 
@@ -51,7 +51,7 @@ Scenario Outline: denoised conversions to dng will produce the exact same output
 Examples: images
 | image | converted_image | md5 |
 | x3f_test_files/_SDI8040.X3F | x3f_test_files/_SDI8040.X3F.dng | 8d62244e47bbd657587c376331b1a5da |
-| x3f_test_files/_SDI8284.X3F | x3f_test_files/_SDI8284.X3F.dng | 5f495171c5cacdf7cc2551d524b20ce7 |
+| x3f_test_files/_SDI8284.X3F | x3f_test_files/_SDI8284.X3F.dng | f0bcd7161a5dd1a671e78d3978a24264 |
 
 
 Scenario Outline: denoised conversions to tiff will produce the exact same outputs
@@ -62,7 +62,7 @@ Scenario Outline: denoised conversions to tiff will produce the exact same outpu
 Examples: images
 | image | converted_image | md5 |
 | x3f_test_files/_SDI8040.X3F | x3f_test_files/_SDI8040.X3F.tif | c15d8761cbcaffd2ab381b9549a31e6b |
-| x3f_test_files/_SDI8284.X3F | x3f_test_files/_SDI8284.X3F.tif | 8411d4327bf6e71be8f4f8161b98a6b4 |
+| x3f_test_files/_SDI8284.X3F | x3f_test_files/_SDI8284.X3F.tif | 9afe0f0a2e55d38beb2957ec6401ed52 |
 
 
 Scenario Outline: conversions to tiff will produce the exact same outputs
@@ -81,6 +81,6 @@ Examples: images
 | x3f_test_files/_SDI8284.X3F | CROP | x3f_test_files/_SDI8284.X3F.tif | e5924b175fe0c0a3ca66b01d12146b42 |
 | x3f_test_files/_SDI8284.X3F | UNPROCESSED | x3f_test_files/_SDI8284.X3F.tif | b7215ba5bb0f5a576650512b88f6e199 |
 | x3f_test_files/_SDI8284.X3F | QTOP | x3f_test_files/_SDI8284.X3F.tif | 5fce6a9990adc4400adb13f102caca3f |
-| x3f_test_files/_SDI8284.X3F | COLOR_SRGB | x3f_test_files/_SDI8284.X3F.tif | 494b747b2ad9489977a44e830fcc7d18 |
-| x3f_test_files/_SDI8284.X3F | COLOR_ADOBE_RGB | x3f_test_files/_SDI8284.X3F.tif | c9cfc3a694f24f909b4b5c99759996c8 |
-| x3f_test_files/_SDI8284.X3F | COLOR_PROPHOTO_RGB | x3f_test_files/_SDI8284.X3F.tif | a26ad8b7513978df836790ec566f9de6 |
+| x3f_test_files/_SDI8284.X3F | COLOR_SRGB | x3f_test_files/_SDI8284.X3F.tif | 6ebfd835a023512151ba17c34d4dde59 |
+| x3f_test_files/_SDI8284.X3F | COLOR_ADOBE_RGB | x3f_test_files/_SDI8284.X3F.tif | d51a8a0e25ac60f1c55b469fd83f24b9 |
+| x3f_test_files/_SDI8284.X3F | COLOR_PROPHOTO_RGB | x3f_test_files/_SDI8284.X3F.tif | 558848876ef481e71801dd10d85b1a70 |
