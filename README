@@ -46,9 +46,9 @@ run the code are:
     make
 
 A note about cross-compilation in Vagrant:  We use the 'strip' command
-on Windows binaries, but there is a [known issue using strip on virtualbox].(https://www.virtualbox.org/ticket/8463
-We've found that running `make dist-64` multiple times resolves the 
-issue; that is, the cross compilation may take a few tries to run in 
+on Windows binaries, but there is a [known issue using strip on virtualbox](https://www.virtualbox.org/ticket/8463).
+We've found that running `make dist-64` multiple times resolves the
+issue; that is, the cross compilation may take a few tries to run in
 Vagrant, but it will work eventually.
 
 -----
@@ -67,4 +67,4 @@ that the other packages are installed properly.
 
 The other requirement for the tests is to pull down sample images from
 the x3f_test_files repository.  This is a one-time download of about
-90 mb of Sigma images that are used to run tests.
+90 MB of Sigma images that are used to run tests.

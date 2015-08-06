@@ -35,12 +35,6 @@ Included in the library are two tools:
 ----------------------------------------------------------------
 
 ----------------------------------------------------------------
-Executables
-----------------------------------------------------------------
-
-Prebuilt executables will be available at: http://www.proxel.se/x3f.html
-
-----------------------------------------------------------------
 Building
 ----------------------------------------------------------------
 
@@ -81,7 +75,6 @@ Here are some examples:
 
 (4) x3f_extract -meta file.x3f
     This one dumps metadata to file.meta
-
 
 ----------------------------------------------------------------
 Usage of the x3f_io_test tool
