@@ -1,4 +1,15 @@
-x3f_053: Erik and Roland Karlsson and Mark Roden 2015-07-13
+0.54: Erik and Roland Karlsson and Mark Roden 2015-08-14
+  Fix incandenscent for Quattro
+  Ignore incorrect DarkShieldBottom for DP2
+  Denoising on by default
+  TIFF default sRGB
+  Cropping on by default
+  Write correct preview to DNG
+  Turn off spatial gain compensation for Quattro
+  Correct decoding of X3F header versions < 4.0, but
+    decoding of 4.x (Quattro) remains incomplete
+
+0.53: Erik and Roland Karlsson and Mark Roden 2015-07-13
   Lots of work, mainly adding conversion to color.
 
 x3f_052: Roland Karlsson 2014-11-30
