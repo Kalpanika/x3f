@@ -1,0 +1,36 @@
+Cross compilation for OS X
+It is not yet ready for automatic install.
+This is just some notes on how to do it.
+NOTE: this take a long time
+
+The following packages needs to be installed
+--------------------------------------------
+sudo apt-get install clang
+sudo apt-get install llvm-dev
+sudo apt-get install patch
+sudo apt-get install uuid-dev
+sudo apt-get install libssl-dev
+sudo apt-get install lipmpc-dev
+sudo apt-get install libmpfr-dev
+sudo apt-get install libgmp-dev
+
+Then you need the OS X 10.7 SDK
+https://github.com/JuliaEichler/Mac_OSX_SDKs
+Do nothing here. It is downloaded below.
+
+To build you need to make the following in a directory of your choice
+---------------------------------------------------------------------
+git clone https://github.com/tpoechtrager/osxcross.git
+cd osxcross
+cd tarballs
+wget https://www.dropbox.com/s/4wjaet5xmjriago/MacOSX10.7.sdk.tar.xz
+cd ..
+JOBS=`nproc` ./build.sh
+JOBS=`nproc` ./build_gcc.sh
+
+Then you need to add the following to your .bashrc
+--------------------------------------------------
+`<path>/osxcross/target/bin/osxcross-env`
+
+The backquotes are there because the call returns commands.
+Dangerous!! But, that is how it is.
