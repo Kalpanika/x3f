@@ -51,7 +51,7 @@ extern "C" {
 #define X3F_IMAG (uint32_t)(0x46414d49)
 #define X3F_IMA2 (uint32_t)(0x32414d49)
 #define X3F_SECi (uint32_t)(0x69434553)
-/* CAMF identifiers */
+/* CAMF section identifiers */
 #define X3F_CAMF (uint32_t)(0x464d4143)
 #define X3F_SECc (uint32_t)(0x63434553)
 /* CAMF entry identifiers */
@@ -59,16 +59,21 @@ extern "C" {
 #define X3F_CMbT (uint32_t)(0x54624d43)
 #define X3F_CMbM (uint32_t)(0x4d624d43)
 #define X3F_CMb  (uint32_t)(0x00624d43)
+/* SDQ section identifiers ? - TODO */
+#define X3F_SPPA (uint32_t)(0x41505053)
+#define X3F_SECs (uint32_t)(0x73434553)
 
 #define X3F_IMAGE_THUMB_PLAIN       (uint32_t)(0x00020003)
 #define X3F_IMAGE_THUMB_HUFFMAN     (uint32_t)(0x0002000b)
 #define X3F_IMAGE_THUMB_JPEG        (uint32_t)(0x00020012)
+#define X3F_IMAGE_THUMB_SDQ         (uint32_t)(0x00020019)  /* SDQ ? - TODO */
 
 #define X3F_IMAGE_RAW_HUFFMAN_X530  (uint32_t)(0x00030005)
 #define X3F_IMAGE_RAW_HUFFMAN_10BIT (uint32_t)(0x00030006)
 #define X3F_IMAGE_RAW_TRUE          (uint32_t)(0x0003001e)
 #define X3F_IMAGE_RAW_MERRILL       (uint32_t)(0x0001001e)
 #define X3F_IMAGE_RAW_QUATTRO       (uint32_t)(0x00010023)
+#define X3F_IMAGE_RAW_SDQ           (uint32_t)(0x00010025)
 
 #define X3F_IMAGE_HEADER_SIZE 28
 #define X3F_CAMF_HEADER_SIZE 28
