@@ -1,4 +1,4 @@
-/* X3F_PRINT.H
+/* X3F_PRINT_META.H
  *
  * Library for printing meta data found in X3F files.
  *
@@ -7,14 +7,14 @@
  *
  */
 
-#ifndef X3F_PRINT_H
-#define X3F_PRINT_H
+#ifndef X3F_PRINT_META_H
+#define X3F_PRINT_META_H
 
 #include "x3f_io.h"
 
 extern uint32_t max_printed_matrix_elements;
 
-extern void x3f_print(x3f_t *x3f);
+extern void x3f_print_meta(x3f_t *x3f);
 extern x3f_return_t x3f_dump_meta_data(x3f_t *x3f, char *outfilename);
 
 #endif
