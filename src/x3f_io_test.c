@@ -34,6 +34,8 @@ int main(int argc, char *argv[])
 
   int i;
 
+  printf("X3F TOOLS VERSION = %s\n\n", VERSION);
+
   for (i=1; i<argc; i++)
     if (!strcmp(argv[i], "-unpack"))
       do_unpack_data = 1;

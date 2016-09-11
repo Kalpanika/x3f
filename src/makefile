@@ -20,19 +20,19 @@ include ../sys.mk
 
 ifeq (windows, $(TARGET_SYS))
   EXE = .exe
-  CFBASE =
+  CFBASE = -DVERSION=\"$(VERSION)\"
   LDBASE = -static
   AUXOBJS = mingw_dowildcard.o
 else
 ifeq (linux, $(TARGET_SYS))
   EXE =
-  CFBASE =
+  CFBASE = -DVERSION=\"$(VERSION)\"
   LDBASE = -lz -ldl -lpthread
   AUXOBJS =
 else
 ifeq (osx, $(TARGET_SYS))
   EXE =
-  CFBASE = $(SDKFLAGS) -Wno-pragmas
+  CFBASE = $(SDKFLAGS) -Wno-pragmas -DVERSION=\"$(VERSION)\"
   LDBASE = $(SDKFLAGS) -Wl,-dead_strip_dylibs -liconv -framework OpenCL
   AUXOBJS =
 else
@@ -119,7 +119,8 @@ $(BINDIR):
 
 NAME = x3f_tools
 VER := $(shell git describe --always --dirty --tags)
-DIST = $(NAME)-$(VER)-$(TARGET)
+VERSION = $(VER)-$(TARGET)
+DIST = $(NAME)-$(VERSION)
 DIST_DIR = ../dist/$(DIST)
 DIST_TGZ = ../dist/$(DIST).tar.gz
 DIST_ZIP = ../dist/$(DIST).zip

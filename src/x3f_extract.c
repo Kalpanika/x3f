@@ -191,6 +191,8 @@ int main(int argc, char *argv[])
 
   int i;
 
+  x3f_printf(INFO, "X3F TOOLS VERSION = %s\n\n", VERSION);
+
   /* Set stdout and stderr to line buffered mode to avoid scrambling */
   setvbuf(stdout, NULL, _IOLBF, 0);
   setvbuf(stderr, NULL, _IOLBF, 0);
