@@ -8,6 +8,7 @@
  *
  */
 
+#include "x3f_version.h"
 #include "x3f_io.h"
 #include "x3f_process.h"
 #include "x3f_output_dng.h"
@@ -190,6 +191,8 @@ int main(int argc, char *argv[])
   char *outdir = NULL;
 
   int i;
+
+  x3f_printf(INFO, "X3F TOOLS VERSION = %s\n\n", version);
 
   /* Set stdout and stderr to line buffered mode to avoid scrambling */
   setvbuf(stdout, NULL, _IOLBF, 0);

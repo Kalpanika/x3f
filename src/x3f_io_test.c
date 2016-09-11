@@ -7,6 +7,7 @@
  * 
  */
 
+#include "x3f_version.h"
 #include "x3f_io.h"
 #include "x3f_print_meta.h"
 
@@ -33,6 +34,8 @@ int main(int argc, char *argv[])
   char *infilename;
 
   int i;
+
+  printf("X3F TOOLS VERSION = %s\n\n", version);
 
   for (i=1; i<argc; i++)
     if (!strcmp(argv[i], "-unpack"))
