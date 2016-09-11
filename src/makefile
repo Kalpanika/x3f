@@ -15,6 +15,13 @@
 
 include ../sys.mk
 
+# Set version stuff
+# -----------------------------------------------------------
+NAME = x3f_tools
+VER := $(shell git describe --always --dirty --tags)
+VERSION = $(VER)-$(TARGET)
+
+
 # Set compilation and load flags etc
 # -----------------------------------------------------------
 
@@ -67,6 +74,7 @@ LDFLAGS = $(LDBASE) $(L)
 
 BINDIR = ../bin/$(TARGET)
 PROGS = x3f_extract$(EXE) x3f_io_test$(EXE) x3f_matrix_test$(EXE)
+VERSION_O = x3f_version-$(VERSION).o
 
 # Build dependencies
 # -----------------------------------------------------------
@@ -94,10 +102,10 @@ else
 
 -include $(BINDIR)/*.d
 
-$(BINDIR)/x3f_extract$(EXE): $(addprefix $(BINDIR)/,x3f_extract.o x3f_io.o x3f_process.o x3f_meta.o x3f_image.o x3f_spatial_gain.o x3f_output_dng.o x3f_output_tiff.o x3f_output_ppm.o x3f_histogram.o x3f_print_meta.o x3f_dump.o x3f_matrix.o x3f_dngtags.o x3f_denoise_utils.o x3f_denoise_aniso.o x3f_denoise.o x3f_printf.o $(AUXOBJS)) $(OCV_LIBS) $(TIFF_LIBS)
+$(BINDIR)/x3f_extract$(EXE): $(addprefix $(BINDIR)/,x3f_extract.o $(VERSION_O) x3f_io.o x3f_process.o x3f_meta.o x3f_image.o x3f_spatial_gain.o x3f_output_dng.o x3f_output_tiff.o x3f_output_ppm.o x3f_histogram.o x3f_print_meta.o x3f_dump.o x3f_matrix.o x3f_dngtags.o x3f_denoise_utils.o x3f_denoise_aniso.o x3f_denoise.o x3f_printf.o $(AUXOBJS)) $(OCV_LIBS) $(TIFF_LIBS)
 	$(CXX) $^ -o $@ $(LDFLAGS) -lm
 
-$(BINDIR)/x3f_io_test$(EXE): $(addprefix $(BINDIR)/,x3f_io_test.o x3f_io.o x3f_print_meta.o x3f_printf.o $(AUXOBJS))
+$(BINDIR)/x3f_io_test$(EXE): $(addprefix $(BINDIR)/,x3f_io_test.o $(VERSION_O) x3f_io.o x3f_print_meta.o x3f_printf.o $(AUXOBJS))
 	$(CC) $^ -o $@ $(LDFLAGS)
 
 $(BINDIR)/x3f_matrix_test$(EXE): $(addprefix $(BINDIR)/,x3f_matrix_test.o x3f_matrix.o x3f_printf.o $(AUXOBJS))
@@ -109,6 +117,11 @@ $(BINDIR)/%.o: %.c | $(BINDIR)
 $(BINDIR)/%.o: %.cpp | $(BINDIR)
 	$(CXX) $(CXXFLAGS) $< -c -MD -o $@
 
+#
+
+$(BINDIR)/$(VERSION_O): x3f_version.c | $(BINDIR)
+	$(CC) -DVERSION=\"$(VERSION)\" $< -c -MD -o $@
+
 endif
 
 $(BINDIR):
@@ -117,9 +130,7 @@ $(BINDIR):
 # Packaging
 # -----------------------------------------------------------
 
-NAME = x3f_tools
-VER := $(shell git describe --always --dirty --tags)
-DIST = $(NAME)-$(VER)-$(TARGET)
+DIST = $(NAME)-$(VERSION)
 DIST_DIR = ../dist/$(DIST)
 DIST_TGZ = ../dist/$(DIST).tar.gz
 DIST_ZIP = ../dist/$(DIST).zip
