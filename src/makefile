@@ -94,10 +94,10 @@ else
 
 -include $(BINDIR)/*.d
 
-$(BINDIR)/x3f_extract$(EXE): $(addprefix $(BINDIR)/,x3f_extract.o x3f_io.o x3f_process.o x3f_meta.o x3f_image.o x3f_spatial_gain.o x3f_output_dng.o x3f_output_tiff.o x3f_output_ppm.o x3f_histogram.o x3f_print.o x3f_dump.o x3f_matrix.o x3f_dngtags.o x3f_denoise_utils.o x3f_denoise_aniso.o x3f_denoise.o x3f_printf.o $(AUXOBJS)) $(OCV_LIBS) $(TIFF_LIBS)
+$(BINDIR)/x3f_extract$(EXE): $(addprefix $(BINDIR)/,x3f_extract.o x3f_io.o x3f_process.o x3f_meta.o x3f_image.o x3f_spatial_gain.o x3f_output_dng.o x3f_output_tiff.o x3f_output_ppm.o x3f_histogram.o x3f_print_meta.o x3f_dump.o x3f_matrix.o x3f_dngtags.o x3f_denoise_utils.o x3f_denoise_aniso.o x3f_denoise.o x3f_printf.o $(AUXOBJS)) $(OCV_LIBS) $(TIFF_LIBS)
 	$(CXX) $^ -o $@ $(LDFLAGS) -lm
 
-$(BINDIR)/x3f_io_test$(EXE): $(addprefix $(BINDIR)/,x3f_io_test.o x3f_io.o x3f_print.o x3f_printf.o $(AUXOBJS))
+$(BINDIR)/x3f_io_test$(EXE): $(addprefix $(BINDIR)/,x3f_io_test.o x3f_io.o x3f_print_meta.o x3f_printf.o $(AUXOBJS))
 	$(CC) $^ -o $@ $(LDFLAGS)
 
 $(BINDIR)/x3f_matrix_test$(EXE): $(addprefix $(BINDIR)/,x3f_matrix_test.o x3f_matrix.o x3f_printf.o $(AUXOBJS))

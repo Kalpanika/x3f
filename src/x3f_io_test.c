@@ -8,7 +8,7 @@
  */
 
 #include "x3f_io.h"
-#include "x3f_print.h"
+#include "x3f_print_meta.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -59,7 +59,7 @@ int main(int argc, char *argv[])
 
   if (do_print_info) {
     printf("PRINT THE SKELETON X3F STRUCTURE\n");
-    x3f_print(x3f);
+    x3f_print_meta(x3f);
   }
 
   if (do_unpack_data) {
@@ -83,7 +83,7 @@ int main(int argc, char *argv[])
 
     if (do_print_info) {
       printf("PRINT THE UNPACKED X3F STRUCTURE\n");
-      x3f_print(x3f);
+      x3f_print_meta(x3f);
     }
   }
 

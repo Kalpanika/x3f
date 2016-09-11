@@ -126,7 +126,7 @@
   if (rect[0] > keep[2] || rect[1] > keep[3] ||
       rect[2] < keep[0] || rect[3] < keep[1]) {
     x3f_printf(WARN,
-	       "WARNING: CAMF rect %s (%u,%u,%u,%u) completely out of bounds : "
+	       "CAMF rect %s (%u,%u,%u,%u) completely out of bounds : "
 	       "KeepImageArea (%u,%u,%u,%u)\n", name,
 	       rect[0], rect[1], rect[2], rect[3],
 	       keep[0], keep[1], keep[2], keep[3]);
@@ -156,7 +156,7 @@
   /* Make sure that KeepImageArea is within the bounds of image */
   else if (keep_cols > image->columns || keep_rows > image->rows) {
     x3f_printf(WARN,
-	       "WARNING: KeepImageArea (%u,%u,%u,%u) out of bounds : "
+	       "KeepImageArea (%u,%u,%u,%u) out of bounds : "
 	       "image size (%u,%u)\n",
 	       keep[0], keep[1], keep[2], keep[3],
 	       image->columns, image->rows);

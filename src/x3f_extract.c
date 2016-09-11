@@ -14,7 +14,7 @@
 #include "x3f_output_tiff.h"
 #include "x3f_output_ppm.h"
 #include "x3f_histogram.h"
-#include "x3f_print.h"
+#include "x3f_print_meta.h"
 #include "x3f_dump.h"
 #include "x3f_denoise.h"
 #include "x3f_printf.h"

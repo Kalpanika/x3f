@@ -1,4 +1,4 @@
-/* X3F_PRINT.C
+/* X3F_PRINT_META.C
  *
  * Library for printing meta data found in X3F files.
  *
@@ -7,7 +7,7 @@
  *
  */
 
-#include "x3f_print.h"
+#include "x3f_print_meta.h"
 #include "x3f_io.h"
 
 #include <stdio.h>
@@ -288,7 +288,7 @@ static void print_prop_meta_data(FILE *f_out, x3f_t *x3f)
   print_prop_meta_data2(f_out, PL);
 }
 
-/* extern */ void x3f_print(x3f_t *x3f)
+/* extern */ void x3f_print_meta(x3f_t *x3f)
 {
   int d;
   x3f_directory_section_t *DS = NULL;

@@ -1806,8 +1806,8 @@ static void x3f_setup_camf_matrix_entry(camf_entry_t *entry)
 
     if (dentry[i].n != i) {
       /* TODO: is something needed to be made in this case */
-      x3f_printf(WARN,
-		 "WARNING: matrix entry for %s/%s is out of order "
+      x3f_printf(DEBUG,
+		 "Matrix entry for %s/%s is out of order "
 		 "(index/%d != order/%d)\n",
 		 entry->name_address, dentry[i].name, dentry[i].n, i);
     }

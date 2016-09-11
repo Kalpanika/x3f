@@ -274,8 +274,7 @@ typedef struct bad_pixel_s {
 	1 << (_PN((_c), (_r), (_cs)) & 0x1f);				\
     }									\
     else if (!_INB((_c), (_r), (_cs), (_rs)))				\
-      x3f_printf(WARN,							\
-		 "WARNING: bad pixel (%u,%u) out of bounds : (%u,%u)\n", \
+      x3f_printf(WARN, "Bad pixel (%u,%u) out of bounds : (%u,%u)\n",   \
 		 (_c), (_r), (_cs), (_rs));				\
   } while (0)
 
@@ -447,7 +446,7 @@ static void interpolate_bad_pixels(x3f_t *x3f, x3f_area16_t *image, int colors)
       /* If nothing else to do, accept corners */
       if (!fix_corner) fix_corner = 1;
       else {
-	x3f_printf(WARN, "WARNING: Failed to interpolate %d bad pixels\n",
+	x3f_printf(WARN, "Failed to interpolate %d bad pixels\n",
 		   stats.left);
 	fixed = bad_pixel_list;	/* Free remaining list entries */
 	bad_pixel_list = NULL;	/* Force termination */
@@ -589,7 +588,7 @@ static int get_conv(x3f_t *x3f, x3f_color_encoding_t encoding, char *wb,
   }
   else {
     iso_scaling = 1.0;
-    x3f_printf(WARN, "WARNING: could not calculate ISO scaling, assuming %g\n",
+    x3f_printf(WARN, "Could not calculate ISO scaling, assuming %g\n",
 	       iso_scaling);
   }
 
@@ -660,7 +659,7 @@ static int convert_data(x3f_t *x3f,
   if (apply_sgain) {
     sgain_num = x3f_get_spatial_gain(x3f, wb, sgain);
     if (sgain_num == 0)
-      x3f_printf(WARN, "WARNING: could not get spatial gain\n");
+      x3f_printf(WARN, "Could not get spatial gain\n");
   } else {
     sgain_num = 0;
   }
@@ -707,8 +706,7 @@ static int run_denoising(x3f_t *x3f)
   if (!x3f_image_area(x3f, &original_image)) return 0;
   if (!x3f_crop_area_camf(x3f, "ActiveImageArea", &original_image, 1, &image)) {
     image = original_image;
-    x3f_printf(WARN,
-	       "WARNING: could not get active area, denoising entire image\n");
+    x3f_printf(WARN, "Could not get active area, denoising entire image\n");
   }
 
   if (x3f_get_prop_entry(x3f, "SENSORID", &sensorid) &&
@@ -729,8 +727,7 @@ static int expand_quattro(x3f_t *x3f, int denoise, x3f_area16_t *expanded)
   if (denoise &&
       !x3f_crop_area_camf(x3f, "ActiveImageArea", &image, 1, &active)) {
     active = image;
-    x3f_printf(WARN,
-	       "WARNING: could not get active area, denoising entire image\n");
+    x3f_printf(WARN, "Could not get active area, denoising entire image\n");
   }
 
   rect[0] = 0;
@@ -749,8 +746,7 @@ static int expand_quattro(x3f_t *x3f, int denoise, x3f_area16_t *expanded)
   if (denoise && !x3f_crop_area_camf(x3f, "ActiveImageArea", expanded, 0,
 				     &active_exp)) {
     active_exp = *expanded;
-    x3f_printf(WARN,
-	       "WARNING: could not get active area, denoising entire image\n");
+    x3f_printf(WARN, "Could not get active area, denoising entire image\n");
   }
 
   x3f_expand_quattro(&image, denoise ? &active : NULL, &qtop_crop,
@@ -838,7 +834,7 @@ static int expand_quattro(x3f_t *x3f, int denoise, x3f_area16_t *expanded)
   if (apply_sgain) {
     sgain_num = x3f_get_spatial_gain(x3f, wb, sgain);
     if (sgain_num == 0)
-      x3f_printf(WARN, "WARNING: could not get spatial gain\n");
+      x3f_printf(WARN, "Could not get spatial gain\n");
   } else {
     sgain_num = 0;
   }

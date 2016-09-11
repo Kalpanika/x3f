@@ -30,7 +30,7 @@ static double get_focal_length(x3f_t *x3f)
     focal_length = atof(flength);
   else {
     focal_length = 30.0;
-    x3f_printf(WARN, "WARNING: could not get focal length, assuming %g mm\n",
+    x3f_printf(WARN, "Could not get focal length, assuming %g mm\n",
 	       focal_length);
   }
 
@@ -45,7 +45,7 @@ static double get_object_distance(x3f_t *x3f)
     object_distance *= 10.0;	/* Convert cm to mm */
   else {
     object_distance = INFINITY;
-    x3f_printf(WARN, "WARNING: could not get object distance, assuming %g mm\n",
+    x3f_printf(WARN, "Could not get object distance, assuming %g mm\n",
 	       object_distance);
   }
 
@@ -74,7 +74,7 @@ static double get_MOD(x3f_t *x3f)
     break;
   default:
     mod = 280.0;
-    x3f_printf(WARN, "WARNING: could not get MOD, assuming %g mm\n", mod);
+    x3f_printf(WARN, "Could not get MOD, assuming %g mm\n", mod);
   }
 
   return mod;
