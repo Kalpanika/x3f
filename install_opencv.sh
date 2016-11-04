@@ -67,7 +67,7 @@ else
     OCV_FLAGS="$OCV_FLAGS -D OPENCV_EXTRA_CXX_FLAGS=-DUSE_PTHREAD"
 fi
 
-if [ -n $2 ]; then
+if [ -n "$2" ]; then
     OCV_FLAGS="$OCV_FLAGS -D CMAKE_TOOLCHAIN_FILE=$ROOT/$2"
 fi
 
