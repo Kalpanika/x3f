@@ -246,6 +246,10 @@ typedef struct bad_pixel_s {
   struct bad_pixel_s *prev, *next;
 } bad_pixel_t;
 
+typedef struct {
+  int ci, cf, cp, cs, ri, rf, rp, rs;
+} grid_t;
+
 /* Address pixel at column _c and row _r */
 #define _PN(_c, _r, _cs) ((_r)*(_cs) + (_c))
 
@@ -292,7 +296,7 @@ static void interpolate_bad_pixels(x3f_t *x3f, x3f_area16_t *image, int colors)
   uint32_t *bad_pixel_vec = calloc((image->rows*image->columns + 31)/32,
 				   sizeof(uint32_t));
   int row, col, color, i;
-  uint32_t *bpf23;
+  uint32_t *bpf23, cameraid;
   int bpf23_len;
   int stat_pass = 0;		/* Statistics */
   int fix_corner = 0;		/* By default, do not accept corners */
@@ -358,6 +362,24 @@ static void interpolate_bad_pixels(x3f_t *x3f, x3f_area16_t *image, int colors)
       else {MARK_PIX(bad_pixel_list, bad_pixel_vec,
 		     bpf23[i], row,
 		     image->columns, image->rows); i++;}
+
+  /* Interpolate over autofocus pixels for sd Quattro.
+     TODO: The positions shouldn't really be hardcoded. */
+  #define SDQ_CAMERAID 40
+  if (x3f_get_camf_unsigned(x3f, "CAMERAID", &cameraid) &&
+      cameraid == SDQ_CAMERAID) {
+    static const grid_t sdq_af_luma = {217, 5641, 16, 1, 464, 3312, 32, 2};
+    static const grid_t sdq_af_chroma = {108, 2820, 8, 1, 232, 1656, 16, 1};
+    const grid_t *g = colors == 1 ? &sdq_af_luma : &sdq_af_chroma;
+    int r, c;
+
+    for (row = g->ri; row <= g->rf; row += g->rp)
+      for (col = g->ci; col <= g->cf; col += g->cp)
+	for (r = 0; r < g->rs; r++)
+	  for (c = 0; c < g->cs; c++)
+	    MARK_PIX(bad_pixel_list, bad_pixel_vec, col+c, row+r,
+		     image->columns, image->rows);
+  }
 
   /* END - collecting bad pixels */
 
