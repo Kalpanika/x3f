@@ -247,6 +247,7 @@ typedef struct bad_pixel_s {
 } bad_pixel_t;
 
 typedef struct {
+  /* c = column, r = row; i = intial, f = final, p = pitch, s = size */
   int ci, cf, cp, cs, ri, rf, rp, rs;
 } grid_t;
 
