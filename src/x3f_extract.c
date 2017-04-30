@@ -351,6 +351,8 @@ int main(int argc, char *argv[])
       goto found_error;
     }
 
+    unlink(tmpfile);
+
     /* TODO: Quattro files seem to be already corrected for spatial
        gain. Is that assumption correct? Applying it only worsens the
        result anyhow, so it is disabled by default. */
