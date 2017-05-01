@@ -373,8 +373,8 @@ static void interpolate_bad_pixels(x3f_t *x3f, x3f_area16_t *image, int colors)
   if (cameraid == X3F_CAMERAID_SDQ || cameraid == X3F_CAMERAID_SDQH) {
     static const grid_t sdq_af_luma    = {217, 5641, 16, 1, 464, 3312, 32, 2};
     static const grid_t sdq_af_chroma  = {108, 2820,  8, 1, 232, 1656, 16, 1};
-    static const grid_t sdqh_af_luma   = {217, 5641, 16, 1, 464, 3312, 32, 2}; /* TODO ??? */
-    static const grid_t sdqh_af_chroma = {108, 2820,  8, 1, 232, 1656, 16, 1}; /* TODO ??? */
+    static const grid_t sdqh_af_luma   = {233, 6425, 16, 1, 592, 3888, 32, 2};
+    static const grid_t sdqh_af_chroma = {116, 2820,  8, 1, 296, 1944, 16, 1};
     const grid_t *g = cameraid == X3F_CAMERAID_SDQ ?
       colors == 1 ? &sdq_af_luma : &sdq_af_chroma :
       colors == 1 ? &sdqh_af_luma : &sdqh_af_chroma;
