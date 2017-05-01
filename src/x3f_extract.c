@@ -189,6 +189,7 @@ int main(int argc, char *argv[])
   int compress = 0;
   int use_opencl = 0;
   char *outdir = NULL;
+  x3f_return_t ret;
 
   int i;
 
@@ -309,8 +310,9 @@ int main(int argc, char *argv[])
     }
 
     if (extract_jpg) {
-      if (X3F_OK != x3f_load_data(x3f, x3f_get_thumb_jpeg(x3f))) {
-	x3f_printf(ERR, "Could not load JPEG thumbnail from %s\n", infile);
+      if (X3F_OK != (ret = x3f_load_data(x3f, x3f_get_thumb_jpeg(x3f)))) {
+	x3f_printf(ERR, "Could not load JPEG thumbnail from %s (%s)\n",
+		   infile, x3f_err(ret));
 	goto found_error;
       }
     }
@@ -318,29 +320,47 @@ int main(int argc, char *argv[])
     if (extract_meta) {
       x3f_directory_entry_t *DE = x3f_get_prop(x3f);
 
-      if (X3F_OK != x3f_load_data(x3f, x3f_get_camf(x3f))) {
-	x3f_printf(ERR, "Could not load CAMF from %s\n", infile);
+      if (X3F_OK != (ret = x3f_load_data(x3f, x3f_get_camf(x3f)))) {
+	x3f_printf(ERR, "Could not load CAMF from %s (%s)\n",
+		   infile, x3f_err(ret));
 	goto found_error;
       }
       if (DE != NULL)
 	/* Not for Quattro */
-	if (X3F_OK != x3f_load_data(x3f, DE)) {
-	  x3f_printf(ERR, "Could not load PROP from %s\n", infile);
+	if (X3F_OK != (ret = x3f_load_data(x3f, DE))) {
+	  x3f_printf(ERR, "Could not load PROP from %s (%s)\n",
+		     infile, x3f_err(ret));
 	  goto found_error;
 	}
       /* We do not load any JPEG meta data */
     }
 
     if (extract_raw) {
-      if (X3F_OK != x3f_load_data(x3f, x3f_get_raw(x3f))) {
-	x3f_printf(ERR, "Could not load RAW from %s\n", infile);
+      x3f_directory_entry_t *DE;
+
+      if (NULL == (DE = x3f_get_raw(x3f))) {
+	x3f_printf(ERR, "Could not find any matching RAW format\n");
+	goto found_error;
+      }
+
+      if (X3F_OK != (ret = x3f_load_data(x3f, DE))) {
+	x3f_printf(ERR, "Could not load RAW from %s (%s)\n",
+		   infile, x3f_err(ret));
 	goto found_error;
       }
     }
 
     if (extract_unconverted_raw) {
-      if (X3F_OK != x3f_load_image_block(x3f, x3f_get_raw(x3f))) {
-	x3f_printf(ERR, "Could not load unconverted RAW from %s\n", infile);
+      x3f_directory_entry_t *DE;
+
+      if (NULL == (DE = x3f_get_raw(x3f))) {
+	x3f_printf(ERR, "Could not find any matching RAW format\n");
+	goto found_error;
+      }
+
+      if (X3F_OK != (ret = x3f_load_image_block(x3f, DE))) {
+	x3f_printf(ERR, "Could not load unconverted RAW from %s (%s)\n",
+		   infile, x3f_err(ret));
 	goto found_error;
       }
     }
@@ -350,6 +370,8 @@ int main(int argc, char *argv[])
 		 infile, outdir);
       goto found_error;
     }
+
+    unlink(tmpfile);
 
     /* TODO: Quattro files seem to be already corrected for spatial
        gain. Is that assumption correct? Applying it only worsens the
