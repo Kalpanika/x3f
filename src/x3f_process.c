@@ -7,6 +7,7 @@
  *
  */
 
+#include "x3f_io.h"
 #include "x3f_process.h"
 #include "x3f_meta.h"
 #include "x3f_image.h"
@@ -364,14 +365,19 @@ static void interpolate_bad_pixels(x3f_t *x3f, x3f_area16_t *image, int colors)
 		     bpf23[i], row,
 		     image->columns, image->rows); i++;}
 
-  /* Interpolate over autofocus pixels for sd Quattro.
+  /* Interpolate over autofocus pixels for sd Quattro an sd Quattro H.
      TODO: The positions shouldn't really be hardcoded. */
-  #define SDQ_CAMERAID 40
-  if (x3f_get_camf_unsigned(x3f, "CAMERAID", &cameraid) &&
-      cameraid == SDQ_CAMERAID) {
-    static const grid_t sdq_af_luma = {217, 5641, 16, 1, 464, 3312, 32, 2};
-    static const grid_t sdq_af_chroma = {108, 2820, 8, 1, 232, 1656, 16, 1};
-    const grid_t *g = colors == 1 ? &sdq_af_luma : &sdq_af_chroma;
+  
+  x3f_get_camf_unsigned(x3f, "CAMERAID", &cameraid);
+
+  if (cameraid == X3F_CAMERAID_SDQ || cameraid == X3F_CAMERAID_SDQH) {
+    static const grid_t sdq_af_luma    = {217, 5641, 16, 1, 464, 3312, 32, 2};
+    static const grid_t sdq_af_chroma  = {108, 2820,  8, 1, 232, 1656, 16, 1};
+    static const grid_t sdqh_af_luma   = {217, 5641, 16, 1, 464, 3312, 32, 2}; /* TODO ??? */
+    static const grid_t sdqh_af_chroma = {108, 2820,  8, 1, 232, 1656, 16, 1}; /* TODO ??? */
+    const grid_t *g = cameraid == X3F_CAMERAID_SDQ ?
+      colors == 1 ? &sdq_af_luma : &sdq_af_chroma :
+      colors == 1 ? &sdqh_af_luma : &sdqh_af_chroma;
     int r, c;
 
     for (row = g->ri; row <= g->rf; row += g->rp)
