@@ -81,6 +81,16 @@ extern "C" {
 #define X3F_CAMF_HEADER_SIZE 28
 #define X3F_PROPERTY_LIST_HEADER_SIZE 24
 
+#define X3F_CAMERAID_DP1M           (uint32_t)77
+#define X3F_CAMERAID_DP2M           (uint32_t)78
+#define X3F_CAMERAID_DP3M           (uint32_t)78
+#define X3F_CAMERAID_DP0Q           (uint32_t)83
+#define X3F_CAMERAID_DP1Q           (uint32_t)80
+#define X3F_CAMERAID_DP2Q           (uint32_t)81
+#define X3F_CAMERAID_DP3Q           (uint32_t)82
+#define X3F_CAMERAID_SDQ            (uint32_t)40
+#define X3F_CAMERAID_SDQH           (uint32_t)41
+
 typedef uint16_t utf16_t;
 
 typedef int bool_t;
