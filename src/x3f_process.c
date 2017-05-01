@@ -496,7 +496,7 @@ static void interpolate_bad_pixels(x3f_t *x3f, x3f_area16_t *image, int colors)
   free(bad_pixel_vec);
 }
 
-static int preprocess_data(x3f_t *x3f, char *wb, x3f_image_levels_t *ilevels)
+static int preprocess_data(x3f_t *x3f, int fix_bad, char *wb, x3f_image_levels_t *ilevels)
 {
   x3f_area16_t image, qtop;
   int row, col, color;
@@ -592,10 +592,10 @@ static int preprocess_data(x3f_t *x3f, char *wb, x3f_image_levels_t *ilevels)
 	else if (out > 65535) *valp = 65535;
 	else *valp = out;
       }
-    interpolate_bad_pixels(x3f, &qtop, 1);
+    if (fix_bad) interpolate_bad_pixels(x3f, &qtop, 1);
   }
 
-  interpolate_bad_pixels(x3f, &image, 3);
+  if (fix_bad) interpolate_bad_pixels(x3f, &image, 3);
 
   return 1;
 }
@@ -789,6 +789,7 @@ static int expand_quattro(x3f_t *x3f, int denoise, x3f_area16_t *expanded)
 			       x3f_image_levels_t *ilevels,
 			       x3f_color_encoding_t encoding,
 			       int crop,
+			       int fix_bad,
 			       int denoise,
 			       int apply_sgain,
 			       char *wb)
@@ -815,7 +816,7 @@ static int expand_quattro(x3f_t *x3f, int denoise, x3f_area16_t *expanded)
 
   if (encoding == UNPROCESSED) return ilevels == NULL;
 
-  if (!preprocess_data(x3f, wb, &il)) return 0;
+  if (!preprocess_data(x3f, fix_bad, wb, &il)) return 0;
 
   if (expand_quattro(x3f, denoise, &expanded)) {
     /* NOTE: expand_quattro destroys the data of original_image */
