@@ -336,7 +336,14 @@ int main(int argc, char *argv[])
     }
 
     if (extract_raw) {
-      if (X3F_OK != (ret = x3f_load_data(x3f, x3f_get_raw(x3f)))) {
+      x3f_directory_entry_t *DE;
+
+      if (NULL == (DE = x3f_get_raw(x3f))) {
+	x3f_printf(ERR, "Could not find any matching RAW format\n");
+	goto found_error;
+      }
+
+      if (X3F_OK != (ret = x3f_load_data(x3f, DE))) {
 	x3f_printf(ERR, "Could not load RAW from %s (%s)\n",
 		   infile, x3f_err(ret));
 	goto found_error;
@@ -344,7 +351,14 @@ int main(int argc, char *argv[])
     }
 
     if (extract_unconverted_raw) {
-      if (X3F_OK != (ret = x3f_load_image_block(x3f, x3f_get_raw(x3f)))) {
+      x3f_directory_entry_t *DE;
+
+      if (NULL == (DE = x3f_get_raw(x3f))) {
+	x3f_printf(ERR, "Could not find any matching RAW format\n");
+	goto found_error;
+      }
+
+      if (X3F_OK != (ret = x3f_load_image_block(x3f, DE))) {
 	x3f_printf(ERR, "Could not load unconverted RAW from %s (%s)\n",
 		   infile, x3f_err(ret));
 	goto found_error;
