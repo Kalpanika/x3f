@@ -39,6 +39,7 @@ extern "C" {
 #define X3F_VERSION_2_3 X3F_VERSION(2,3)
 #define X3F_VERSION_3_0 X3F_VERSION(3,0)
 #define X3F_VERSION_4_0 X3F_VERSION(4,0)
+#define X3F_VERSION_4_1 X3F_VERSION(4,1)
 
 /* Main file identifier */
 #define X3F_FOVb (uint32_t)(0x62564f46)
@@ -74,6 +75,7 @@ extern "C" {
 #define X3F_IMAGE_RAW_MERRILL       (uint32_t)(0x0001001e)
 #define X3F_IMAGE_RAW_QUATTRO       (uint32_t)(0x00010023)
 #define X3F_IMAGE_RAW_SDQ           (uint32_t)(0x00010025)
+#define X3F_IMAGE_RAW_SDQH          (uint32_t)(0x00010027)
 
 #define X3F_IMAGE_HEADER_SIZE 28
 #define X3F_CAMF_HEADER_SIZE 28

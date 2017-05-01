@@ -559,6 +559,9 @@ static x3f_directory_entry_t *x3f_get(x3f_t *x3f,
   if ((DE = x3f_get(x3f, X3F_SECi, X3F_IMAGE_RAW_SDQ)) != NULL)
     return DE;
 
+  if ((DE = x3f_get(x3f, X3F_SECi, X3F_IMAGE_RAW_SDQH)) != NULL)
+    return DE;
+
   return NULL;
 }
 
@@ -847,7 +850,8 @@ static void true_decode_one_color(x3f_image_data_t *ID, int color)
   row_start_acc[1][1] = seed;
 
   if (ID->type_format == X3F_IMAGE_RAW_QUATTRO ||
-      ID->type_format == X3F_IMAGE_RAW_SDQ) {
+      ID->type_format == X3F_IMAGE_RAW_SDQ ||
+      ID->type_format == X3F_IMAGE_RAW_SDQH) {
     rows = Q->plane[color].rows;
     cols = Q->plane[color].columns;
 
@@ -1197,7 +1201,8 @@ static void x3f_load_true(x3f_info_t *I,
   int i;
 
   if (ID->type_format == X3F_IMAGE_RAW_QUATTRO ||
-      ID->type_format == X3F_IMAGE_RAW_SDQ) {
+      ID->type_format == X3F_IMAGE_RAW_SDQ ||
+      ID->type_format == X3F_IMAGE_RAW_SDQH) {
     x3f_printf(DEBUG, "Load Quattro extra info\n");
 
     Q = new_quattro(&ID->quattro);
@@ -1229,7 +1234,8 @@ static void x3f_load_true(x3f_info_t *I,
   GET_TRUE_HUFF_TABLE(TRU->table);
 
   if (ID->type_format == X3F_IMAGE_RAW_QUATTRO ||
-      ID->type_format == X3F_IMAGE_RAW_SDQ) {
+      ID->type_format == X3F_IMAGE_RAW_SDQ ||
+      ID->type_format == X3F_IMAGE_RAW_SDQH) {
 
     x3f_printf(DEBUG, "Load Quattro extra info 2\n");
 
@@ -1257,7 +1263,8 @@ static void x3f_load_true(x3f_info_t *I,
       (((TRU->plane_size.element[i-1] + 15) / 16) * 16);
 
   if ( (ID->type_format == X3F_IMAGE_RAW_QUATTRO ||
-	ID->type_format == X3F_IMAGE_RAW_SDQ ) &&
+	ID->type_format == X3F_IMAGE_RAW_SDQ ||
+	ID->type_format == X3F_IMAGE_RAW_SDQH ) &&
        Q->quattro_layout) {
     uint32_t columns = Q->plane[0].columns;
     uint32_t rows = Q->plane[0].rows;
@@ -1415,6 +1422,7 @@ static void x3f_load_image(x3f_info_t *I, x3f_directory_entry_t *DE)
   case X3F_IMAGE_RAW_MERRILL:
   case X3F_IMAGE_RAW_QUATTRO:
   case X3F_IMAGE_RAW_SDQ:
+  case X3F_IMAGE_RAW_SDQH:
     x3f_load_true(I, DE);
     break;
   case X3F_IMAGE_RAW_HUFFMAN_X530:
