@@ -365,27 +365,34 @@ static void interpolate_bad_pixels(x3f_t *x3f, x3f_area16_t *image, int colors)
 		     bpf23[i], row,
 		     image->columns, image->rows); i++;}
 
-  /* Interpolate over autofocus pixels for sd Quattro an sd Quattro H.
+  /* Interpolate over autofocus pixels for sd Quattro and sd Quattro H.
      TODO: The positions shouldn't really be hardcoded. */
   
-  x3f_get_camf_unsigned(x3f, "CAMERAID", &cameraid);
+  if (x3f_get_camf_unsigned(x3f, "CAMERAID", &cameraid)) {
+    const grid_t *g = NULL;
 
-  if (cameraid == X3F_CAMERAID_SDQ || cameraid == X3F_CAMERAID_SDQH) {
-    static const grid_t sdq_af_luma    = {217, 5641, 16, 1, 464, 3312, 32, 2};
-    static const grid_t sdq_af_chroma  = {108, 2820,  8, 1, 232, 1656, 16, 1};
-    static const grid_t sdqh_af_luma   = {233, 6425, 16, 1, 592, 3888, 32, 2};
-    static const grid_t sdqh_af_chroma = {116, 2820,  8, 1, 296, 1944, 16, 1};
-    const grid_t *g = cameraid == X3F_CAMERAID_SDQ ?
-      colors == 1 ? &sdq_af_luma : &sdq_af_chroma :
-      colors == 1 ? &sdqh_af_luma : &sdqh_af_chroma;
-    int r, c;
+    if (cameraid == X3F_CAMERAID_SDQ) {
+      static const grid_t sdq_af_luma    = {217, 5641, 16, 1, 464, 3312, 32, 2};
+      static const grid_t sdq_af_chroma  = {108, 2820,  8, 1, 232, 1656, 16, 1};
+      g = (colors == 1 ? &sdq_af_luma : &sdq_af_chroma);
+    } else if (cameraid == X3F_CAMERAID_SDQH) {
+      static const grid_t sdqh_af_luma   = {233, 6425, 16, 1, 592, 3888, 32, 2};
+      static const grid_t sdqh_af_chroma = {116, 2820,  8, 1, 296, 1944, 16, 1};
+      g = (colors == 1 ? &sdqh_af_luma : &sdqh_af_chroma);
+    }
 
-    for (row = g->ri; row <= g->rf; row += g->rp)
-      for (col = g->ci; col <= g->cf; col += g->cp)
-	for (r = 0; r < g->rs; r++)
-	  for (c = 0; c < g->cs; c++)
-	    MARK_PIX(bad_pixel_list, bad_pixel_vec, col+c, row+r,
-		     image->columns, image->rows);
+    if (g != NULL) {
+      int r, c;
+
+      x3f_printf(DEBUG, "Create AF grid for removing bad pixels\n");
+
+      for (row = g->ri; row <= g->rf; row += g->rp)
+	for (col = g->ci; col <= g->cf; col += g->cp)
+	  for (r = 0; r < g->rs; r++)
+	    for (c = 0; c < g->cs; c++)
+	      MARK_PIX(bad_pixel_list, bad_pixel_vec, col+c, row+r,
+		       image->columns, image->rows);
+    }
   }
 
   /* END - collecting bad pixels */
@@ -397,6 +404,9 @@ static void interpolate_bad_pixels(x3f_t *x3f, x3f_area16_t *image, int colors)
      all pixels that can be interpolated are interpolated and also
      removed from the list of bad pixels.  Eventually the list of bad
      pixels is going to be empty. */
+
+  if (bad_pixel_list)
+    x3f_printf(DEBUG, "There are bad pixels to fix\n");
 
   while (bad_pixel_list) {
     bad_pixel_t *p, *pn;
