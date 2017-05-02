@@ -7,6 +7,7 @@
  *
  */
 
+#include "x3f_io.h"
 #include "x3f_process.h"
 #include "x3f_meta.h"
 #include "x3f_image.h"
@@ -364,22 +365,34 @@ static void interpolate_bad_pixels(x3f_t *x3f, x3f_area16_t *image, int colors)
 		     bpf23[i], row,
 		     image->columns, image->rows); i++;}
 
-  /* Interpolate over autofocus pixels for sd Quattro.
+  /* Interpolate over autofocus pixels for sd Quattro and sd Quattro H.
      TODO: The positions shouldn't really be hardcoded. */
-  #define SDQ_CAMERAID 40
-  if (x3f_get_camf_unsigned(x3f, "CAMERAID", &cameraid) &&
-      cameraid == SDQ_CAMERAID) {
-    static const grid_t sdq_af_luma = {217, 5641, 16, 1, 464, 3312, 32, 2};
-    static const grid_t sdq_af_chroma = {108, 2820, 8, 1, 232, 1656, 16, 1};
-    const grid_t *g = colors == 1 ? &sdq_af_luma : &sdq_af_chroma;
-    int r, c;
+  
+  if (x3f_get_camf_unsigned(x3f, "CAMERAID", &cameraid)) {
+    const grid_t *g = NULL;
 
-    for (row = g->ri; row <= g->rf; row += g->rp)
-      for (col = g->ci; col <= g->cf; col += g->cp)
-	for (r = 0; r < g->rs; r++)
-	  for (c = 0; c < g->cs; c++)
-	    MARK_PIX(bad_pixel_list, bad_pixel_vec, col+c, row+r,
-		     image->columns, image->rows);
+    if (cameraid == X3F_CAMERAID_SDQ) {
+      static const grid_t sdq_af_luma    = {217, 5641, 16, 1, 464, 3312, 32, 2};
+      static const grid_t sdq_af_chroma  = {108, 2820,  8, 1, 232, 1656, 16, 1};
+      g = (colors == 1 ? &sdq_af_luma : &sdq_af_chroma);
+    } else if (cameraid == X3F_CAMERAID_SDQH) {
+      static const grid_t sdqh_af_luma   = {233, 6425, 16, 1, 592, 3888, 32, 2};
+      static const grid_t sdqh_af_chroma = {116, 2820,  8, 1, 296, 1944, 16, 1};
+      g = (colors == 1 ? &sdqh_af_luma : &sdqh_af_chroma);
+    }
+
+    if (g != NULL) {
+      int r, c;
+
+      x3f_printf(DEBUG, "Create AF grid for removing bad pixels\n");
+
+      for (row = g->ri; row <= g->rf; row += g->rp)
+	for (col = g->ci; col <= g->cf; col += g->cp)
+	  for (r = 0; r < g->rs; r++)
+	    for (c = 0; c < g->cs; c++)
+	      MARK_PIX(bad_pixel_list, bad_pixel_vec, col+c, row+r,
+		       image->columns, image->rows);
+    }
   }
 
   /* END - collecting bad pixels */
@@ -391,6 +404,9 @@ static void interpolate_bad_pixels(x3f_t *x3f, x3f_area16_t *image, int colors)
      all pixels that can be interpolated are interpolated and also
      removed from the list of bad pixels.  Eventually the list of bad
      pixels is going to be empty. */
+
+  if (bad_pixel_list)
+    x3f_printf(DEBUG, "There are bad pixels to fix\n");
 
   while (bad_pixel_list) {
     bad_pixel_t *p, *pn;
@@ -490,7 +506,7 @@ static void interpolate_bad_pixels(x3f_t *x3f, x3f_area16_t *image, int colors)
   free(bad_pixel_vec);
 }
 
-static int preprocess_data(x3f_t *x3f, char *wb, x3f_image_levels_t *ilevels)
+static int preprocess_data(x3f_t *x3f, int fix_bad, char *wb, x3f_image_levels_t *ilevels)
 {
   x3f_area16_t image, qtop;
   int row, col, color;
@@ -586,10 +602,10 @@ static int preprocess_data(x3f_t *x3f, char *wb, x3f_image_levels_t *ilevels)
 	else if (out > 65535) *valp = 65535;
 	else *valp = out;
       }
-    interpolate_bad_pixels(x3f, &qtop, 1);
+    if (fix_bad) interpolate_bad_pixels(x3f, &qtop, 1);
   }
 
-  interpolate_bad_pixels(x3f, &image, 3);
+  if (fix_bad) interpolate_bad_pixels(x3f, &image, 3);
 
   return 1;
 }
@@ -783,6 +799,7 @@ static int expand_quattro(x3f_t *x3f, int denoise, x3f_area16_t *expanded)
 			       x3f_image_levels_t *ilevels,
 			       x3f_color_encoding_t encoding,
 			       int crop,
+			       int fix_bad,
 			       int denoise,
 			       int apply_sgain,
 			       char *wb)
@@ -809,7 +826,7 @@ static int expand_quattro(x3f_t *x3f, int denoise, x3f_area16_t *expanded)
 
   if (encoding == UNPROCESSED) return ilevels == NULL;
 
-  if (!preprocess_data(x3f, wb, &il)) return 0;
+  if (!preprocess_data(x3f, fix_bad, wb, &il)) return 0;
 
   if (expand_quattro(x3f, denoise, &expanded)) {
     /* NOTE: expand_quattro destroys the data of original_image */

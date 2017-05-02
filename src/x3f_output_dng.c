@@ -289,6 +289,7 @@ static x3f_return_t write_camera_profiles(x3f_t *x3f, char *wb,
 /* extern */
 x3f_return_t x3f_dump_raw_data_as_dng(x3f_t *x3f,
 				      char *outfilename,
+				      int fix_bad,
 				      int denoise,
 				      int apply_sgain,
 				      char *wb,
@@ -317,7 +318,7 @@ x3f_return_t x3f_dump_raw_data_as_dng(x3f_t *x3f,
 
   if (wb == NULL) wb = x3f_get_wb(x3f);
   if (!x3f_get_image(x3f, &image, &ilevels, NONE, 0,
-		     denoise, apply_sgain, wb) ||
+		     fix_bad, denoise, apply_sgain, wb) ||
       image.channels != 3) {
     x3f_printf(ERR, "Could not get image\n");
     TIFFClose(f_out);

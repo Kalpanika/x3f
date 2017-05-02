@@ -39,6 +39,7 @@ extern "C" {
 #define X3F_VERSION_2_3 X3F_VERSION(2,3)
 #define X3F_VERSION_3_0 X3F_VERSION(3,0)
 #define X3F_VERSION_4_0 X3F_VERSION(4,0)
+#define X3F_VERSION_4_1 X3F_VERSION(4,1)
 
 /* Main file identifier */
 #define X3F_FOVb (uint32_t)(0x62564f46)
@@ -74,10 +75,21 @@ extern "C" {
 #define X3F_IMAGE_RAW_MERRILL       (uint32_t)(0x0001001e)
 #define X3F_IMAGE_RAW_QUATTRO       (uint32_t)(0x00010023)
 #define X3F_IMAGE_RAW_SDQ           (uint32_t)(0x00010025)
+#define X3F_IMAGE_RAW_SDQH          (uint32_t)(0x00010027)
 
 #define X3F_IMAGE_HEADER_SIZE 28
 #define X3F_CAMF_HEADER_SIZE 28
 #define X3F_PROPERTY_LIST_HEADER_SIZE 24
+
+#define X3F_CAMERAID_DP1M           (uint32_t)77
+#define X3F_CAMERAID_DP2M           (uint32_t)78
+#define X3F_CAMERAID_DP3M           (uint32_t)78
+#define X3F_CAMERAID_DP0Q           (uint32_t)83
+#define X3F_CAMERAID_DP1Q           (uint32_t)80
+#define X3F_CAMERAID_DP2Q           (uint32_t)81
+#define X3F_CAMERAID_DP3Q           (uint32_t)82
+#define X3F_CAMERAID_SDQ            (uint32_t)40
+#define X3F_CAMERAID_SDQH           (uint32_t)41
 
 typedef uint16_t utf16_t;
 
