@@ -22,15 +22,10 @@
 #include <stdio.h>
 #include <assert.h>
 
-static int sum_area(x3f_t *x3f, char *name,
-		    x3f_area16_t *image, int rescale, int colors,
+static int sum_area(x3f_t *x3f, x3f_area16_t area, int colors,
 		    uint64_t *sum /* in/out */)
 {
-  x3f_area16_t area;
   int row, col, color;
-
-  if (image->channels < colors) return 0;
-  if (!x3f_crop_area_camf(x3f, name, image, rescale, &area)) return 0;
 
   for (row = 0; row < area.rows; row++)
     for (col = 0; col < area.columns; col++)
@@ -41,15 +36,10 @@ static int sum_area(x3f_t *x3f, char *name,
   return area.columns*area.rows;
 }
 
-static int sum_area_sqdev(x3f_t *x3f, char *name,
-			  x3f_area16_t *image, int rescale, int colors,
+static int sum_area_sqdev(x3f_t *x3f, x3f_area16_t area, int colors,
 			  double *mean, double *sum /* in/out */)
 {
-  x3f_area16_t area;
   int row, col, color;
-
-  if (image->channels < colors) return 0;
-  if (!x3f_crop_area_camf(x3f, name, image, rescale, &area)) return 0;
 
   for (row = 0; row < area.rows; row++)
     for (col = 0; col < area.columns; col++)
@@ -69,20 +59,41 @@ static int get_black_level(x3f_t *x3f,
   uint64_t *black_sum;
   double *black_sum_sqdev;
   int pixels, i;
+  char *cammodel;
+
+  char *name[4] = {"DarkShieldTop",
+		   "DarkShieldBottom",
+		   "FakeDarkShieldLeft",
+		   "FakeDarkShieldRight"};
+  int use[4] = {1, 1, 1, 1};
+  x3f_area16_t area[4];
+
+  if (image->channels < colors) return 0;
+
   /* Workaround for bug in DP2 firmware. DarkShieldBottom is specified
      incorrectly and thus ingnored. */
-  char *cammodel;
-  int use_bottom = !x3f_get_prop_entry(x3f, "CAMMODEL", &cammodel) ||
-    strcmp(cammodel, "SIGMA DP2");
+#define BOTTOM 1
+  use[BOTTOM] = (!x3f_get_prop_entry(x3f, "CAMMODEL", &cammodel) ||
+		 strcmp(cammodel, "SIGMA DP2"));
+
+  for (i=0; i <4; i++)
+    if (use[i])
+      use[i] = x3f_crop_area_camf(x3f, name[i], image, rescale, &area[i]);
+
+  for (i=0; i <4; i++)
+    if (use[i])
+      x3f_printf(DEBUG, "Calculate black level for %s\n", name[i]);
+    else
+      x3f_printf(DEBUG, "Do not calculate black level for %s\n", name[i]);
 
   pixels = 0;
   black_sum = alloca(colors*sizeof(uint64_t));
   memset(black_sum, 0, colors*sizeof(uint64_t));
-  pixels += sum_area(x3f, "DarkShieldTop", image, rescale, colors,
-		     black_sum);
-  if (use_bottom)
-    pixels += sum_area(x3f, "DarkShieldBottom", image, rescale, colors,
-		       black_sum);
+
+  for (i=0; i<4; i++)
+    if (use[i]) 
+      pixels += sum_area(x3f, area[i], colors, black_sum);
+
   if (pixels == 0) return 0;
 
   for (i=0; i<colors; i++)
@@ -91,11 +102,12 @@ static int get_black_level(x3f_t *x3f,
   pixels = 0;
   black_sum_sqdev = alloca(colors*sizeof(double));
   memset(black_sum_sqdev, 0, colors*sizeof(double));
-  pixels += sum_area_sqdev(x3f, "DarkShieldTop", image, rescale, colors,
-			   black_level, black_sum_sqdev);
-  if (use_bottom)
-    pixels += sum_area_sqdev(x3f, "DarkShieldBottom", image, rescale, colors,
-			     black_level, black_sum_sqdev);
+
+  for (i=0; i<4; i++)
+    if (use[i]) 
+      pixels += sum_area_sqdev(x3f, area[i], colors,
+			       black_level, black_sum_sqdev);
+
   if (pixels == 0) return 0;
 
   for (i=0; i<colors; i++)
