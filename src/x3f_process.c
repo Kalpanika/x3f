@@ -91,8 +91,16 @@ static int get_black_level(x3f_t *x3f,
   memset(black_sum, 0, colors*sizeof(uint64_t));
 
   for (i=0; i<4; i++)
-    if (use[i]) 
+    if (use[i]) {
+      int color;
       pixels += sum_area(x3f, area[i], colors, black_sum);
+
+      for (color = 0; color < colors; color++)
+	x3f_printf(WARN, "XXXX pixels = %d mean[%d] = %f\n",
+		   pixels,
+		   color,
+		   (double)black_sum[color]/pixels);
+    }
 
   if (pixels == 0) return 0;
 

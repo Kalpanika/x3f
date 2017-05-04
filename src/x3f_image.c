@@ -14,6 +14,7 @@
 
 #include <stdio.h>
 #include <assert.h>
+#include <string.h>
 
 /* extern */ int x3f_image_area(x3f_t *x3f, x3f_area16_t *image)
 {
@@ -98,6 +99,34 @@
   return 1;
 }
 
+static int x3f_get_fake_camf_matrix(x3f_t *x3f, char *name,
+				    x3f_area16_t *image, uint32_t *rect)
+{
+  uint32_t column[4];
+  int i;
+
+  if (!x3f_get_camf_matrix(x3f, "DarkShieldColRange", 2, 2, 0, M_UINT, column))
+    return 0;
+
+  if (!strcmp(name, "FakeDarkShieldLeft")) {
+    rect[0] = column[0];
+    rect[1] = 0;
+    rect[2] = column[1];
+    rect[3] = image->rows; /* TODO - is this right? */
+    return 1;
+  }
+
+  if (!strcmp(name, "FakeDarkShieldRight")) {
+    rect[0] = column[2];
+    rect[1] = 0;
+    rect[2] = column[3];
+    rect[3] = image->rows; /* TODO - is this right? */
+    return 1;
+  }
+
+  return 0;
+}
+
 /* NOTE: The existence of KeepImageArea and, in the case of Quattro,
          layers with different resolution makes coordinate
          transformation pretty complicated.
@@ -115,9 +144,17 @@
 {
   uint32_t keep[4], keep_cols, keep_rows;
 
-  if (!x3f_get_camf_matrix(x3f, name, 4, 0, 0, M_UINT, rect)) return 0;
+  if (!strncmp(name, "Fake", 4)) {
+    if (!x3f_get_fake_camf_matrix(x3f, name, image, rect))
+      return 0;
+  } else {
+    if (!x3f_get_camf_matrix(x3f, name, 4, 0, 0, M_UINT, rect))
+      return 0;
+  }
+
   if (!x3f_get_camf_matrix(x3f, "KeepImageArea", 4, 0, 0, M_UINT, keep))
     return 0;
+
   keep_cols = keep[2] - keep[0] + 1;
   keep_rows = keep[3] - keep[1] + 1;
 
