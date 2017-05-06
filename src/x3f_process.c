@@ -106,7 +106,7 @@ static int get_black_level(x3f_t *x3f,
   black_sum = alloca(colors*sizeof(uint64_t));
   for (i=0; i<colors; i++) black_sum[i] = 0;
 
-  x3f_printf(INFO, "Dark level\n");
+  x3f_printf(DEBUG, "Dark level\n");
 
   for (i=0; i<4; i++)
     if (use[i]) {
@@ -115,10 +115,10 @@ static int get_black_level(x3f_t *x3f,
 
       pixels_sum += pixels;
 
-      x3f_printf(INFO, "  %s (%d)\n", name[i], pixels);
+      x3f_printf(DEBUG, "  %s (%d)\n", name[i], pixels);
 
       for (color = 0; color < colors; color++) {
-	x3f_printf(INFO, "    mean[%d] = %f\n",
+	x3f_printf(DEBUG, "    mean[%d] = %f\n",
 		   color,
 		   (double)black[color]/pixels);
 	black_sum[color] += black[color];
@@ -143,10 +143,10 @@ static int get_black_level(x3f_t *x3f,
 
       pixels_sum += pixels;
 
-      x3f_printf(INFO, "  %s (%d)\n", name[i], pixels);
+      x3f_printf(DEBUG, "  %s (%d)\n", name[i], pixels);
 
       for (color = 0; color < colors; color++) {
-	x3f_printf(INFO, "    dev[%d] = %g\n",
+	x3f_printf(DEBUG, "    dev[%d] = %g\n",
 		   color,
 		   sqrt(black_sqdev[color]/pixels));
 	black_sqdev_sum[color] += black_sqdev[color]; 
@@ -155,14 +155,14 @@ static int get_black_level(x3f_t *x3f,
 
   if (pixels_sum == 0) return 0;
 
-  x3f_printf(INFO, "  SUM\n");
+  x3f_printf(DEBUG, "  SUM\n");
 
   for (i=0; i<colors; i++) {
     black_dev[i] = sqrt(black_sqdev_sum[i]/pixels_sum);
-    x3f_printf(INFO, "    level[%d] = %f\n",
+    x3f_printf(DEBUG, "    level[%d] = %f\n",
 	       i,
 	       black_level[i]);
-    x3f_printf(INFO, "    dev[%d] = %g\n",
+    x3f_printf(DEBUG, "    dev[%d] = %g\n",
 	       i,
 	       black_dev[i]);
   }
