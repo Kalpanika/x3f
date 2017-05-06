@@ -178,7 +178,7 @@ static int x3f_transform_rect_to_keep_image(x3f_t *x3f,
   return x3f_transform_rect_to_keep_image(x3f, image, rescale, rect);
 }
 
-/* extern */ int x3f_crop_area_column(x3f_t *x3f, char *name,
+/* extern */ int x3f_crop_area_column(x3f_t *x3f, col_side_t which_side,
 				      x3f_area16_t *image, int rescale,
 				      x3f_area16_t *crop)
 {
@@ -191,10 +191,10 @@ static int x3f_transform_rect_to_keep_image(x3f_t *x3f,
   rect[1] = 0;           /* Cropped automatically later */
   rect[3] = UINT32_MAX;  /* Cropped automatically later */
 
-  if (!strcmp(name, "FakeDarkShieldLeft")) {
+  if (which_side == COL_SIDE_LEFT) {
     rect[0] = column[0];
     rect[2] = column[1];
-  } else if (!strcmp(name, "FakeDarkShieldRight")) {
+  } else if (which_side == COL_SIDE_RIGHT) {
     rect[0] = column[2];
     rect[2] = column[3];
   } else

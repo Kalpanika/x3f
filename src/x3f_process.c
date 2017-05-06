@@ -23,9 +23,11 @@
 #include <assert.h>
 
 static int sum_area(x3f_t *x3f, x3f_area16_t area, int colors,
-		    uint64_t *sum /* in/out */)
+		    uint64_t *sum)
 {
   int row, col, color;
+
+  for (color=0; color<colors; color++) sum[color] = 0;
 
   for (row = 0; row < area.rows; row++)
     for (col = 0; col < area.columns; col++)
@@ -37,9 +39,11 @@ static int sum_area(x3f_t *x3f, x3f_area16_t area, int colors,
 }
 
 static int sum_area_sqdev(x3f_t *x3f, x3f_area16_t area, int colors,
-			  double *mean, double *sum /* in/out */)
+			  double *mean, double *sum)
 {
   int row, col, color;
+
+  for (color=0; color<colors; color++) sum[color] = 0.0;
 
   for (row = 0; row < area.rows; row++)
     for (col = 0; col < area.columns; col++)
@@ -56,15 +60,20 @@ static int get_black_level(x3f_t *x3f,
 			   x3f_area16_t *image, int rescale, int colors,
 			   double *black_level, double *black_dev)
 {
-  uint64_t *black_sum;
-  double *black_sum_sqdev;
-  int pixels, i;
+  uint64_t *black, *black_sum;
+  double *black_sqdev, *black_sqdev_sum;
+  int pixels_sum, i;
   char *cammodel;
 
+  col_side_t side[4] = {COL_SIDE_WRONG,
+			COL_SIDE_WRONG,
+			COL_SIDE_LEFT,
+			COL_SIDE_RIGHT};
   char *name[4] = {"DarkShieldTop",
 		   "DarkShieldBottom",
-		   "FakeDarkShieldLeft",
-		   "FakeDarkShieldRight"};
+		   "Left", /* Only used in printout */
+		   "Right" /* Only used in printout */
+  };
   int use[4] = {1, 1, 1, 1};
   x3f_area16_t area[4];
 
@@ -76,15 +85,15 @@ static int get_black_level(x3f_t *x3f,
   use[BOTTOM] = (!x3f_get_prop_entry(x3f, "CAMMODEL", &cammodel) ||
 		 strcmp(cammodel, "SIGMA DP2"));
 
-  /* Real rects */
+  /* Real CAMF rects */
   for (i=0; i<2; i++)
     if (use[i])
       use[i] = x3f_crop_area_camf(x3f, name[i], image, rescale, &area[i]);
 
-  /* Fake, column based rects */
+  /* Column based rects */
   for (i=2; i<4; i++)
     if (use[i])
-      use[i] = x3f_crop_area_column(x3f, name[i], image, rescale, &area[i]);
+      use[i] = x3f_crop_area_column(x3f, side[i], image, rescale, &area[i]);
 
   for (i=0; i<4; i++)
     if (use[i])
@@ -92,42 +101,71 @@ static int get_black_level(x3f_t *x3f,
     else
       x3f_printf(DEBUG, "Do not calculate black level for %s\n", name[i]);
 
-  pixels = 0;
+  pixels_sum = 0;
+  black = alloca(colors*sizeof(uint64_t));
   black_sum = alloca(colors*sizeof(uint64_t));
-  memset(black_sum, 0, colors*sizeof(uint64_t));
+  for (i=0; i<colors; i++) black_sum[i] = 0;
 
-  x3f_printf(INFO, "Acc. dark level\n");
+  x3f_printf(INFO, "Dark level\n");
+
   for (i=0; i<4; i++)
     if (use[i]) {
       int color;
-      pixels += sum_area(x3f, area[i], colors, black_sum);
+      int pixels = sum_area(x3f, area[i], colors, black);
 
-      x3f_printf(INFO, "  %s pixels = %d\n", name[i], pixels);
+      pixels_sum += pixels;
 
-      for (color = 0; color < colors; color++)
+      x3f_printf(INFO, "  %s (%d)\n", name[i], pixels);
+
+      for (color = 0; color < colors; color++) {
 	x3f_printf(INFO, "    mean[%d] = %f\n",
 		   color,
-		   (double)black_sum[color]/pixels);
+		   (double)black[color]/pixels);
+	black_sum[color] += black[color];
+      }
     }
 
-  if (pixels == 0) return 0;
+  if (pixels_sum == 0) return 0;
 
   for (i=0; i<colors; i++)
-    black_level[i] = (double)black_sum[i]/pixels;
+    black_level[i] = (double)black_sum[i]/pixels_sum;
 
-  pixels = 0;
-  black_sum_sqdev = alloca(colors*sizeof(double));
-  memset(black_sum_sqdev, 0, colors*sizeof(double));
+  pixels_sum = 0;
+  black_sqdev = alloca(colors*sizeof(double));
+  black_sqdev_sum = alloca(colors*sizeof(double));
+  for (i=0; i<colors; i++) black_sqdev_sum[i] = 0.0;
 
   for (i=0; i<4; i++)
-    if (use[i]) 
-      pixels += sum_area_sqdev(x3f, area[i], colors,
-			       black_level, black_sum_sqdev);
+    if (use[i]) {
+      int color;
+      int pixels = sum_area_sqdev(x3f, area[i], colors,
+				  black_level, black_sqdev);
 
-  if (pixels == 0) return 0;
+      pixels_sum += pixels;
 
-  for (i=0; i<colors; i++)
-    black_dev[i] = sqrt(black_sum_sqdev[i]/pixels);
+      x3f_printf(INFO, "  %s (%d)\n", name[i], pixels);
+
+      for (color = 0; color < colors; color++) {
+	x3f_printf(INFO, "    dev[%d] = %g\n",
+		   color,
+		   sqrt(black_sqdev[color]/pixels));
+	black_sqdev_sum[color] += black_sqdev[color]; 
+      }
+    }
+
+  if (pixels_sum == 0) return 0;
+
+  x3f_printf(INFO, "  SUM\n");
+
+  for (i=0; i<colors; i++) {
+    black_dev[i] = sqrt(black_sqdev_sum[i]/pixels_sum);
+    x3f_printf(INFO, "    level[%d] = %f\n",
+	       i,
+	       black_level[i]);
+    x3f_printf(INFO, "    dev[%d] = %g\n",
+	       i,
+	       black_dev[i]);
+  }
 
   return 1;
 }
