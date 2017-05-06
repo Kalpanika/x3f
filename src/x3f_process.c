@@ -22,7 +22,7 @@
 #include <stdio.h>
 #include <assert.h>
 
-static int sum_area(x3f_t *x3f, x3f_area16_t area, int colors,
+static int sum_area(x3f_area16_t area, int colors,
 		    uint64_t *sum)
 {
   int row, col, color;
@@ -38,8 +38,8 @@ static int sum_area(x3f_t *x3f, x3f_area16_t area, int colors,
   return area.columns*area.rows;
 }
 
-static int sum_area_sqdev(x3f_t *x3f, x3f_area16_t area, int colors,
-			  double *mean, double *sum)
+static int sum_area_sqdev(x3f_area16_t area, int colors, double *mean,
+			  double *sum)
 {
   int row, col, color;
 
@@ -111,7 +111,7 @@ static int get_black_level(x3f_t *x3f,
   for (i=0; i<4; i++)
     if (use[i]) {
       int color;
-      int pixels = sum_area(x3f, area[i], colors, black);
+      int pixels = sum_area(area[i], colors, black);
 
       pixels_sum += pixels;
 
@@ -138,8 +138,7 @@ static int get_black_level(x3f_t *x3f,
   for (i=0; i<4; i++)
     if (use[i]) {
       int color;
-      int pixels = sum_area_sqdev(x3f, area[i], colors,
-				  black_level, black_sqdev);
+      int pixels = sum_area_sqdev(area[i], colors, black_level, black_sqdev);
 
       pixels_sum += pixels;
 
