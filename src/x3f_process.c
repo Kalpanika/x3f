@@ -96,7 +96,8 @@ static int get_black_level(x3f_t *x3f,
       pixels += sum_area(x3f, area[i], colors, black_sum);
 
       for (color = 0; color < colors; color++)
-	x3f_printf(WARN, "XXXX pixels = %d mean[%d] = %f\n",
+	x3f_printf(WARN, "XXXX %d: pixels = %d mean[%d] = %f\n",
+		   i,
 		   pixels,
 		   color,
 		   (double)black_sum[color]/pixels);

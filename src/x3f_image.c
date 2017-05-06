@@ -100,7 +100,7 @@
 }
 
 static int x3f_get_fake_camf_matrix(x3f_t *x3f, char *name,
-				    x3f_area16_t *image, uint32_t *rect)
+				    uint32_t *rect)
 {
   uint32_t column[4];
   int i;
@@ -110,17 +110,17 @@ static int x3f_get_fake_camf_matrix(x3f_t *x3f, char *name,
 
   if (!strcmp(name, "FakeDarkShieldLeft")) {
     rect[0] = column[0];
-    rect[1] = 0;
+    rect[1] = 0;           /* Cropped automatically later */
     rect[2] = column[1];
-    rect[3] = image->rows; /* TODO - is this right? */
+    rect[3] = UINT32_MAX;  /* Cropped automatically later */
     return 1;
   }
 
   if (!strcmp(name, "FakeDarkShieldRight")) {
     rect[0] = column[2];
-    rect[1] = 0;
+    rect[1] = 0;           /* Cropped automatically later */
     rect[2] = column[3];
-    rect[3] = image->rows; /* TODO - is this right? */
+    rect[3] = UINT32_MAX;  /* Cropped automatically later */
     return 1;
   }
 
@@ -145,7 +145,7 @@ static int x3f_get_fake_camf_matrix(x3f_t *x3f, char *name,
   uint32_t keep[4], keep_cols, keep_rows;
 
   if (!strncmp(name, "Fake", 4)) {
-    if (!x3f_get_fake_camf_matrix(x3f, name, image, rect))
+    if (!x3f_get_fake_camf_matrix(x3f, name, rect))
       return 0;
   } else {
     if (!x3f_get_camf_matrix(x3f, name, 4, 0, 0, M_UINT, rect))
