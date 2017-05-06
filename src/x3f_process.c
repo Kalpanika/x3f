@@ -76,11 +76,17 @@ static int get_black_level(x3f_t *x3f,
   use[BOTTOM] = (!x3f_get_prop_entry(x3f, "CAMMODEL", &cammodel) ||
 		 strcmp(cammodel, "SIGMA DP2"));
 
-  for (i=0; i <4; i++)
+  /* Real rects */
+  for (i=0; i<2; i++)
     if (use[i])
       use[i] = x3f_crop_area_camf(x3f, name[i], image, rescale, &area[i]);
 
-  for (i=0; i <4; i++)
+  /* Fake, column based rects */
+  for (i=2; i<4; i++)
+    if (use[i])
+      use[i] = x3f_crop_area_column(x3f, name[i], image, rescale, &area[i]);
+
+  for (i=0; i<4; i++)
     if (use[i])
       x3f_printf(DEBUG, "Calculate black level for %s\n", name[i]);
     else
@@ -90,15 +96,16 @@ static int get_black_level(x3f_t *x3f,
   black_sum = alloca(colors*sizeof(uint64_t));
   memset(black_sum, 0, colors*sizeof(uint64_t));
 
+  x3f_printf(INFO, "Acc. dark level\n");
   for (i=0; i<4; i++)
     if (use[i]) {
       int color;
       pixels += sum_area(x3f, area[i], colors, black_sum);
 
+      x3f_printf(INFO, "  %s pixels = %d\n", name[i], pixels);
+
       for (color = 0; color < colors; color++)
-	x3f_printf(WARN, "XXXX %d: pixels = %d mean[%d] = %f\n",
-		   i,
-		   pixels,
+	x3f_printf(INFO, "    mean[%d] = %f\n",
 		   color,
 		   (double)black_sum[color]/pixels);
     }

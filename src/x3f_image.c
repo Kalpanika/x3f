@@ -99,58 +99,23 @@
   return 1;
 }
 
-static int x3f_get_fake_camf_matrix(x3f_t *x3f, char *name,
-				    uint32_t *rect)
-{
-  uint32_t column[4];
-  int i;
-
-  if (!x3f_get_camf_matrix(x3f, "DarkShieldColRange", 2, 2, 0, M_UINT, column))
-    return 0;
-
-  if (!strcmp(name, "FakeDarkShieldLeft")) {
-    rect[0] = column[0];
-    rect[1] = 0;           /* Cropped automatically later */
-    rect[2] = column[1];
-    rect[3] = UINT32_MAX;  /* Cropped automatically later */
-    return 1;
-  }
-
-  if (!strcmp(name, "FakeDarkShieldRight")) {
-    rect[0] = column[2];
-    rect[1] = 0;           /* Cropped automatically later */
-    rect[2] = column[3];
-    rect[3] = UINT32_MAX;  /* Cropped automatically later */
-    return 1;
-  }
-
-  return 0;
-}
-
 /* NOTE: The existence of KeepImageArea and, in the case of Quattro,
-         layers with different resolution makes coordinate
-         transformation pretty complicated.
+   layers with different resolution makes coordinate
+   transformation pretty complicated.
 
-         For rescale = 0, the origin and resolution of image MUST
-         correspond to those of KeepImageArea. image can be bigger but NOT
-         smmaler than KeepImageArea.
+   For rescale = 0, the origin and resolution of image MUST
+   correspond to those of KeepImageArea. image can be bigger but NOT
+   smaller than KeepImageArea.
 
-	 For rescale = 1, the bounds of image MUST correspond exatly
-	 to those of KeepImageArea, but their resolutions can be
-	 different. */
-/* extern */ int x3f_get_camf_rect(x3f_t *x3f, char *name,
-				   x3f_area16_t *image, int rescale,
-				   uint32_t *rect)
+   For rescale = 1, the bounds of image MUST correspond exatly
+   to those of KeepImageArea, but their resolutions can be
+   different. */
+
+static int x3f_transform_rect_to_keep_image(x3f_t *x3f,
+					    x3f_area16_t *image, int rescale,
+					    uint32_t *rect)
 {
   uint32_t keep[4], keep_cols, keep_rows;
-
-  if (!strncmp(name, "Fake", 4)) {
-    if (!x3f_get_fake_camf_matrix(x3f, name, rect))
-      return 0;
-  } else {
-    if (!x3f_get_camf_matrix(x3f, name, 4, 0, 0, M_UINT, rect))
-      return 0;
-  }
 
   if (!x3f_get_camf_matrix(x3f, "KeepImageArea", 4, 0, 0, M_UINT, keep))
     return 0;
@@ -163,8 +128,8 @@ static int x3f_get_fake_camf_matrix(x3f_t *x3f, char *name,
   if (rect[0] > keep[2] || rect[1] > keep[3] ||
       rect[2] < keep[0] || rect[3] < keep[1]) {
     x3f_printf(WARN,
-	       "CAMF rect %s (%u,%u,%u,%u) completely out of bounds : "
-	       "KeepImageArea (%u,%u,%u,%u)\n", name,
+	       "CAMF rect (%u,%u,%u,%u) completely out of bounds : "
+	       "KeepImageArea (%u,%u,%u,%u)\n",
 	       rect[0], rect[1], rect[2], rect[3],
 	       keep[0], keep[1], keep[2], keep[3]);
     return 0;
@@ -203,16 +168,56 @@ static int x3f_get_fake_camf_matrix(x3f_t *x3f, char *name,
   return 1;
 }
 
+/* extern */ int x3f_get_camf_rect(x3f_t *x3f, char *name,
+				   x3f_area16_t *image, int rescale,
+				   uint32_t *rect)
+{
+  if (!x3f_get_camf_matrix(x3f, name, 4, 0, 0, M_UINT, rect))
+    return 0;
+
+  return x3f_transform_rect_to_keep_image(x3f, image, rescale, rect);
+}
+
+/* extern */ int x3f_crop_area_column(x3f_t *x3f, char *name,
+				      x3f_area16_t *image, int rescale,
+				      x3f_area16_t *crop)
+{
+  uint32_t rect[4];
+  uint32_t column[4];
+
+  if (!x3f_get_camf_matrix(x3f, "DarkShieldColRange", 2, 2, 0, M_UINT, column))
+    return 0;
+
+  rect[1] = 0;           /* Cropped automatically later */
+  rect[3] = UINT32_MAX;  /* Cropped automatically later */
+
+  if (!strcmp(name, "FakeDarkShieldLeft")) {
+    rect[0] = column[0];
+    rect[2] = column[1];
+  } else if (!strcmp(name, "FakeDarkShieldRight")) {
+    rect[0] = column[2];
+    rect[2] = column[3];
+  } else
+    return 0;
+
+  if (x3f_transform_rect_to_keep_image(x3f, image, rescale, rect)) {
+    assert(x3f_crop_area(rect, image, crop));
+    return 1;
+  }
+
+  return 0;
+}
+
 /* extern */ int x3f_crop_area_camf(x3f_t *x3f, char *name,
 				    x3f_area16_t *image, int rescale,
 				    x3f_area16_t *crop)
 {
-  uint32_t coord[4];
+  uint32_t rect[4];
 
-  if (!x3f_get_camf_rect(x3f, name, image, rescale, coord)) return 0;
+  if (!x3f_get_camf_rect(x3f, name, image, rescale, rect)) return 0;
   /* This should not fail as long as x3f_get_camf_rect is implemented
      correctly */
-  assert(x3f_crop_area(coord, image, crop));
+  assert(x3f_crop_area(rect, image, crop));
 
   return 1;
 }
@@ -221,13 +226,13 @@ static int x3f_get_fake_camf_matrix(x3f_t *x3f, char *name,
 				     x3f_area8_t *image, int rescale,
 				     x3f_area8_t *crop)
 {
-  uint32_t coord[4];
+  uint32_t rect[4];
 
-  if (!x3f_get_camf_rect(x3f, name, (x3f_area16_t *)image, rescale, coord))
+  if (!x3f_get_camf_rect(x3f, name, (x3f_area16_t *)image, rescale, rect))
     return 0;
   /* This should not fail as long as x3f_get_camf_rect is implemented
      correctly */
-  assert(x3f_crop_area8(coord, image, crop));
+  assert(x3f_crop_area8(rect, image, crop));
 
   return 1;
 }

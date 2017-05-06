@@ -21,6 +21,9 @@ extern int x3f_crop_area8(uint32_t *coord, x3f_area8_t *image,
 extern int x3f_get_camf_rect(x3f_t *x3f, char *name,
 			     x3f_area16_t *image, int rescale,
 			     uint32_t *rect);
+extern int x3f_crop_area_column(x3f_t *x3f, char *name,
+				x3f_area16_t *image, int rescale,
+				x3f_area16_t *crop);
 extern int x3f_crop_area_camf(x3f_t *x3f, char *name,
 			      x3f_area16_t *image, int rescale,
 			      x3f_area16_t *crop);
