@@ -14,7 +14,6 @@
 
 #include <stdio.h>
 #include <assert.h>
-#include <string.h>
 
 /* extern */ int x3f_image_area(x3f_t *x3f, x3f_area16_t *image)
 {
