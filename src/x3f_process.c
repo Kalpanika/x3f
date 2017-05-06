@@ -142,12 +142,7 @@ static int get_black_level(x3f_t *x3f,
 
       pixels_sum += pixels;
 
-      x3f_printf(DEBUG, "  %s (%d)\n", name[i], pixels);
-
       for (color = 0; color < colors; color++) {
-	x3f_printf(DEBUG, "    dev[%d] = %g\n",
-		   color,
-		   sqrt(black_sqdev[color]/pixels));
 	black_sqdev_sum[color] += black_sqdev[color]; 
       }
     }
