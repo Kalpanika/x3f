@@ -14,6 +14,36 @@
 #include <stdio.h>
 #include <string.h>
 
+/* extern */ int x3f_get_camf_text(x3f_t *x3f, char *name, char **text)
+{
+  x3f_directory_entry_t *DE = x3f_get_camf(x3f);
+  x3f_directory_entry_header_t *DEH;
+  x3f_camf_t *CAMF;
+  camf_entry_t *table;
+  int i;
+
+  if (!DE) {
+    x3f_printf(DEBUG, "Could not get entry %s: CAMF section not found\n", name);
+    return 0;
+  }
+
+  DEH = &DE->header;
+  CAMF = &DEH->data_subsection.camf;
+  table = CAMF->entry_table.element;
+
+  for (i=0; i<CAMF->entry_table.size; i++) {
+    camf_entry_t *entry = &table[i];
+
+    if (!strcmp(name, entry->name_address)) {
+      if (entry->id != X3F_CMbT) {
+	x3f_printf(DEBUG, "CAMF entry is not text: %s\n", name);
+	return 0;
+      }
+      *text = entry->text;
+    }
+  }
+}
+
 /* extern */ int x3f_get_camf_matrix_var(x3f_t *x3f, char *name,
 					 int *dim0, int *dim1, int *dim2,
 					 matrix_type_t type,

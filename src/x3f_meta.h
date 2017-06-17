@@ -12,6 +12,8 @@
 
 #include "x3f_io.h"
 
+extern int x3f_get_camf_text(x3f_t *x3f, char *name,
+			     char **text);
 extern int x3f_get_camf_matrix_var(x3f_t *x3f, char *name,
 				   int *dim0, int *dim1, int *dim2,
 				   matrix_type_t type,
