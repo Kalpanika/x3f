@@ -39,9 +39,15 @@
 	x3f_printf(DEBUG, "CAMF entry is not text: %s\n", name);
 	return 0;
       }
+
       *text = entry->text;
+      return 1;
     }
   }
+
+  x3f_printf(DEBUG, "CAMF entry not found: %s\n", name);
+
+  return 0;
 }
 
 /* extern */ int x3f_get_camf_matrix_var(x3f_t *x3f, char *name,
