@@ -93,10 +93,10 @@ static int get_black_level(x3f_t *x3f,
   /* Workaround for bug in sd Quattro H firmaware. DarkShieldBottom is
      specified incorrectly and thus ignored. */
   {
-    char *camsettings_info;
+    uint32_t cameraid;
 
-    if (x3f_get_camf_text(x3f, "CamsettingsInfo", &camsettings_info))
-      if (!strcmp(camsettings_info, "Camsettings-F23-sdQuattroH"))
+    if (x3f_get_camf_unsigned(x3f, "CAMERAID", &cameraid))
+      if (cameraid == X3F_CAMERAID_SDQH)
 	use[BOTTOM] = 0;
   }
 
