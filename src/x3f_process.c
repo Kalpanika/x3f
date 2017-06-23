@@ -63,7 +63,6 @@ static int get_black_level(x3f_t *x3f,
   uint64_t *black, *black_sum;
   double *black_sqdev, *black_sqdev_sum;
   int pixels_sum, i;
-  char *cammodel;
 
   col_side_t side[4] = {COL_SIDE_WRONG,
 			COL_SIDE_WRONG,
@@ -79,11 +78,27 @@ static int get_black_level(x3f_t *x3f,
 
   if (image->channels < colors) return 0;
 
-  /* Workaround for bug in DP2 firmware. DarkShieldBottom is specified
-     incorrectly and thus ingnored. */
 #define BOTTOM 1
-  use[BOTTOM] = (!x3f_get_prop_entry(x3f, "CAMMODEL", &cammodel) ||
-		 strcmp(cammodel, "SIGMA DP2"));
+
+  /* Workaround for bug in DP2 firmware. DarkShieldBottom is specified
+     incorrectly and thus ignored. */
+  {
+    char *cammodel;
+
+    if (x3f_get_prop_entry(x3f, "CAMMODEL", &cammodel))
+      if (!strcmp(cammodel, "SIGMA DP2"))
+	use[BOTTOM] = 0;
+  }
+
+  /* Workaround for bug in sd Quattro H firmaware. DarkShieldBottom is
+     specified incorrectly and thus ignored. */
+  {
+    uint32_t cameraid;
+
+    if (x3f_get_camf_unsigned(x3f, "CAMERAID", &cameraid))
+      if (cameraid == X3F_CAMERAID_SDQH)
+	use[BOTTOM] = 0;
+  }
 
   /* Real CAMF rects */
   for (i=0; i<2; i++)
