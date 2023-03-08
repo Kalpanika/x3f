@@ -200,7 +200,8 @@ static int x3f_transform_rect_to_keep_image(x3f_t *x3f,
     return 0;
 
   if (x3f_transform_rect_to_keep_image(x3f, image, rescale, rect)) {
-    assert(x3f_crop_area(rect, image, crop));
+    int ret = x3f_crop_area(rect, image, crop);
+    assert(ret);
     return 1;
   }
 
@@ -216,7 +217,8 @@ static int x3f_transform_rect_to_keep_image(x3f_t *x3f,
   if (!x3f_get_camf_rect(x3f, name, image, rescale, rect)) return 0;
   /* This should not fail as long as x3f_get_camf_rect is implemented
      correctly */
-  assert(x3f_crop_area(rect, image, crop));
+  int ret = x3f_crop_area(rect, image, crop);
+  assert(ret);
 
   return 1;
 }
@@ -231,7 +233,8 @@ static int x3f_transform_rect_to_keep_image(x3f_t *x3f,
     return 0;
   /* This should not fail as long as x3f_get_camf_rect is implemented
      correctly */
-  assert(x3f_crop_area8(rect, image, crop));
+  int ret = x3f_crop_area8(rect, image, crop);
+  assert(ret);
 
   return 1;
 }
