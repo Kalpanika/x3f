@@ -79,18 +79,26 @@ static int get_black_level(x3f_t *x3f,
   if (image->channels < colors) return 0;
 
 #define BOTTOM 1
+#define RIGHT 3
 
-  /* Workaround for bug in DP2 firmware. DarkShieldBottom is specified
-     incorrectly and thus ignored. */
+  /* Workaround for bug in DP2 firmware. DarkShieldBottom is specified incorrectly and thus ignored.
+   *
+   * Also, a workaround for the bright "shielded" region on the right for the DP1M, DP2M, and DP3M.
+   * See https://github.com/Kalpanika/x3f/issues/117
+   * */
   {
     char *cammodel;
 
     if (x3f_get_prop_entry(x3f, "CAMMODEL", &cammodel))
-      if (!strcmp(cammodel, "SIGMA DP2"))
-	use[BOTTOM] = 0;
+      if (!strcmp(cammodel, "SIGMA DP2")) {
+        use[BOTTOM] = 0;
+      }
+    if (!strcmp(cammodel, "SIGMA DP1 Merrill") || !strcmp(cammodel, "SIGMA DP2 Merrill") || !strcmp(cammodel, "SIGMA DP3 Merrill")) {
+      use[RIGHT] = 0;
+    }
   }
 
-  /* Workaround for bug in sd Quattro H firmaware. DarkShieldBottom is
+  /* Workaround for bug in sd Quattro H firmware. DarkShieldBottom is
      specified incorrectly and thus ignored. */
   {
     uint32_t cameraid;
